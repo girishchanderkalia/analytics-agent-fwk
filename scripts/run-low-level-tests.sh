@@ -63,14 +63,6 @@ printf '\n== Install Python test dependencies ==\n'
   -r "$ROOT_DIR/agent-framework/agent-runtime/requirements-langgraph.txt" \
   -r "$ROOT_DIR/analytics-foundation/analytics-foundation-api/requirements.txt"
 
-"$TEST_PYTHON" -m pip install \
-  -e "$ROOT_DIR/app-ui/opo-monitoring/opo-monitoring-service/opo-deterministic-logic" \
-  -e "$ROOT_DIR/app-ui/opo-monitoring/opo-monitoring-service/opo-response-compatibility" \
-  -e "$ROOT_DIR/app-ui/opo-monitoring/opo-monitoring-service/opo-capability-service" \
-  -e "$ROOT_DIR/analytics-foundation/analytics-foundation-client" \
-  -e "$ROOT_DIR/analytics-foundation/analytics-foundation-mcp" \
-  -e "$ROOT_DIR/agent-framework/agent-registration-bootstrap"
-
 to_python_path() {
   local paths="$1"
   local converted

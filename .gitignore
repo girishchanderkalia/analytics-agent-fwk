@@ -1,5 +1,7 @@
 .venv/
 .venv-low-level-tests/
+.pytest_cache/
+*.egg-info/
 __pycache__/
 *.pyc
 checkpoints.sqlite*
