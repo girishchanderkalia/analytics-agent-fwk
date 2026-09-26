@@ -81,7 +81,7 @@ echo "Using Java:   $JAVA_EXE"
 echo "Using Python: $PYTHON_BIN"
 echo "Using Maven:  $MAVEN_BIN"
 
-required=(analytics-foundation/analytics-foundation-api analytics-foundation/analytics-foundation-mcp app-ui/opo-monitoring/opo-monitoring-service/opo-capability-service agent-framework/agent-runtime app-ui/opo-monitoring)
+required=(analytics-foundation/analytics-foundation-api analytics-foundation/analytics-foundation-mcp app-ui/opo-monitoring/opo-monitoring-service/opo-capability-service agent-framework/agent-runtime app-ui/opo-monitoring/opo-monitoring-service)
 for relative in "${required[@]}"; do
   if [[ ! -d "$ROOT_DIR/$relative" ]]; then
     echo "ERROR: Required directory not found: $ROOT_DIR/$relative" >&2
@@ -197,7 +197,7 @@ start_service "opo-capability" "$ROOT_DIR/app-ui/opo-monitoring/opo-monitoring-s
 wait_for_get "OPO capability service" "http://127.0.0.1:$OPO_CAPABILITY_PORT/ready" "$LOG_DIR/opo-capability.log"
 start_service "agent-runtime" "$ROOT_DIR/agent-framework/agent-runtime" "$RUNTIME_START_CMD"
 wait_for_get "Agent Runtime" "http://127.0.0.1:$RUNTIME_PORT/health" "$LOG_DIR/agent-runtime.log"
-start_service "opo-bff" "$ROOT_DIR/app-ui/opo-monitoring" "$BFF_START_CMD"
+start_service "opo-bff" "$ROOT_DIR/app-ui/opo-monitoring/opo-monitoring-service" "$BFF_START_CMD"
 wait_for_get "OPO BFF" "http://127.0.0.1:$BFF_PORT/actuator/health" "$LOG_DIR/opo-bff.log"
 
 if [[ "${SLICE13K_MANAGED:-false}" == true ]]; then

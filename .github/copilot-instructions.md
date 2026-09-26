@@ -20,7 +20,7 @@ Keep these boundaries clear: deterministic application data access is not agent 
 - `analytics-foundation/analytics-foundation-api/`: deployable Analytics Foundation REST service.
 - `analytics-foundation/analytics-foundation-client/`: reusable typed HTTP client for Foundation APIs.
 - `analytics-foundation/analytics-foundation-mcp/`: MCP provider that exposes Foundation operations as tools.
-- `app-ui/opo-monitoring/`: example UI and backend facade/BFF, including separate runtime and Foundation clients.
+- `app-ui/opo-monitoring/`: example application, split into `opo-monitoring-fe/` (browser UI) and `opo-monitoring-service/` (Java BFF plus the application-owned Python capability services).
 - `agent-framework/integration-tests/`: black-box integration tests across deployed service boundaries; model-backed chat tests may require explicit configuration.
 - `deploy/`, `scripts/`, and `docs/`: deployment assets, local slice scripts, and architecture diagrams/status.
 

@@ -141,7 +141,7 @@ run_python_suite \
 
 printf '\n== OPO Java BFF ==\n'
 (
-  cd "$ROOT_DIR/app-ui/opo-monitoring"
+  cd "$ROOT_DIR/app-ui/opo-monitoring/opo-monitoring-service"
   "$MVN" test
 )
 

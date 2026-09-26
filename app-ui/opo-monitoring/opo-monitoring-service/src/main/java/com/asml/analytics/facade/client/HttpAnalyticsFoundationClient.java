@@ -11,6 +11,7 @@ import com.asml.analytics.facade.dto.foundation.TrendQuery;
 import com.asml.analytics.facade.dto.foundation.TrendResponse;
 import com.asml.analytics.facade.dto.foundation.WaferQueryRequest;
 import com.asml.analytics.facade.dto.foundation.WaferQueryResponse;
+import com.asml.analytics.facade.dto.foundation.WorkspaceFiltersResponse;
 import com.asml.analytics.facade.dto.foundation.WorkspaceResponse;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -116,43 +117,70 @@ public final class HttpAnalyticsFoundationClient
     public WorkspaceResponse createWorkspace(
             CreateWorkspaceRequest request) {
 
-        return call(
+        Map<String, Object> response = call(
                 () -> client
                         .post()
                         .uri("/workspaces")
-                        .body(request)
+                        .accept(
+                                MediaType.APPLICATION_JSON)
                         .retrieve()
-                        .body(WorkspaceResponse.class));
+                        .body(MAP_RESPONSE));
+
+        return new WorkspaceResponse(
+                stringValue(
+                        response.get("workspace_id")));
     }
 
     @Override
-    public WorkspaceResponse applyFilters(
+    public WorkspaceFiltersResponse applyFilters(
             String workspaceId,
             ApplyFiltersRequest request) {
 
-        return call(
+        Map<String, Object> foundationRequest = Map.of(
+                "filters",
+                request == null || request.filters() == null
+                        ? Map.of()
+                        : request.filters());
+
+        Map<String, Object> response = call(
                 () -> client
                         .post()
                         .uri(
                                 "/workspaces/{workspaceId}/filters",
                                 workspaceId)
-                        .body(request)
+                        .contentType(
+                                MediaType.APPLICATION_JSON)
+                        .accept(
+                                MediaType.APPLICATION_JSON)
+                        .body(foundationRequest)
                         .retrieve()
-                        .body(WorkspaceResponse.class));
+                        .body(MAP_RESPONSE));
+
+        return new WorkspaceFiltersResponse(
+                stringValue(
+                        response.get("workspace_id")),
+                mapValue(response.get("filters")));
     }
 
     @Override
     public ConnectionInfoResponse getConnectionInfo(
             String workspaceId) {
 
-        return call(
+        Map<String, Object> response = call(
                 () -> client
                         .get()
                         .uri(
                                 "/workspaces/{workspaceId}/connection-info",
                                 workspaceId)
+                        .accept(
+                                MediaType.APPLICATION_JSON)
                         .retrieve()
-                        .body(ConnectionInfoResponse.class));
+                        .body(MAP_RESPONSE));
+
+        return new ConnectionInfoResponse(
+                stringValue(
+                        response.get("workspace_id")),
+                mapValue(response.get("values")));
     }
 
     @Override
@@ -160,15 +188,30 @@ public final class HttpAnalyticsFoundationClient
             String workspaceId,
             RegistrationRequest request) {
 
-        return call(
+        Map<String, Object> foundationRequest = new LinkedHashMap<>();
+
+        foundationRequest.put(
+                "dataset",
+                request.dataset());
+        foundationRequest.put(
+                "table",
+                request.table());
+
+        Map<String, Object> response = call(
                 () -> client
                         .post()
                         .uri(
                                 "/workspaces/{workspaceId}/registrations",
                                 workspaceId)
-                        .body(request)
+                        .contentType(
+                                MediaType.APPLICATION_JSON)
+                        .accept(
+                                MediaType.APPLICATION_JSON)
+                        .body(foundationRequest)
                         .retrieve()
-                        .body(RegistrationResponse.class));
+                        .body(MAP_RESPONSE));
+
+        return toRegistrationResponse(response);
     }
 
     @Override
@@ -176,7 +219,7 @@ public final class HttpAnalyticsFoundationClient
             String workspaceId,
             String registrationId) {
 
-        return call(
+        Map<String, Object> response = call(
                 () -> client
                         .get()
                         .uri(
@@ -184,21 +227,67 @@ public final class HttpAnalyticsFoundationClient
                                         + "{registrationId}",
                                 workspaceId,
                                 registrationId)
+                        .accept(
+                                MediaType.APPLICATION_JSON)
                         .retrieve()
-                        .body(RegistrationResponse.class));
+                        .body(MAP_RESPONSE));
+
+        return toRegistrationResponse(response);
     }
 
     @Override
     public WaferQueryResponse queryWafers(
             WaferQueryRequest request) {
 
-        return call(
+        Map<String, Object> foundationRequest = new LinkedHashMap<>();
+
+        foundationRequest.put(
+                "workspace_id",
+                request.workspaceId());
+        foundationRequest.put(
+                "table",
+                request.table());
+        foundationRequest.put(
+                "filters",
+                request.filters() == null
+                        ? Map.of()
+                        : request.filters());
+
+        Map<String, Object> response = call(
                 () -> client
                         .post()
                         .uri("/wafers/query")
-                        .body(request)
+                        .contentType(
+                                MediaType.APPLICATION_JSON)
+                        .accept(
+                                MediaType.APPLICATION_JSON)
+                        .body(foundationRequest)
                         .retrieve()
-                        .body(WaferQueryResponse.class));
+                        .body(MAP_RESPONSE));
+
+        return new WaferQueryResponse(
+                stringValue(
+                        response.get("workspace_id")),
+                stringValue(response.get("table")),
+                mapList(response.get("rows")),
+                stringList(
+                        response,
+                        "anomalous_wafers"));
+    }
+
+    private static RegistrationResponse toRegistrationResponse(
+            Map<String, Object> response) {
+
+        return new RegistrationResponse(
+                stringValue(
+                        response.get("registration_id")),
+                stringValue(
+                        response.get("workspace_id")),
+                stringValue(response.get("status")),
+                (int) longValue(
+                        response.get("progress_pct")),
+                stringValue(response.get("table")),
+                stringValue(response.get("error")));
     }
 
     private static Map<String, Object> toFoundationTrendRequest(
@@ -307,6 +396,14 @@ public final class HttpAnalyticsFoundationClient
         return value instanceof Number number
                 ? number.longValue()
                 : 0L;
+    }
+
+    private static String stringValue(
+            Object value) {
+
+        return value == null
+                ? null
+                : value.toString();
     }
 
     private static Double doubleValue(

@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>OPO Monitoring UI</title>
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+
+<body>
+  <header>
+    <div class="brand">
+      <h1>OPO Monitoring UI</h1>
+      <span class="subtitle">Overlay investigation &middot; human-in-the-loop</span>
+    </div>
+    <div class="thread">
+      <label for="thread-input">Thread</label>
+      <input id="thread-input" type="text" placeholder="paste a thread id to reopen" spellcheck="false" />
+      <button id="reopen-btn" class="ghost">Reopen</button>
+    </div>
+  </header>
+
+  <main>
+    <section class="timeline-pane">
+      <section class="chart-panel">
+        <div class="chart-head">
+          <h3>Daily overlay trend</h3>
+          <span id="chart-note" class="chart-note">Loading&hellip;</span>
+        </div>
+        <div id="trend-plot" class="plot"></div>
+      </section>
+
+      <section class="wafer-panel">
+        <div class="chart-head">
+          <h3>Wafer map</h3>
+          <span id="wafer-note" class="chart-note">No wafer data</span>
+        </div>
+        <div id="wafer-plot" class="plot wafer-plot"></div>
+      </section>
+
+    </section>
+
+    <aside class="evidence-pane">
+      <div class="evidence-head">
+        <div>
+          <h2>Evidence &amp; result</h2>
+          <p class="hint">Read from graph state, not model output.</p>
+        </div>
+        <button id="toggle-right-panel" class="ghost panel-toggle" type="button"
+          aria-label="Minimize interaction and evidence panel" title="Minimize panel">&rarr;</button>
+      </div>
+      <div class="right-content">
+        <div id="timeline" class="timeline">
+          <div class="empty-state">
+            <p>Ask for outliers and the agent will explain the evidence here.</p>
+          </div>
+        </div>
+        <div id="evidence" class="evidence">
+          <div class="empty-state small">
+            <p>No evidence yet.</p>
+          </div>
+        </div>
+        <section id="findings-panel" class="findings-panel" hidden>
+          <h3>Investigation result</h3>
+          <div id="findings-content"></div>
+        </section>
+      </div>
+      <form id="composer" class="composer">
+        <div id="interaction-panel" class="interaction-panel" hidden></div>
+        <label class="tool-calling-toggle">
+          <input id="tool-calling-toggle" type="checkbox" />
+          Let model call the stats tool directly (agentic)
+        </label>
+        <input id="message-input" type="text" value="Show me trends and outliers"
+          placeholder="e.g. outliers above 3 for NXE3600 in the last 7 days" autocomplete="off" />
+        <label class="tool-calling-control" title="Allow model-derived scope to select governed analytics capability calls">
+          <input id="tool-calling-toggle" type="checkbox" />
+          <span>Model capability mode</span>
+        </label>
+        <button id="send-btn" type="submit">Start</button>
+      </form>
+    </aside>
+  </main>
+
+  <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+  <script src="/static/bff-client.js"></script>
+  <script src="/static/app.js"></script>
+</body>
+
+</html>

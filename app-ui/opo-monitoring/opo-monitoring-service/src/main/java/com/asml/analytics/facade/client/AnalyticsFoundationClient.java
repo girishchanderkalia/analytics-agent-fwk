@@ -6,7 +6,7 @@ public interface AnalyticsFoundationClient {
     TrendResponse queryTrends(TrendQuery request);
     DistributionResponse getDistribution(DistributionQuery request);
     WorkspaceResponse createWorkspace(CreateWorkspaceRequest request);
-    WorkspaceResponse applyFilters(String workspaceId, ApplyFiltersRequest request);
+    WorkspaceFiltersResponse applyFilters(String workspaceId, ApplyFiltersRequest request);
     ConnectionInfoResponse getConnectionInfo(String workspaceId);
     RegistrationResponse registerDataset(String workspaceId, RegistrationRequest request);
     RegistrationResponse getRegistration(String workspaceId, String registrationId);

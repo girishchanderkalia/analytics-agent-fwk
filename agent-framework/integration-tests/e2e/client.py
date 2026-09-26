@@ -26,6 +26,12 @@ class E2EClient:
         response.raise_for_status()
         return _object(response)
 
+    def get(self, url: str) -> httpx.Response:
+        return self._client.get(url)
+
+    def post(self, url: str, body: dict[str, Any]) -> httpx.Response:
+        return self._client.post(url, json=body)
+
 
 def _object(response: httpx.Response) -> dict[str, Any]:
     value = response.json()

@@ -7,6 +7,10 @@ The BFF has two explicit downstream boundaries:
 
 Both HTTP implementations are plain Java classes. Spring creates them exclusively in `DownstreamClientConfiguration`, each with a separate `RestClient` base URL.
 
+## Front end
+
+`FrontEndConfiguration` serves the browser UI from `../opo-monitoring-fe/static` on the BFF origin, so the UI needs no CORS configuration and no second server. Override the location with `UI_STATIC_LOCATION` when the assets are deployed elsewhere, as the container image does.
+
 ## Build
 
 ```bash
