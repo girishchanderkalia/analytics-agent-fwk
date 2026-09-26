@@ -1,14 +1,21 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Slice 13K local launcher. Run from the repository root in Git Bash.
+#  local launcher. Run from the repository root in Git Bash.
 ROOT_DIR="${SLICE13K_ROOT_DIR:-$(pwd)}"
 RUN_DIR="${SLICE13K_RUN_DIR:-$ROOT_DIR/.run/slice13k}"
 LOG_DIR="$RUN_DIR/logs"
 PID_DIR="$RUN_DIR/pids"
 mkdir -p "$LOG_DIR" "$PID_DIR"
 
-JAVA_HOME="${JAVA_HOME:-/c/Program Files/Java/jdk-25.0.1}"
+if [[ -z "${JAVA_HOME:-}" ]]; then
+  JAVA_BIN="$(command -v java || true)"
+  if [[ -z "$JAVA_BIN" ]]; then
+    echo "ERROR: Java executable not found on PATH." >&2
+    exit 1
+  fi
+  JAVA_HOME="$(cd "$(dirname "$JAVA_BIN")/.." && pwd)"
+fi
 JAVA_EXE="$JAVA_HOME/bin/java.exe"
 if [[ ! -x "$JAVA_EXE" ]]; then
   echo "ERROR: Java executable not found: $JAVA_EXE" >&2
@@ -35,12 +42,12 @@ fi
 PYTHON_BIN="$(cd "$(dirname "$PYTHON_BIN")" && pwd)/$(basename "$PYTHON_BIN")"
 
 MAVEN_BIN="${MAVEN_BIN:-$(command -v mvn || true)}"
-MAVEN_SETTINGS="${MAVEN_SETTINGS:-$HOME/.m2/settings.xml}"
+MAVEN_SETTINGS="${MAVEN_SETTINGS:-}"
 if [[ -z "$MAVEN_BIN" || ! -x "$MAVEN_BIN" ]]; then
   echo "ERROR: Maven executable not found." >&2
   exit 1
 fi
-if [[ ! -f "$MAVEN_SETTINGS" ]]; then
+if [[ -n "$MAVEN_SETTINGS" && ! -f "$MAVEN_SETTINGS" ]]; then
   echo "ERROR: Maven settings not found: $MAVEN_SETTINGS" >&2
   exit 1
 fi
@@ -55,7 +62,11 @@ FOUNDATION_START_CMD="${FOUNDATION_START_CMD:-\"$PYTHON_BIN\" -m uvicorn foundat
 FOUNDATION_MCP_START_CMD="${FOUNDATION_MCP_START_CMD:-\"$PYTHON_BIN\" -m uvicorn analytics_foundation_mcp.app:app --host 127.0.0.1 --port $FOUNDATION_MCP_PORT}"
 OPO_CAPABILITY_START_CMD="${OPO_CAPABILITY_START_CMD:-\"$PYTHON_BIN\" -m uvicorn opo_capability_service.app:app --host 127.0.0.1 --port $OPO_CAPABILITY_PORT}"
 RUNTIME_START_CMD="${RUNTIME_START_CMD:-\"$PYTHON_BIN\" -m uvicorn runtime_api.main:app --host 127.0.0.1 --port $RUNTIME_PORT}"
-BFF_START_CMD="${BFF_START_CMD:-\"$MAVEN_BIN\" -s \"$MAVEN_SETTINGS\" -DskipTests spring-boot:run}"
+if [[ -n "$MAVEN_SETTINGS" ]]; then
+  BFF_START_CMD="${BFF_START_CMD:-\"$MAVEN_BIN\" -s \"$MAVEN_SETTINGS\" -DskipTests spring-boot:run}"
+else
+  BFF_START_CMD="${BFF_START_CMD:-\"$MAVEN_BIN\" -DskipTests spring-boot:run}"
+fi
 
 export ANALYTICS_FOUNDATION_BASE_URL="${ANALYTICS_FOUNDATION_BASE_URL:-http://127.0.0.1:$FOUNDATION_PORT}"
 export ANALYTICS_FOUNDATION_MCP_URL="${ANALYTICS_FOUNDATION_MCP_URL:-http://127.0.0.1:$FOUNDATION_MCP_PORT/mcp}"
@@ -64,13 +75,13 @@ export RUNTIME_SERVICE_BASE_URL="${RUNTIME_SERVICE_BASE_URL:-http://127.0.0.1:$R
 export SERVER_PORT="$BFF_PORT"
 
 # Windows Python uses semicolon-separated PYTHONPATH entries.
-export PYTHONPATH="${ROOT_DIR}/analytics-foundation/analytics-foundation-api;${ROOT_DIR}/analytics-foundation/analytics-foundation/analytics-foundation-mcp/src;${ROOT_DIR}/app-ui/opo-monitoring/opo-monitoring-service/app-ui/opo-monitoring/opo-monitoring-service/opo-capability-service/src;${ROOT_DIR}/app-ui/opo-monitoring/opo-monitoring-service/app-ui/opo-monitoring/opo-monitoring-service/opo-deterministic-logic/src;${ROOT_DIR}/analytics-foundation/analytics-foundation/analytics-foundation-client/src;${ROOT_DIR}/agent-framework/agent-runtime${PYTHONPATH:+;$PYTHONPATH}"
+export PYTHONPATH="$(cygpath -w "$ROOT_DIR/analytics-foundation/analytics-foundation-api");$(cygpath -w "$ROOT_DIR/analytics-foundation/analytics-foundation-mcp/src");$(cygpath -w "$ROOT_DIR/app-ui/opo-monitoring/opo-monitoring-service/opo-capability-service/src");$(cygpath -w "$ROOT_DIR/app-ui/opo-monitoring/opo-monitoring-service/opo-deterministic-logic/src");$(cygpath -w "$ROOT_DIR/analytics-foundation/analytics-foundation-client/src");$(cygpath -w "$ROOT_DIR/agent-framework/agent-runtime")${PYTHONPATH:+;$PYTHONPATH}"
 
 echo "Using Java:   $JAVA_EXE"
 echo "Using Python: $PYTHON_BIN"
 echo "Using Maven:  $MAVEN_BIN"
 
-required=(analytics-foundation-api analytics-foundation-mcp opo-capability-service agent-runtime app-ui/opo-monitoring)
+required=(analytics-foundation/analytics-foundation-api analytics-foundation/analytics-foundation-mcp app-ui/opo-monitoring/opo-monitoring-service/opo-capability-service agent-framework/agent-runtime app-ui/opo-monitoring)
 for relative in "${required[@]}"; do
   if [[ ! -d "$ROOT_DIR/$relative" ]]; then
     echo "ERROR: Required directory not found: $ROOT_DIR/$relative" >&2
@@ -168,6 +179,16 @@ PYMCP
   echo "$name is available"
 }
 
+shutdown_services() {
+  echo
+  echo "Stopping  services..."
+  "$ROOT_DIR/scripts/stop-services.sh" >/dev/null 2>&1 || true
+}
+
+if [[ "${SLICE13K_MANAGED:-false}" != true ]]; then
+  trap shutdown_services INT TERM EXIT
+fi
+
 start_service "analytics-foundation" "$ROOT_DIR/analytics-foundation/analytics-foundation-api" "$FOUNDATION_START_CMD"
 wait_for_get "Analytics Foundation API" "http://127.0.0.1:$FOUNDATION_PORT/health" "$LOG_DIR/analytics-foundation.log"
 start_service "analytics-foundation-mcp" "$ROOT_DIR/analytics-foundation/analytics-foundation-mcp" "$FOUNDATION_MCP_START_CMD"
@@ -179,23 +200,16 @@ wait_for_get "Agent Runtime" "http://127.0.0.1:$RUNTIME_PORT/health" "$LOG_DIR/a
 start_service "opo-bff" "$ROOT_DIR/app-ui/opo-monitoring" "$BFF_START_CMD"
 wait_for_get "OPO BFF" "http://127.0.0.1:$BFF_PORT/actuator/health" "$LOG_DIR/opo-bff.log"
 
+if [[ "${SLICE13K_MANAGED:-false}" == true ]]; then
+  exit 0
+fi
+
 echo
-printf '%s\n' "All Slice 13K services are available." "Logs: $LOG_DIR" "Stop: scripts/stop-slice-13k-services.sh"
+printf '%s\n' "All  services are available." "Logs: $LOG_DIR" "Stop: scripts/stop-services.sh"
 echo
-echo "Slice 13K services are running."
+echo " services are running."
 echo "Keep this terminal open."
 echo "Press Ctrl+C to stop all services."
-
-shutdown_services() {
-  echo
-  echo "Stopping Slice 13K services..."
-
-  "$ROOT_DIR/scripts/stop-slice-13k-services.sh" \
-    >/dev/null 2>&1 \
-    || true
-}
-
-trap shutdown_services INT TERM EXIT
 
 while true
 do
