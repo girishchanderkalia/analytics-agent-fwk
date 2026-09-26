@@ -1,0 +1,15 @@
+schema_version: "1.0"
+package:
+  application_id: opo-monitoring
+  agent_id: opo-investigation
+  agent_version: "1.0.0"
+  display_name: OPO Monitoring Investigation Agent
+  description: Investigates OPO KPI trend outliers and wafer-level evidence.
+  entrypoint: parse_trend_request
+  graph: graph.yaml
+  state: state.yaml
+  prompts: prompts.yaml
+  tools: tools.yaml
+  knowledge:
+    - knowledge/opo-investigation-policy.md
+    - knowledge/opo-evidence-policy.md

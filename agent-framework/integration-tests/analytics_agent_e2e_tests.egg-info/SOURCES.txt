@@ -1,0 +1,16 @@
+README.md
+pyproject.toml
+analytics_agent_e2e_tests.egg-info/PKG-INFO
+analytics_agent_e2e_tests.egg-info/SOURCES.txt
+analytics_agent_e2e_tests.egg-info/dependency_links.txt
+analytics_agent_e2e_tests.egg-info/requires.txt
+analytics_agent_e2e_tests.egg-info/top_level.txt
+e2e/__init__.py
+e2e/assertions.py
+e2e/client.py
+e2e/settings.py
+tests/test_agent_runtime_path.py
+tests/test_architecture_boundaries.py
+tests/test_deterministic_bff_path.py
+tests/test_mcp_discovery.py
+tests/test_service_smoke.py

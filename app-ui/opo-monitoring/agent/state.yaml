@@ -1,0 +1,35 @@
+schema_version: "1.0"
+state:
+  question: {type: string, required: true}
+  next_command: {type: [string, "null"], default: null}
+  use_tool_calling: {type: boolean, default: false}
+  lookback_days: {type: [integer, "null"], default: null}
+  start_date: {type: [string, "null"], default: null}
+  end_date: {type: [string, "null"], default: null}
+  lot_ids: {type: array, items: string, default: []}
+  product_ids: {type: array, items: string, default: []}
+  layer_ids: {type: array, items: string, default: []}
+  exposure_equipment_ids: {type: array, items: string, default: []}
+  mode: {type: [string, "null"], default: null}
+  limit_value: {type: [number, "null"], default: null}
+  requested_limit_value: {type: [number, "null"], default: null}
+  direction: {type: [string, "null"], default: null}
+  threshold_unit: {type: [string, "null"], default: null}
+  baseline_deviation_pct: {type: number, default: 3.0}
+  interpretation: {type: [string, "null"], default: null}
+  threshold_context: {type: object, default: {}}
+  threshold_recommendation: {type: object, default: {}}
+  needs_threshold_clarification: {type: boolean, default: false}
+  trend_series: {type: array, default: [], reducer: replace}
+  analysis: {type: array, default: [], reducer: replace}
+  outliers: {type: array, default: [], reducer: replace}
+  selected: {type: object, default: {}}
+  workspace_id: {type: [string, "null"], default: null}
+  filters: {type: object, default: {}}
+  registration: {type: object, default: {}}
+  registration_history: {type: array, default: [], reducer: replace}
+  wafer_data: {type: object, default: {}}
+  findings: {type: object, default: {}}
+  selected_action: {type: [string, "null"], default: null}
+  spatial_pattern: {type: object, default: {}}
+  cancelled_at: {type: [string, "null"], default: null}

@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: application-agent-runtime-config
+  namespace: ai-agent-fwk
+data:
+  AGENT_RUNTIME_REPOSITORY_ROOT: /app
+  AGENT_RUNTIME_DATABASE_PATH: /app/runtime-data/conversations.sqlite
+  AGENT_RUNTIME_REQUEST_TIMEOUT_SECONDS: "30"
+  AGENT_RUNTIME_MAXIMUM_STEPS: "100"
+  AGENT_RUNTIME_CA_BUNDLE_PATH: /etc/ssl/asml/combined-ca-bundle.pem
+  MODEL_GATEWAY_ENDPOINT: REPLACE_WITH_MODEL_GATEWAY_ENDPOINT
+  MODEL_GATEWAY_MODEL: REPLACE_WITH_MODEL_NAME
+  ANALYTICS_FOUNDATION_BASE_URL: REPLACE_WITH_ANALYTICS_FOUNDATION_BASE_URL
+  AF_READ_TRENDS_PATH: /query/trends
+  AF_READ_WAFERS_PATH: /query/wafers
+  AF_CREATE_WORKSPACE_PATH: /workspace/create
+  AF_APPLY_FILTERS_PATH: /workspace/filters
+  AF_REGISTER_DATASET_PATH: /workspace/register
+  AF_GET_REGISTRATION_PATH: /workspace/registration

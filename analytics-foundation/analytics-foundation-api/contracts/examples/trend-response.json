@@ -1,0 +1,14 @@
+{
+  "series": [
+    {
+      "machine": "MACHINE-1",
+      "product": "PRODUCT-1",
+      "lot_id": "LOT-1",
+      "layer_id": "LAYER-1",
+      "exposure_equipment_id": "MACHINE-1",
+      "points": [
+        {"date": "2026-09-23T08:00:00Z", "kpi_value": 3.12, "lot_id": "LOT-1"}
+      ]
+    }
+  ]
+}

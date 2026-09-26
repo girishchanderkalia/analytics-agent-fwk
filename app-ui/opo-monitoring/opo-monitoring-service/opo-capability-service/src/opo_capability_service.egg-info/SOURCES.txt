@@ -1,0 +1,16 @@
+README.md
+pyproject.toml
+src/opo_capability_service/__init__.py
+src/opo_capability_service/app.py
+src/opo_capability_service/catalog.py
+src/opo_capability_service/errors.py
+src/opo_capability_service/mcp.py
+src/opo_capability_service/models.py
+src/opo_capability_service/service.py
+src/opo_capability_service.egg-info/PKG-INFO
+src/opo_capability_service.egg-info/SOURCES.txt
+src/opo_capability_service.egg-info/dependency_links.txt
+src/opo_capability_service.egg-info/requires.txt
+src/opo_capability_service.egg-info/top_level.txt
+tests/test_mcp.py
+tests/test_service.py

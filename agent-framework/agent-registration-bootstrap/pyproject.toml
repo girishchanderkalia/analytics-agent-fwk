@@ -1,0 +1,13 @@
+[build-system]
+requires = ["setuptools>=75", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "agent-registration-bootstrap"
+version = "0.1.0"
+description = "Validated, idempotent bootstrap for declarative application agents"
+requires-python = ">=3.13"
+dependencies = ["PyYAML>=6.0,<7"]
+
+[tool.setuptools.packages.find]
+where = ["src"]

@@ -1,0 +1,12 @@
+{
+  "include": [
+    "agent-runtime",
+    "tests"
+  ],
+  "extraPaths": [
+    "./agent-framework/agent-runtime"
+  ],
+  "typeCheckingMode": "basic",
+  "reportMissingImports": true,
+  "reportMissingTypeStubs": false
+}

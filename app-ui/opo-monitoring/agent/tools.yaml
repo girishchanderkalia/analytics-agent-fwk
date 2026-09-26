@@ -1,0 +1,47 @@
+schema_version: "1.0"
+servers:
+  analytics-foundation:
+    transport: mcp
+  opo-capability:
+    transport: mcp
+    availability: slice-13h
+
+tools:
+  query_trends:
+    server: analytics-foundation
+    version: "1"
+    read_only: true
+  get_distribution_stats:
+    server: analytics-foundation
+    version: "1"
+    read_only: true
+  get_metadata:
+    server: analytics-foundation
+    version: "1"
+    read_only: true
+  create_workspace:
+    server: analytics-foundation
+    version: "1"
+  add_workspace_filters:
+    server: analytics-foundation
+    version: "1"
+  register_dataset:
+    server: analytics-foundation
+    version: "1"
+  get_registration_status:
+    server: analytics-foundation
+    version: "1"
+    read_only: true
+  query_wafers:
+    server: analytics-foundation
+    version: "1"
+    read_only: true
+  analyze_trends:
+    server: opo-capability
+    version: "1"
+  normalize_wafer_evidence:
+    server: opo-capability
+    version: "1"
+  classify_spatial_pattern:
+    server: opo-capability
+    version: "1"

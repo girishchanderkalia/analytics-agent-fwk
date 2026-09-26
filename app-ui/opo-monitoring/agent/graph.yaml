@@ -1,0 +1,117 @@
+schema_version: "1.0"
+graph:
+  entrypoint: parse_trend_request
+  terminal: end
+  nodes:
+    parse_trend_request:
+      kind: model
+      prompt: parse_trend_filters
+      writes: [lookback_days, start_date, end_date, lot_ids, product_ids, layer_ids, exposure_equipment_ids, interpretation]
+    query_trends:
+      kind: tool
+      tool: query_trends
+      input_from: [lookback_days, start_date, end_date, lot_ids, product_ids, layer_ids, exposure_equipment_ids]
+      writes: [trend_series]
+    await_next_command:
+      kind: interrupt
+      request_type: next_command
+      writes: [next_command]
+    parse_outlier_command:
+      kind: model
+      prompt: parse_detection_scope
+      context_from: [threshold_context, lookback_days, start_date, end_date, lot_ids, product_ids, layer_ids, exposure_equipment_ids]
+      writes: [mode, limit_value, requested_limit_value, direction, threshold_unit, baseline_deviation_pct, interpretation, threshold_recommendation, needs_threshold_clarification]
+    get_distribution_stats:
+      kind: tool
+      tool: get_distribution_stats
+      input_from: [lookback_days, start_date, end_date, lot_ids, product_ids, layer_ids, exposure_equipment_ids]
+      writes: [threshold_context]
+    confirm_absolute_threshold:
+      kind: interrupt
+      request_type: confirm_absolute_threshold
+      writes: [limit_value, cancelled_at]
+    analyze_trends:
+      kind: tool
+      tool: analyze_trends
+      input_from: [trend_series, mode, limit_value, direction, threshold_unit, baseline_deviation_pct]
+      writes: [analysis, outliers]
+    confirm_investigation:
+      kind: interrupt
+      request_type: confirm_investigation
+      writes: [selected, cancelled_at]
+    create_workspace:
+      kind: tool
+      tool: create_workspace
+      writes: [workspace_id]
+    build_filters:
+      kind: transform
+      operation: select_investigation_filters
+      input_from: [selected]
+      writes: [filters]
+    apply_filters:
+      kind: tool
+      tool: add_workspace_filters
+      input_from: [workspace_id, filters]
+    get_metadata:
+      kind: tool
+      tool: get_metadata
+      writes: [metadata]
+    register_dataset:
+      kind: tool
+      tool: register_dataset
+      input_from: [workspace_id, metadata]
+      writes: [registration]
+    poll_registration:
+      kind: tool
+      tool: get_registration_status
+      input_from: [workspace_id, registration]
+      writes: [registration, registration_history]
+    query_wafers:
+      kind: tool
+      tool: query_wafers
+      input_from: [workspace_id, filters, metadata]
+      writes: [wafer_data]
+    summarize:
+      kind: model
+      prompt: summarize_findings
+      context_from: [selected, analysis, wafer_data, registration]
+      writes: [findings]
+    offer_next_actions:
+      kind: interrupt
+      request_type: select_next_action
+      writes: [selected_action]
+    classify_spatial_pattern:
+      kind: tool
+      tool: classify_spatial_pattern
+      input_from: [wafer_data]
+      writes: [spatial_pattern]
+    end:
+      kind: end
+  edges:
+    - {from: parse_trend_request, to: query_trends}
+    - {from: query_trends, to: await_next_command}
+    - {from: await_next_command, to: parse_outlier_command, when: mentions_outliers}
+    - {from: await_next_command, to: parse_trend_request, when: otherwise}
+    - {from: parse_outlier_command, to: get_distribution_stats, when: threshold_context_required}
+    - {from: parse_outlier_command, to: analyze_trends, when: threshold_context_not_required}
+    - {from: get_distribution_stats, to: confirm_absolute_threshold, when: needs_threshold_clarification}
+    - {from: get_distribution_stats, to: analyze_trends, when: threshold_clarification_not_required}
+    - {from: confirm_absolute_threshold, to: end, when: cancelled}
+    - {from: confirm_absolute_threshold, to: analyze_trends, when: approved}
+    - {from: analyze_trends, to: end, when: no_outliers}
+    - {from: analyze_trends, to: confirm_investigation, when: has_outliers}
+    - {from: confirm_investigation, to: end, when: cancelled}
+    - {from: confirm_investigation, to: create_workspace, when: approved}
+    - {from: create_workspace, to: build_filters}
+    - {from: build_filters, to: apply_filters}
+    - {from: apply_filters, to: get_metadata}
+    - {from: get_metadata, to: register_dataset}
+    - {from: register_dataset, to: poll_registration}
+    - {from: poll_registration, to: poll_registration, when: registration_pending}
+    - {from: poll_registration, to: query_wafers, when: registration_ready}
+    - {from: poll_registration, to: end, when: registration_failed}
+    - {from: query_wafers, to: summarize}
+    - {from: summarize, to: offer_next_actions}
+    - {from: offer_next_actions, to: classify_spatial_pattern, when: spatial_action_selected}
+    - {from: offer_next_actions, to: end, when: otherwise}
+    - {from: classify_spatial_pattern, to: end}

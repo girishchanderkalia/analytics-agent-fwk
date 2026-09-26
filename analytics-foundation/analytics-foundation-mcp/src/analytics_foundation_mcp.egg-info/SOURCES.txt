@@ -1,0 +1,15 @@
+README.md
+pyproject.toml
+src/analytics_foundation_mcp/__init__.py
+src/analytics_foundation_mcp/app.py
+src/analytics_foundation_mcp/errors.py
+src/analytics_foundation_mcp/provider.py
+src/analytics_foundation_mcp/registry_bridge.py
+src/analytics_foundation_mcp/types.py
+src/analytics_foundation_mcp.egg-info/PKG-INFO
+src/analytics_foundation_mcp.egg-info/SOURCES.txt
+src/analytics_foundation_mcp.egg-info/dependency_links.txt
+src/analytics_foundation_mcp.egg-info/requires.txt
+src/analytics_foundation_mcp.egg-info/top_level.txt
+tests/test_app.py
+tests/test_provider.py

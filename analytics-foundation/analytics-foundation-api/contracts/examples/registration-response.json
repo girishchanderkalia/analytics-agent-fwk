@@ -1,0 +1,8 @@
+{
+  "registration_id": "registration-1",
+  "workspace_id": "workspace-1",
+  "status": "READY",
+  "progress_pct": 100,
+  "table": "overlay_wafer_points",
+  "error": null
+}

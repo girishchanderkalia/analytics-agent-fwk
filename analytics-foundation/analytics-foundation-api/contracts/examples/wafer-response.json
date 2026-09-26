@@ -1,0 +1,14 @@
+{
+  "workspace_id": "workspace-1",
+  "table": "overlay_wafer_points",
+  "rows": [
+    {
+      "wafer_id": "WAFER-1",
+      "lot_id": "LOT-1",
+      "overlay_x_um": 0.12,
+      "overlay_y_um": 0.18,
+      "overlay_magnitude_um": 0.2163
+    }
+  ],
+  "anomalous_wafers": ["WAFER-1"]
+}

@@ -1,0 +1,17 @@
+README.md
+pyproject.toml
+src/agent_registration_bootstrap/__init__.py
+src/agent_registration_bootstrap/bootstrap.py
+src/agent_registration_bootstrap/errors.py
+src/agent_registration_bootstrap/loader.py
+src/agent_registration_bootstrap/mcp_tools_adapter.py
+src/agent_registration_bootstrap/models.py
+src/agent_registration_bootstrap/protocols.py
+src/agent_registration_bootstrap/registry.py
+src/agent_registration_bootstrap.egg-info/PKG-INFO
+src/agent_registration_bootstrap.egg-info/SOURCES.txt
+src/agent_registration_bootstrap.egg-info/dependency_links.txt
+src/agent_registration_bootstrap.egg-info/requires.txt
+src/agent_registration_bootstrap.egg-info/top_level.txt
+tests/test_bootstrap.py
+tests/test_mcp_adapter.py

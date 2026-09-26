@@ -1,0 +1,12 @@
+README.md
+pyproject.toml
+src/opo_response_compatibility/__init__.py
+src/opo_response_compatibility/evidence.py
+src/opo_response_compatibility/shaper.py
+src/opo_response_compatibility.egg-info/PKG-INFO
+src/opo_response_compatibility.egg-info/SOURCES.txt
+src/opo_response_compatibility.egg-info/dependency_links.txt
+src/opo_response_compatibility.egg-info/top_level.txt
+tests/test_evidence.py
+tests/test_golden_contract.py
+tests/test_shaper.py

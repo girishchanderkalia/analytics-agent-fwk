@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "analytics-agent-e2e-tests"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+  "httpx>=0.27,<1",
+  "pytest>=8,<9",
+  "pydantic>=2.9,<3",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+  "smoke: service health and discovery tests",
+  "deterministic: BFF to Analytics Foundation path tests",
+  "agent: full Agent Runtime orchestration tests",
+]

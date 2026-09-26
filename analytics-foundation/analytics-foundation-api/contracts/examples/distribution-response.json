@@ -1,0 +1,8 @@
+{
+  "sample_count": 120,
+  "p95": 3.18,
+  "p99": 3.27,
+  "mean": 3.01,
+  "stdev": 0.08,
+  "bell_curve_range": {"lower": 2.77, "upper": 3.25}
+}

@@ -1,0 +1,7 @@
+Metadata-Version: 2.4
+Name: analytics-agent-e2e-tests
+Version: 0.1.0
+Requires-Python: >=3.12
+Requires-Dist: httpx<1,>=0.27
+Requires-Dist: pytest<9,>=8
+Requires-Dist: pydantic<3,>=2.9

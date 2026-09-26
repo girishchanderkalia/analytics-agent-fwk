@@ -1,0 +1,344 @@
+openapi: 3.0.3
+info:
+  title: Analytics Foundation API
+  version: 1.0.0
+  description: >-
+    Stable HTTP contract shared by deterministic application BFF paths and
+    governed MCP tools. The API exposes data and workspace operations only; it
+    does not own agent orchestration, prompts, human approval, or findings.
+servers:
+  - url: http://analytics-foundation-api:8200
+paths:
+  /health:
+    get:
+      operationId: health
+      responses:
+        '200':
+          description: Process is alive.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/HealthResponse'}
+  /ready:
+    get:
+      operationId: ready
+      responses:
+        '200':
+          description: Service is ready to accept requests.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/HealthResponse'}
+  /metadata:
+    get:
+      operationId: getDatasetMetadata
+      responses:
+        '200':
+          description: Available Analytics Foundation datasets and tables.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/DatasetMetadata'}
+  /trends:
+    get:
+      operationId: getDisplayTrends
+      parameters:
+        - {$ref: '#/components/parameters/Days'}
+        - {$ref: '#/components/parameters/StartDate'}
+        - {$ref: '#/components/parameters/EndDate'}
+        - {$ref: '#/components/parameters/LotIds'}
+        - {$ref: '#/components/parameters/ProductIds'}
+        - {$ref: '#/components/parameters/LayerIds'}
+        - {$ref: '#/components/parameters/ExposureEquipmentIds'}
+      responses:
+        '200':
+          description: Trend series for deterministic application display.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/TrendResponse'}
+  /trends/query:
+    post:
+      operationId: queryTrends
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/TrendQueryRequest'}
+      responses:
+        '200':
+          description: Filtered trend series.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/TrendResponse'}
+  /trends/distribution:
+    post:
+      operationId: getTrendDistribution
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/TrendQueryRequest'}
+      responses:
+        '200':
+          description: Empirical KPI distribution statistics.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/DistributionStats'}
+  /workspaces:
+    post:
+      operationId: createWorkspace
+      responses:
+        '201':
+          description: Workspace created.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/WorkspaceResponse'}
+  /workspaces/{workspaceId}/filters:
+    post:
+      operationId: addWorkspaceFilters
+      parameters:
+        - {$ref: '#/components/parameters/WorkspaceId'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/WorkspaceFiltersRequest'}
+      responses:
+        '200':
+          description: Filters associated with the workspace.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/WorkspaceFiltersResponse'}
+  /workspaces/{workspaceId}/connection-info:
+    get:
+      operationId: getWorkspaceConnectionInfo
+      parameters:
+        - {$ref: '#/components/parameters/WorkspaceId'}
+      responses:
+        '200':
+          description: Opaque connection information for platform-side consumers.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/WorkspaceConnectionInfo'}
+  /workspaces/{workspaceId}/registrations:
+    post:
+      operationId: registerDataset
+      parameters:
+        - {$ref: '#/components/parameters/WorkspaceId'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/RegistrationRequest'}
+      responses:
+        '202':
+          description: Registration accepted.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/RegistrationStatus'}
+  /workspaces/{workspaceId}/registrations/{registrationId}:
+    get:
+      operationId: getRegistrationStatus
+      parameters:
+        - {$ref: '#/components/parameters/WorkspaceId'}
+        - name: registrationId
+          in: path
+          required: true
+          schema: {type: string, minLength: 1}
+      responses:
+        '200':
+          description: Current registration status.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/RegistrationStatus'}
+  /wafers/query:
+    post:
+      operationId: queryWafers
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/WaferQueryRequest'}
+      responses:
+        '200':
+          description: Wafer query result.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/WaferQueryResponse'}
+components:
+  parameters:
+    WorkspaceId:
+      name: workspaceId
+      in: path
+      required: true
+      schema: {type: string, minLength: 1}
+    Days:
+      name: days
+      in: query
+      schema: {type: integer, minimum: 1, maximum: 90}
+    StartDate:
+      name: start_date
+      in: query
+      schema: {type: string, format: date}
+    EndDate:
+      name: end_date
+      in: query
+      schema: {type: string, format: date}
+    LotIds:
+      name: lot_ids
+      in: query
+      style: form
+      explode: true
+      schema: {type: array, items: {type: string}}
+    ProductIds:
+      name: product_ids
+      in: query
+      style: form
+      explode: true
+      schema: {type: array, items: {type: string}}
+    LayerIds:
+      name: layer_ids
+      in: query
+      style: form
+      explode: true
+      schema: {type: array, items: {type: string}}
+    ExposureEquipmentIds:
+      name: exposure_equipment_ids
+      in: query
+      style: form
+      explode: true
+      schema: {type: array, items: {type: string}}
+  schemas:
+    HealthResponse:
+      type: object
+      required: [status]
+      properties:
+        status: {type: string, enum: [ok]}
+      additionalProperties: false
+    DatasetMetadata:
+      type: object
+      required: [trend_table, wafer_table]
+      properties:
+        trend_table: {type: string, minLength: 1}
+        wafer_table: {type: string, minLength: 1}
+      additionalProperties: true
+    TrendQueryRequest:
+      type: object
+      properties:
+        days: {type: integer, minimum: 1, maximum: 90, nullable: true}
+        start_date: {type: string, format: date, nullable: true}
+        end_date: {type: string, format: date, nullable: true}
+        lot_ids: {type: array, items: {type: string}, default: []}
+        product_ids: {type: array, items: {type: string}, default: []}
+        layer_ids: {type: array, items: {type: string}, default: []}
+        exposure_equipment_ids: {type: array, items: {type: string}, default: []}
+      additionalProperties: false
+    TrendResponse:
+      type: object
+      required: [series]
+      properties:
+        series:
+          type: array
+          items: {$ref: '#/components/schemas/TrendSeries'}
+      additionalProperties: false
+    TrendSeries:
+      type: object
+      required: [machine, product, points]
+      properties:
+        machine: {type: string}
+        product: {type: string}
+        lot_id: {type: string, nullable: true}
+        layer_id: {type: string, nullable: true}
+        exposure_equipment_id: {type: string, nullable: true}
+        points:
+          type: array
+          items: {$ref: '#/components/schemas/TrendPoint'}
+      additionalProperties: false
+    TrendPoint:
+      type: object
+      required: [date, kpi_value]
+      properties:
+        date: {type: string, format: date-time}
+        kpi_value: {type: number}
+        lot_id: {type: string, nullable: true}
+      additionalProperties: false
+    DistributionStats:
+      type: object
+      required: [sample_count]
+      properties:
+        sample_count: {type: integer, minimum: 0}
+        p95: {type: number, nullable: true}
+        p99: {type: number, nullable: true}
+        mean: {type: number, nullable: true}
+        stdev: {type: number, nullable: true}
+        bell_curve_range:
+          type: object
+          nullable: true
+          properties:
+            lower: {type: number}
+            upper: {type: number}
+          required: [lower, upper]
+          additionalProperties: false
+      additionalProperties: false
+    WorkspaceResponse:
+      type: object
+      required: [workspace_id]
+      properties:
+        workspace_id: {type: string, minLength: 1}
+      additionalProperties: false
+    WorkspaceFiltersRequest:
+      type: object
+      required: [filters]
+      properties:
+        filters: {type: object, additionalProperties: true}
+      additionalProperties: false
+    WorkspaceFiltersResponse:
+      type: object
+      required: [workspace_id, filters]
+      properties:
+        workspace_id: {type: string}
+        filters: {type: object, additionalProperties: true}
+      additionalProperties: false
+    WorkspaceConnectionInfo:
+      type: object
+      required: [workspace_id, values]
+      properties:
+        workspace_id: {type: string}
+        values: {type: object, additionalProperties: true}
+      additionalProperties: false
+    RegistrationRequest:
+      type: object
+      required: [dataset, table]
+      properties:
+        dataset: {type: string, minLength: 1}
+        table: {type: string, minLength: 1}
+      additionalProperties: false
+    RegistrationStatus:
+      type: object
+      required: [registration_id, workspace_id, status, progress_pct, table]
+      properties:
+        registration_id: {type: string, minLength: 1}
+        workspace_id: {type: string, minLength: 1}
+        status: {type: string, enum: [PENDING, RUNNING, READY, FAILED]}
+        progress_pct: {type: integer, minimum: 0, maximum: 100}
+        table: {type: string, minLength: 1}
+        error: {type: string, nullable: true}
+      additionalProperties: false
+    WaferQueryRequest:
+      type: object
+      required: [workspace_id, table]
+      properties:
+        workspace_id: {type: string, minLength: 1}
+        table: {type: string, minLength: 1}
+        filters: {type: object, additionalProperties: true, default: {}}
+      additionalProperties: false
+    WaferQueryResponse:
+      type: object
+      required: [workspace_id, table, rows, anomalous_wafers]
+      properties:
+        workspace_id: {type: string}
+        table: {type: string}
+        rows:
+          type: array
+          items: {type: object, additionalProperties: true}
+        anomalous_wafers:
+          type: array
+          items: {type: string}
+      additionalProperties: false

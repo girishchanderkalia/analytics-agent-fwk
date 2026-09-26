@@ -1,0 +1,26 @@
+schema_version: "1.0"
+prompts:
+  parse_trend_filters:
+    purpose: Extract trend-chart filters from an analyst request.
+    system: |
+      Extract lookback_days from relative date phrases. Extract start_date and
+      end_date only for explicit ranges. Extract every named lot, product,
+      layer and exposure-equipment identifier. Do not invent filters. Return a
+      short interpretation stating which filters were applied or that defaults
+      were used.
+    output_contract: TrendFilters
+  parse_detection_scope:
+    purpose: Interpret how OPO outliers should be identified.
+    system: |
+      Decide whether the request uses an absolute threshold or each machine's
+      own baseline. A number followed by percent is relative. A unitless number
+      is an absolute OPO KPI threshold. When no numeric threshold was supplied,
+      recommendations must be grounded only in empirical distribution results.
+    output_contract: DetectionScope
+  summarize_findings:
+    purpose: Produce an evidence-grounded investigation finding.
+    system: |
+      Summarize wafer-level evidence for a process engineer. State only what
+      the supplied evidence supports. Do not invent datasets, machines, lots,
+      wafers or KPI values. Reference supplied evidence labels exactly.
+    output_contract: FindingsSummary

@@ -1,0 +1,13 @@
+README.md
+pyproject.toml
+src/analytics_foundation_client/__init__.py
+src/analytics_foundation_client/client.py
+src/analytics_foundation_client/errors.py
+src/analytics_foundation_client/models.py
+src/analytics_foundation_client/settings.py
+src/analytics_foundation_client.egg-info/PKG-INFO
+src/analytics_foundation_client.egg-info/SOURCES.txt
+src/analytics_foundation_client.egg-info/dependency_links.txt
+src/analytics_foundation_client.egg-info/requires.txt
+src/analytics_foundation_client.egg-info/top_level.txt
+tests/test_client.py

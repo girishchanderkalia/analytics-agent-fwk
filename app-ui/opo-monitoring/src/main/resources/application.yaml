@@ -1,0 +1,17 @@
+server:
+  port: ${SERVER_PORT:8080}
+
+downstream:
+  runtime-service:
+    base-url: ${RUNTIME_SERVICE_BASE_URL:http://127.0.0.1:8000}
+  analytics-foundation:
+    base-url: ${ANALYTICS_FOUNDATION_BASE_URL:http://127.0.0.1:8200}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: never
