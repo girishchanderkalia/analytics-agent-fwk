@@ -14,7 +14,7 @@ import shutil
 
 def copy_agent(tmp_path: Path) -> Path:
     root = Path(__file__).resolve().parents[1]
-    source = root.parent / "app-ui" / "opo-monitoring" / "agent"
+    source = root.parent.parent / "app-ui" / "opo-monitoring" / "agent"
     target = tmp_path / "agent"
     shutil.copytree(source, target)
     return target / "agent-package.yaml"

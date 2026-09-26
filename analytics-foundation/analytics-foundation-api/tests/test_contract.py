@@ -105,7 +105,7 @@ def test_examples_match_response_schemas():
     }
     for filename, schema_name in examples.items():
         value = json.loads(
-            (ROOT / "agent-framework" / "contracts" / "examples" / filename).read_text(encoding="utf-8")
+            (ROOT / "contracts" / "examples" / filename).read_text(encoding="utf-8")
         )
         validate_shape(
             value,

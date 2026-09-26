@@ -1,4 +1,5 @@
 .venv/
+.venv-low-level-tests/
 __pycache__/
 *.pyc
 checkpoints.sqlite*
