@@ -1,0 +1,160 @@
+@startuml OPO Monitoring Flowchart
+
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam defaultFontColor #0F172A
+skinparam ArrowColor #475569
+skinparam partitionBackgroundColor #F8FAFC
+skinparam partitionBorderColor #94A3B8
+skinparam partitionFontColor #0F172A
+skinparam partitionFontSize 13
+skinparam activity {
+  BackgroundColor #E0F2FE
+  BorderColor #1D4ED8
+  FontColor #0F172A
+}
+
+title OPO Monitoring Investigation Flow
+
+legend top right
+  APP-UI: Application UI that renders plots,
+  wafer maps, evidence, and user controls
+  AI-AGENT: AI agent that invokes
+  LangGraph and enables AI interaction
+  LG: LangGraph scope
+  MODEL: Model scope
+  AF: Analytics Foundation
+  EVIDENCE: Bounded evidence
+  MEMORY: Session metadata and audit events
+
+  The six main stages flow vertically.
+  Each activity explicitly names the caller and target.
+endlegend
+
+start
+
+partition "1. Display trend chart" {
+  :<b>USER -> APP-UI</b>: Open OPO UI;
+  :<b>APP-UI -> AF</b>: Get trend data from LANADB;
+  :<b>APP-UI</b>: Display trend plot;
+}
+
+partition "2. Monitor data" {
+  :<b>USER -> APP-UI</b>: Submit "Show Trends and outliers";
+  :<b>APP-UI -> AI-AGENT</b>: Send user request;
+  :<b>AI-AGENT</b>: Calculate sample count, min, max, P95, and P99;
+  :<b>AI-AGENT -> LG</b>: Invoke workflow with request and context;
+  :<b>LG -> MODEL</b>: Send request and context to model;
+  note right
+    Model input:
+    {
+      "request": "Show Trends and outliers",
+      "empirical_context": {
+        "metric": "OPO KPI",
+        "unit": "absolute",
+        "sample_count": 480,
+        "observed_min": 2.87,
+        "observed_max": 3.25,
+        "p95": 3.191,
+        "p99": 3.25
+      }
+    }
+
+    Model output: extracted intent
+    {
+      "mode": "baseline",
+      "interpretation": "Compare each machine with its own normal level",
+      "machine_id": null,
+      "product_id": null,
+      "lookback_days": 14,
+      "limit_value": 3.0,
+      "direction": "below",
+      "threshold_unit": "percent",
+      "baseline_deviation_pct": 3.0
+    }
+
+    Model output: recommendation
+    {
+      "suggested_limit_value": 3.191,
+      "suggested_limit_rationale":
+        "P95 provides a broad screening cutoff"
+    }
+  end note
+  :<b>LG</b>: Validate scope and filters;
+  :<b>LG -> AI-AGENT</b>: Return structured intent and recommendation;
+  :<b>AI-AGENT -> APP-UI</b>: Return interpreted scope;
+}
+
+partition "3. Deep dive outliers: approval for cutoff" {
+  :<b>AI-AGENT</b>: Use previously calculated threshold context;
+  :<b>AI-AGENT -> APP-UI</b>: Request cutoff approval;
+  :<b>APP-UI -> USER</b>: Display cutoff approval control;
+  :<b>USER -> APP-UI</b>: Approve or edit cutoff;
+  :<b>APP-UI -> AI-AGENT</b>: Submit cutoff decision;
+  :<b>AI-AGENT -> LG</b>: Resume workflow with approved cutoff;
+  :<b>LG -> AI-AGENT</b>: Return ranked outlier identifiers and lot IDs;
+  :<b>AI-AGENT -> APP-UI</b>: Show outlier identifiers and lot IDs;
+}
+
+partition "4. Display wafer maps of outliers" {
+  :<b>AI-AGENT -> AF</b>: Get wafer data for flagged lots;
+  :<b>AF -> AI-AGENT</b>: Return wafer data;
+  :<b>AI-AGENT -> APP-UI</b>: Send lot-grouped wafer data;
+  :<b>APP-UI</b>: Display lot-grouped wafer maps;
+  :<b>APP-UI -> EVIDENCE</b>: Show wafer evidence;
+}
+
+partition "5. Deep dive extreme outlier" {
+  :<b>APP-UI -> USER</b>: Request extreme outlier selection;
+  :<b>USER -> APP-UI</b>: Select extreme outlier;
+  :<b>APP-UI -> AI-AGENT</b>: Submit selection;
+  :<b>AI-AGENT -> LG</b>: Start focused workflow;
+  :<b>AI-AGENT -> AF</b>: Get focused extreme-lot data;
+  :<b>AF -> AI-AGENT</b>: Return focused wafer data;
+  :<b>AI-AGENT -> APP-UI</b>: Send focused evidence;
+  :<b>APP-UI</b>: Display focused evidence;
+}
+
+partition "6. Deep dive summary" {
+  :<b>LG -> MODEL</b>: Summarize selected outlier and evidence;
+  note right
+    Model input:
+    {
+      "selected_outlier": {
+        "machine": "0009",
+        "product": "Product8",
+        "extreme_kpi_value": 3.25,
+        "extreme_lot_id": "DG-LOT-1788874556-8"
+      },
+      "filters": {
+        "machine": "0009",
+        "product": "Product8",
+        "lot_id": "DG-LOT-1788874556-8"
+      },
+      "registration_status": "READY",
+      "wafer_summary": {
+        "row_count": 2176,
+        "anomalous_wafer_count": 4
+      },
+      "sample_rows": ["bounded sample only"]
+    }
+
+    Model output:
+    {
+      "finding": "Elevated OPO KPI on machine 0009",
+      "confidence": "medium",
+      "evidence_references": ["selected_outlier", "wafer_summary"],
+      "limitations": ["No confirmed root cause"],
+      "recommended_next_actions": ["Compare the same layer across machines"]
+    }
+  end note
+  :<b>MODEL -> LG</b>: Return findings summary;
+  :<b>LG -> AI-AGENT</b>: Return validated findings;
+  :<b>AI-AGENT -> APP-UI</b>: Send findings and references;
+  :<b>APP-UI</b>: Display findings and references;
+}
+
+stop
+
+@enduml

@@ -1,0 +1,114 @@
+@startuml OPO Architecture Implementation Status
+
+left to right direction
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam defaultFontColor #0F172A
+skinparam ArrowColor #475569
+skinparam componentStyle rectangle
+skinparam packageStyle rectangle
+skinparam linetype ortho
+
+skinparam component {
+  FontColor #0F172A
+  BorderColor #334155
+  BackgroundColor #F8FAFC
+}
+skinparam package {
+  FontColor #0F172A
+  BorderColor #64748B
+  BackgroundColor #FFFFFF
+}
+skinparam note {
+  BackgroundColor #F1F5F9
+  BorderColor #64748B
+  FontColor #0F172A
+}
+
+legend right
+  |= Status |= Meaning |
+  |<#DCFCE7> Implemented | Working in the current demonstrator |
+  |<#FEF3C7> Partial / mocked | Boundary exists, but integration or platform behavior is simulated |
+  |<#FEE2E2> Not implemented | Target architecture item has no current implementation |
+endlegend
+
+package "Application UI\nApplicationUI/opo_monitoring_ui" #FFFFFF {
+  component "Traditional + conversational UI\n[IMPLEMENTED]\nstatic/index.html\nstatic/app.js\nstatic/styles.css" as ui #DCFCE7
+  component "Trend and wafer visualization\n[IMPLEMENTED]\nstatic/app.js" as viz #DCFCE7
+}
+
+package "Application Agent\nApplicationUI/analytics_agents/opo_monitoring_service" #FFFFFF {
+  component "Intent interpretation\n[IMPLEMENTED]\napplication_workflow.py\nparse_scope()" as intent #DCFCE7
+  component "Workflow execution\n[IMPLEMENTED]\napplication_workflow.py\nLangGraph StateGraph" as workflow #DCFCE7
+  component "Workflow planning\n[PARTIAL]\nFixed OPO workflow in\napplication_workflow.py" as planning #FEF3C7
+  component "OPO domain semantics\n[IMPLEMENTED]\nservices.py" as domain #DCFCE7
+  component "Evidence-linked explanation\n[IMPLEMENTED]\napplication_workflow.py\nsummarise()" as explain #DCFCE7
+  component "Human review / validation\n[PARTIAL]\nLangGraph interrupt gates\napplication_workflow.py" as review #FEF3C7
+}
+
+package "Analytics Foundation AI Enablement" #FFFFFF {
+  component "Generic agent runtime\n[NOT IMPLEMENTED]\nNo agent registry or host runtime" as runtime #FEE2E2
+  component "Framework-neutral runtime contract\n[NOT IMPLEMENTED]\nNo common invoke/resume adapter" as contract #FEE2E2
+  component "Tool definitions / capability registry\n[IMPLEMENTED]\nAnalyticsFoundation/capability_registry.py" as registry #DCFCE7
+  component "Evidence / session memory\n[IMPLEMENTED - local]\nAnalyticsFoundation/session_memory.py" as memory #DCFCE7
+  component "Model connectivity\n[PARTIAL]\nAnalyticsFoundation/model_gateway.py\nconfig.py" as model #FEF3C7
+  component "Identity, authorization, auditing\n[PARTIAL]\npermissions and audit events in\ncapability_registry.py" as governance #FEF3C7
+  component "Deployment / monitoring / quotas\n[NOT IMPLEMENTED]" as operations #FEE2E2
+}
+
+package "Analytics Foundation Service APIs" #FFFFFF {
+  component "Assets API\n[NOT IMPLEMENTED]\nNo client" as assets #FEE2E2
+  component "Workspace API\n[PARTIAL / MOCKED]\nworkspace_client.py" as workspace #FEF3C7
+  component "Query Engine API\n[PARTIAL / MOCKED]\nquery_engine_client.py" as query #FEF3C7
+  component "Processing API\n[NOT IMPLEMENTED]\nNo client" as processing #FEE2E2
+  component "PostgreSQL + StarRocks\n[MOCKED]\nmock_data/opo_dataset.json" as data #FEF3C7
+}
+
+ui --> intent : user request
+ui --> viz : render results
+intent --> workflow
+workflow --> planning
+workflow --> domain
+workflow --> review
+workflow --> registry : invoke capabilities
+workflow --> memory : events / timing
+workflow --> model : model calls
+explain --> model
+registry --> workspace
+registry --> query
+workspace --> data
+query --> data
+runtime ..> contract : target dependency
+runtime ..> registry : target injection
+runtime ..> memory : target session service
+governance ..> registry
+operations ..> runtime
+
+note bottom of ui
+  Current application entry point:
+  ApplicationUI/analytics_agents/opo_monitoring_service/api.py
+end note
+
+note bottom of registry
+  Current registered capabilities:
+  workspace.create
+  workspace.add_filters
+  workspace.register_dataset
+  query_engine.read_trends
+  query_engine.read_wafers
+end note
+
+note bottom of memory
+  Current events include:
+  user_request, model_call, model_interpretation,
+  tool_invocation, tool_result, human_decision,
+  evidence_item, final_finding, workflow_timing
+end note
+
+note bottom of data
+  Current state is local demonstrator data.
+  Real governed API calls are not yet implemented.
+end note
+
+@enduml
