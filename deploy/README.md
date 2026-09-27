@@ -7,7 +7,12 @@ Kubernetes manifests for the `agents` namespace.
 
 - `requirements.txt` must include the runtime dependencies already used by the
   passing test suite.
-- `api.app:app` must expose `GET /health`, `POST /chat`, and `POST /resume`.
+- `runtime_api.langgraph_main:app` serves `GET /health`, `GET /ready`,
+  `GET /v1/applications/{application_id}/agents`, `POST /v1/chat`,
+  `POST /v1/conversations/{conversation_id}/resume`, and
+  `GET /v1/conversations/{conversation_id}`.
+- The image registers `agents/opo-monitoring` for application `opo-monitoring`;
+  override `AGENT_APPLICATION_ID` and `AGENT_MARKDOWN_PACKAGES` for other packages.
 - The CA bundle ConfigMap must already exist as
   `application-agent-runtime-ca-bundle` with key `combined-ca-bundle.pem`.
 - Replace all `REPLACE_WITH_...` values before applying manifests.

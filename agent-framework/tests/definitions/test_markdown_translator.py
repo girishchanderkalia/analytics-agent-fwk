@@ -82,7 +82,10 @@ def test_operation_nodes_bind_to_the_application_capability_server(
 def test_scattered_results_become_a_transform_node(definition) -> None:
     assignments = node(definition, "read_trends__map").config["assignments"]
 
-    assert assignments == {"trend_series": "$.read_trends__result.series"}
+    assert assignments == {
+        "trend_series": "$.read_trends__result.series",
+        "read_trends__result": None,
+    }
     assert any(
         edge.source == "read_trends" and edge.target == "read_trends__map"
         for edge in definition.graph.edges
@@ -102,14 +105,18 @@ def test_downstream_edges_start_from_the_mapping_node(definition) -> None:
         if edge.source == "read_trends__map"
     }
 
-    assert targets == {"read_distribution_stats"}
+    assert targets == {"review_trends", "interpret_detection_scope"}
 
 
 def test_approval_nodes_declare_their_payload(definition) -> None:
     config = node(definition, "approve_investigation").config
 
     assert config["result_key"] == "investigation_approved"
+    assert config["approval_id"] == "investigate_outlier"
     assert config["payload"] == {
+        "question": "Investigate the selected outlier?",
+        "approve_label": "Investigate",
+        "reject_label": "Reject",
         "detected_outliers": "$.outliers",
         "selected_outlier": "$.selected_outlier",
     }

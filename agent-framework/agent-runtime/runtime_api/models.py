@@ -59,6 +59,32 @@ class RuntimeResponseModel(BaseModel):
     approval_request: dict[str, Any] | None = None
 
 
+class RegisteredAgentModel(BaseModel):
+    """One agent registered for an application."""
+
+    model_config = ConfigDict(
+        alias_generator=to_camel,
+        populate_by_name=True,
+    )
+
+    agent_id: str
+    version: str
+    display_name: str
+    description: str = ""
+
+
+class RegisteredAgentListModel(BaseModel):
+    """Agents an application may select for chat."""
+
+    model_config = ConfigDict(
+        alias_generator=to_camel,
+        populate_by_name=True,
+    )
+
+    application_id: str
+    agents: list[RegisteredAgentModel]
+
+
 class HealthResponse(BaseModel):
     """Liveness response."""
 

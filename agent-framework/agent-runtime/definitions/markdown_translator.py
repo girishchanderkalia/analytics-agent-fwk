@@ -245,6 +245,7 @@ def _interrupt_config(node: Mapping[str, Any], node_id: str) -> dict[str, Any]:
             f"Node {node_id!r} decision_fields must be a mapping"
         )
     return {
+        "approval_id": node.get("approval"),
         "payload": _references(payload),
         "result_key": _text(
             node.get("decision_field"),
@@ -291,6 +292,8 @@ def _tool_nodes(
     }
     if not assignments:
         return tool_node, None
+    # The raw result is only an input to this mapping; keeping it would duplicate it in every state snapshot.
+    assignments[raw_key] = None
 
     mapping_node = NormalizedNode(
         f"{node_id}__map",

@@ -77,14 +77,6 @@ class PlatformModelGateway:
         return output
 
 
-def create_model_gateway() -> PlatformModelGateway:
-    """Create the framework-owned Model Gateway adapter."""
-
-    return PlatformModelGateway(
-        model=_load_platform_model()
-    )
-
-
 class AsyncPlatformModelGateway(PlatformModelGateway):
     """Await the hosted model from inside an already running event loop."""
 

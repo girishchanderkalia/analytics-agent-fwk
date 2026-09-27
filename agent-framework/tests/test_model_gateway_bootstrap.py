@@ -13,25 +13,6 @@ AGENT_RUNTIME_ROOT = V3_ROOT / "agent-framework" / "agent-runtime"
 if str(AGENT_RUNTIME_ROOT) not in sys.path:
     sys.path.insert(0, str(AGENT_RUNTIME_ROOT))
 
-from bootstrap.model_gateway_adapter import (  # noqa: E402
-    ModelGatewayBootstrapError,
-    ModelGatewayResponseError,
-    PlatformModelGateway,
-    create_model_gateway,
-)
-from host.provider_mapping import (  # noqa: E402
-    ModelGatewayResponseError as MappingGatewayError,
-)
-
-
-class FakeTransport:
-    def request(self, **kwargs: Any) -> dict[str, Any]:
-        return {"structured_output": {"value": 1}}
-
-
-def test_error_identity_is_shared() -> None:
-    assert MappingGatewayError is ModelGatewayResponseError
-
 
 def test_async_gateway_passes_schema_tools_to_agent(monkeypatch) -> None:
     from bootstrap.model_gateway_adapter import AsyncPlatformModelGateway

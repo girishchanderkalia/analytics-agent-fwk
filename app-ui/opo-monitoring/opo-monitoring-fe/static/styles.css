@@ -78,6 +78,39 @@ input:focus {
   border-color: var(--accent);
 }
 
+.evidence-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.agent-picker {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.agent-picker label {
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
+.agent-picker select {
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 6px;
+  padding: 6px 8px;
+  font-size: 12.5px;
+  max-width: 220px;
+}
+
+.agent-picker select:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
 button {
   background: var(--accent);
   color: #06101f;
@@ -173,6 +206,17 @@ main.right-panel-collapsed {
   margin-bottom: 12px;
 }
 
+.gate-input-label {
+  display: block;
+  margin: 10px 0 4px;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
+.interaction-panel .gate input.invalid {
+  border-color: var(--danger);
+}
+
 .threshold-reference,
 .threshold-recommendation,
 .threshold-rationale {
@@ -228,7 +272,8 @@ main.right-panel-collapsed .evidence-pane {
   overflow: hidden;
 }
 
-main.right-panel-collapsed .evidence-head > div,
+main.right-panel-collapsed .evidence-head > div:first-child,
+main.right-panel-collapsed .agent-picker,
 main.right-panel-collapsed .composer,
 main.right-panel-collapsed .right-content {
   display: none;
@@ -577,6 +622,10 @@ tr.anomalous td {
 
 .plot {
   width: 100%;
+}
+
+#trend-plot {
+  height: 280px;
 }
 
 .spinner {

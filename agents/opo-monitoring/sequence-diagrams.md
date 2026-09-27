@@ -52,6 +52,12 @@ sequenceDiagram
     AF-->>Adaptor: Trend rows
     Adaptor-->>Runtime: Normalized trend evidence
 
+    opt Request did not ask for outliers
+        Runtime-->>CopilotFE: Trend review approval
+        Analyst->>CopilotFE: Continue to outlier detection
+        CopilotFE->>Runtime: Resume conversation
+    end
+
     Runtime->>Model: Interpret outlier criteria with established filters
     Model->>Runtime: Call get_distribution_stats (at most once)
     Runtime->>Adaptor: data_query.read_distribution_stats
@@ -61,8 +67,20 @@ sequenceDiagram
     Runtime-->>Model: Tool result
     Model-->>Runtime: Typed DetectionScope
 
+    opt No explicit threshold named
+        Runtime-->>CopilotFE: Suggested threshold approval
+        Analyst->>CopilotFE: Confirm threshold
+        CopilotFE->>Runtime: Resume conversation
+    end
+
     Runtime->>Agent: Run deterministic outlier analysis
     Agent-->>Runtime: Candidate outliers
+
+    Runtime->>Adaptor: data_query.read_metadata
+    Runtime->>Adaptor: data_query.preview_wafers
+    Adaptor->>AF: Read-only wafer preview
+    AF-->>Adaptor: Preview wafer rows
+    Adaptor-->>Runtime: Wafer preview evidence
 
     Runtime-->>CopilotService: Approval request
     CopilotService-->>CopilotFE: Approval action
@@ -91,6 +109,14 @@ sequenceDiagram
     Adaptor->>AF: Read wafer evidence
     AF-->>Adaptor: Wafer rows
     Adaptor-->>Runtime: Normalized wafer evidence
+
+    opt Anomalous wafers found
+        Runtime-->>CopilotFE: Spatial analysis approval
+        Analyst->>CopilotFE: Approve follow-up analysis
+        CopilotFE->>Runtime: Resume conversation
+        Runtime->>Agent: classify_spatial_pattern
+        Agent-->>Runtime: Spatial pattern evidence
+    end
 
     Runtime->>Model: Summarize supplied evidence
     Model-->>Runtime: Typed FindingsSummary

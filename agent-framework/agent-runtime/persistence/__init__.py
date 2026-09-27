@@ -1,6 +1,5 @@
-"""Internal conversation persistence for the Agent Runtime."""
+"""Conversation persistence errors mapped by the Runtime API."""
 
-from .conversation_store import ConversationStore
 from .persistence_models import (
     ConversationConflictError,
     ConversationNotFoundError,
@@ -9,15 +8,12 @@ from .persistence_models import (
     ConversationStoreError,
     InvalidConversationError,
 )
-from .sqlite_conversation_store import SQLiteConversationStore
 
 __all__ = [
     "ConversationConflictError",
     "ConversationNotFoundError",
     "ConversationRecord",
     "ConversationStatus",
-    "ConversationStore",
     "ConversationStoreError",
     "InvalidConversationError",
-    "SQLiteConversationStore",
 ]

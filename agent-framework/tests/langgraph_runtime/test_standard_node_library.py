@@ -243,6 +243,30 @@ def test_interrupt_node_uses_injected_interrupt_function() -> None:
     }
 
 
+def test_approval_interrupt_carries_its_approval_id() -> None:
+    node = StandardNodeLibrary(dependencies()).create(
+        NormalizedNode(
+            "approval",
+            "interrupt",
+            {
+                "approval_id": "investigate_outlier",
+                "payload": {"candidate": "$.candidate"},
+                "result_key": "approval",
+            },
+        )
+    )
+    result = run(node, {"candidate": "item-1"})
+    assert result == {
+        "approval": {
+            "decision": {
+                "type": "approval_required",
+                "approval_id": "investigate_outlier",
+                "payload": {"candidate": "item-1"},
+            },
+        }
+    }
+
+
 def test_unsupported_kind_is_rejected() -> None:
     with pytest.raises(UnsupportedNodeKindError):
         StandardNodeLibrary(dependencies()).create(

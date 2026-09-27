@@ -12,6 +12,7 @@ from .dependencies import get_runtime_service
 from .models import (
     ChatRequest,
     HealthResponse,
+    RegisteredAgentListModel,
     ResumeConversationRequest,
     RuntimeResponseModel,
 )
@@ -26,6 +27,24 @@ def health() -> HealthResponse:
     """Return a minimal liveness response."""
 
     return HealthResponse(status="ok")
+
+
+@router.get(
+    "/v1/applications/{application_id}/agents",
+    response_model=RegisteredAgentListModel,
+    response_model_by_alias=True,
+    tags=["agents"],
+)
+def list_registered_agents(
+    application_id: str,
+    service: Any = Depends(get_runtime_service),
+) -> RegisteredAgentListModel:
+    """List agents registered for one application."""
+
+    return RegisteredAgentListModel(
+        application_id=application_id,
+        agents=service.list_agents(application_id),
+    )
 
 
 @router.post(

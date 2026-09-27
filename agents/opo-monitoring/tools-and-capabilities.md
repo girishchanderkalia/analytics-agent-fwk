@@ -30,6 +30,42 @@ operations:
       analysis: ${result.analysis}
       outliers: ${result.outliers}
 
+  - id: analyse_trends_with_confirmed_threshold
+    server: opo-capability
+    tool: analyze_trends
+    version: "1"
+    owner: OPO Monitoring application
+    description: >
+      The same outlier rules, applied with the absolute threshold the analyst
+      confirmed or entered instead of the model's suggestion.
+
+    request:
+      series: ${state.trend_series}
+      mode: absolute
+      limit_value: ${state.confirmed_threshold}
+      direction: above
+      limit_unit: absolute
+
+    result:
+      analysis: ${result.analysis}
+      outliers: ${result.outliers}
+
+  - id: classify_spatial_pattern
+    server: opo-capability
+    tool: classify_spatial_pattern
+    version: "1"
+    owner: OPO Monitoring application
+    description: >
+      Application-owned radial classification of anomalous wafer points as
+      edge- or center-concentrated.
+
+    request:
+      rows: ${state.wafer_rows}
+      anomalous_wafer_ids: ${state.anomalous_wafers}
+
+    result:
+      spatial_pattern: ${result}
+
 capabilities:
   - id: data_query.read_trends
     operation: read_trends
@@ -80,6 +116,47 @@ capabilities:
 
     result:
       threshold_context: ${result}
+
+  - id: data_query.read_metadata
+    operation: read_metadata
+    server: analytics-foundation
+    tool: get_metadata
+    owner: Analytics Foundation
+    version: "1"
+
+    permissions:
+      - query:metadata:read
+
+    side_effect: false
+    approval_required: false
+
+    request: {}
+
+    result:
+      dataset_metadata: ${result}
+
+  - id: data_query.preview_wafers
+    operation: preview_wafers
+    server: analytics-foundation
+    tool: query_wafers
+    owner: Analytics Foundation
+    version: "1"
+
+    permissions:
+      - query:wafers:read
+
+    side_effect: false
+    approval_required: false
+
+    # Read-only preview before approval; no workspace is created.
+    request:
+      workspace_id: TREND_PREVIEW
+      table: ${state.dataset_metadata.wafer_table}
+      filters: {}
+
+    result:
+      wafer_rows: ${result.rows}
+      anomalous_wafers: ${result.anomalous_wafers}
 
   - id: workspace.create
     operation: create_workspace
@@ -178,6 +255,8 @@ Foundation API requests.
 | --- | --- | --- | --- |
 | Read OPO KPI trends | `data_query.read_trends` | No | No |
 | Read KPI distribution statistics (scope model tool) | `data_query.read_distribution_stats` | No | No |
+| Read dataset metadata | `data_query.read_metadata` | No | No |
+| Preview wafer data before approval | `data_query.preview_wafers` | No | No |
 | Create investigation workspace | `workspace.create` | Yes | No |
 | Apply workspace filters | `workspace.add_filters` | Yes | No |
 | Register wafer data | `workspace.register_dataset` | Yes | Yes |

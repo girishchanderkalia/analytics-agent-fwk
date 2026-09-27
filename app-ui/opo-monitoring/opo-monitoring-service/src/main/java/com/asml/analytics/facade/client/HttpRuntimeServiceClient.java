@@ -1,6 +1,7 @@
 package com.asml.analytics.facade.client;
 
 import com.asml.analytics.facade.dto.runtime.ChatRequest;
+import com.asml.analytics.facade.dto.runtime.RegisteredAgentList;
 import com.asml.analytics.facade.dto.runtime.ResumeRequest;
 import com.asml.analytics.facade.dto.runtime.RuntimeResponse;
 import java.util.concurrent.Callable;
@@ -26,6 +27,11 @@ public final class HttpRuntimeServiceClient implements RuntimeServiceClient {
     @Override
     public RuntimeResponse getConversation(String conversationId) {
         return call(() -> client.get().uri("/v1/conversations/{conversationId}", conversationId).retrieve().body(RuntimeResponse.class));
+    }
+
+    @Override
+    public RegisteredAgentList listAgents(String applicationId) {
+        return call(() -> client.get().uri("/v1/applications/{applicationId}/agents", applicationId).retrieve().body(RegisteredAgentList.class));
     }
 
     private <T> T call(Callable<T> action) {

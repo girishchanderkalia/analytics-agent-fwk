@@ -85,6 +85,13 @@ models:
         default: ""
         description: Short interpretation of the requested filters.
 
+      outliers_requested:
+        type: boolean
+        default: false
+        description: >
+          True when the request already asks for outliers, anomalies,
+          extreme values, or a threshold; false for a trend display request.
+
   DetectionScope:
     fields:
       mode:
@@ -184,6 +191,10 @@ prompts:
 
     When a value is not present, leave the corresponding field empty or null.
 
+    Set outliers_requested to true only when the request asks for outliers,
+    anomalies, extreme values, or names a threshold; otherwise set it to false
+    so the analyst can review the trend chart first.
+
   detection_scope: |
     Interpret the analyst's outlier request within the established trend filters.
     Do not re-extract or change those filters. A number with % is a percentage
@@ -230,6 +241,7 @@ evidence_labels:
   - registration
   - anomalous_wafers
   - wafer_rows
+  - spatial_pattern
 
 guardrails:
   - Do not access Analytics Foundation data stores directly.

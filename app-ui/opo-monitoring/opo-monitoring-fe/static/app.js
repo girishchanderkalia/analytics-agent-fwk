@@ -8,10 +8,12 @@ const findingsPanel = document.getElementById("findings-panel");
 const findingsContent = document.getElementById("findings-content");
 const mainLayout = document.querySelector("main");
 const toggleRightPanel = document.getElementById("toggle-right-panel");
+const agentSelect = document.getElementById("agent-select");
 
 let conversationId = null;
 let conversationVersion = null;
 let busy = false;
+let registeredAgents = [];
 
 function setRightPanelCollapsed(collapsed) {
   mainLayout.classList.toggle("right-panel-collapsed", collapsed);
@@ -202,6 +204,7 @@ function addNode(className, html) {
 function setBusy(value, label) {
   busy = value;
   sendBtn.disabled = value;
+  agentSelect.disabled = value || !registeredAgents.length;
   document.querySelectorAll(".gate-actions button").forEach((b) => (b.disabled = value));
   messageInput.disabled = value || !interactionPanel.hidden;
 
@@ -213,19 +216,24 @@ function setBusy(value, label) {
   }
 }
 
-// The runtime exposes one approval contract: approve or reject an investigation
-// for a candidate outlier chosen from the request payload.
+// Gate text comes from the agent package payload (question, details, labels);
+// an outlier selector is shown when the payload offers candidates.
 function renderGate(request) {
   const payload = request.payload || {};
   const candidates = payload.detected_outliers || [];
   const selected = payload.selected_outlier;
+  const details = Object.entries(payload.details || {})
+    .filter(([, value]) => value !== null && value !== undefined && value !== "");
 
-  const detail = selected
-    ? `Most extreme: <code>${escapeHtml(selected.machine)}</code> /
+  const detail = details.length
+    ? details.map(([label, value]) => `<div class="kv"><span>${escapeHtml(label)}</span><span>${
+        escapeHtml(Array.isArray(value) ? value.join(", ") : value)}</span></div>`).join("")
+    : selected
+      ? `Most extreme: <code>${escapeHtml(selected.machine)}</code> /
        <code>${escapeHtml(selected.product)}</code> &mdash;
        <code>${escapeHtml(selected.extreme_kpi_value)}</code> absolute OPO KPI,
        <code>${escapeHtml((selected.outlier_dates || []).length)}</code> marked points`
-    : "No candidate was preselected.";
+      : candidates.length ? "Select the candidate to investigate." : "";
 
   const selector = candidates.length
     ? `<select id="outlier-select" aria-label="Candidate outlier to investigate">${candidates
@@ -237,25 +245,50 @@ function renderGate(request) {
         </option>`).join("")}</select>`
     : "";
 
+  const field = payload.input;
+  const input = field?.name
+    ? `<label class="gate-input-label" for="gate-input">${escapeHtml(field.label || field.name)}</label>
+       <input id="gate-input" type="${field.type === "number" ? "number" : "text"}" step="any"
+         value="${escapeHtml(field.value ?? "")}" autocomplete="off" />`
+    : "";
+
   interactionPanel.hidden = false;
   interactionPanel.innerHTML = `
     <div class="gate">
       <div class="gate-label">Approval required</div>
-      <h3>${escapeHtml(gateQuestion(request))}</h3>
+      <h3>${escapeHtml(payload.question || gateQuestion(request))}</h3>
       <div class="gate-detail">${detail}</div>
       ${selector}
+      ${input}
       <div class="gate-actions">
-        <button data-action="approve">Investigate</button>
-        <button data-action="reject" class="reject">Reject</button>
+        <button data-action="approve">${escapeHtml(payload.approve_label || "Approve")}</button>
+        <button data-action="reject" class="reject">${escapeHtml(payload.reject_label || "Reject")}</button>
       </div>
     </div>`;
 
   const gate = interactionPanel;
   gate.querySelector('[data-action="approve"]').onclick = () => {
     const select = gate.querySelector("#outlier-select");
+    const values = {};
+    const inputEl = gate.querySelector("#gate-input");
+    if (inputEl) {
+      const raw = inputEl.value.trim();
+      if (field.type === "number") {
+        const number = Number(raw);
+        if (!raw || !Number.isFinite(number)) {
+          inputEl.focus();
+          inputEl.classList.add("invalid");
+          return;
+        }
+        values[field.name] = number;
+      } else {
+        values[field.name] = raw;
+      }
+    }
     resolveGate(gate, "Approved", {
       approved: true,
       selectedOutlierId: select?.value ?? null,
+      values,
     });
   };
   gate.querySelector('[data-action="reject"]').onclick = () =>
@@ -333,14 +366,23 @@ function renderEvidence(evidence) {
 
   if (evidence.wafer_rows?.length) {
     const anomalous = new Set(evidence.anomalous_wafers || []);
+    const wafers = new Map();
+    evidence.wafer_rows.forEach((r) => {
+      const key = `${r.lot_id ?? ""}\u0000${r.wafer_id}`;
+      const magnitude = Number(r.overlay_magnitude_um);
+      const wafer = wafers.get(key) || { lot: r.lot_id, wafer: r.wafer_id, points: 0, max: null };
+      wafer.points += 1;
+      if (Number.isFinite(magnitude)) wafer.max = wafer.max === null ? magnitude : Math.max(wafer.max, magnitude);
+      wafers.set(key, wafer);
+    });
     html += `<div class="card"><h3>Wafers</h3><table>
-      <tr><th>Wafer</th><th>Overlay X</th><th>Overlay Y</th><th>Magnitude</th></tr>
-      ${evidence.wafer_rows.map((r) => `
-        <tr class="${anomalous.has(r.wafer_id) ? "anomalous" : ""}">
-          <td>${escapeHtml(r.wafer_id)}</td>
-          <td>${escapeHtml(r.overlay_x_um)}</td>
-          <td>${escapeHtml(r.overlay_y_um)}</td>
-          <td>${escapeHtml(r.overlay_magnitude_um)}</td>
+      <tr><th>Lot</th><th>Wafer</th><th>Points</th><th>Max magnitude</th></tr>
+      ${[...wafers.values()].map((w) => `
+        <tr class="${anomalous.has(w.wafer) ? "anomalous" : ""}">
+          <td>${escapeHtml(w.lot)}</td>
+          <td>${escapeHtml(w.wafer)}</td>
+          <td>${escapeHtml(w.points)}</td>
+          <td>${escapeHtml(w.max === null ? "" : w.max.toFixed(4))}</td>
         </tr>`).join("")}
     </table></div>`;
   }
@@ -356,6 +398,17 @@ function renderEvidence(evidence) {
   }
 
   if (html) evidencePane.innerHTML = html;
+}
+
+function effectiveScope(evidence) {
+  const scope = evidence.detection_scope || {};
+  return evidence.confirmed_threshold == null ? scope : {
+    ...scope,
+    mode: "absolute",
+    limit_value: evidence.confirmed_threshold,
+    direction: "above",
+    threshold_unit: "absolute",
+  };
 }
 
 function ruleLabel(scope) {
@@ -378,7 +431,7 @@ function renderTrendChart(evidence) {
 
   drawPlot(evidence.outliers, selected);
 
-  const scope = evidence.detection_scope || {};
+  const scope = effectiveScope(evidence);
   if (!scope.mode) return;
   const rule = ruleLabel(scope);
 
@@ -402,6 +455,7 @@ function renderWaferMap(evidence) {
   if (!rows.length) {
     noteEl.textContent = "No wafer data";
     Plotly.purge(plotEl);
+    plotEl.style.height = "";
     return;
   }
 
@@ -595,6 +649,8 @@ function renderWaferMap(evidence) {
 
   const totalWafers = [...waferIdsPerLot.values()].reduce((n, ids) => n + ids.length, 0);
   noteEl.textContent = `${rows.length} point measurements across ${totalWafers} wafer${totalWafers === 1 ? "" : "s"} in ${lotIds.length} lot${lotIds.length === 1 ? "" : "s"}`;
+  // Responsive Plotly sizes to its div, so the div must carry the layout height.
+  plotEl.style.height = `${waferLayout.height}px`;
   Plotly.react(plotEl, traces, waferLayout, PLOT_CONFIG);
 }
 
@@ -609,13 +665,17 @@ function handleResponse(runtime) {
   renderWaferMap(evidence);
   renderEvidence(evidence);
 
-  const scope = evidence.detection_scope || {};
-  if (scope.mode && !timeline.querySelector(".msg.status.rule")) {
-    const badge = scope.mode === "absolute" ? "Absolute limit" : "Per-machine baseline";
+  const scope = effectiveScope(evidence);
+  if (scope.mode) {
+    const pending = evidence.confirmed_threshold == null && scope.suggested_limit_value != null
+      && runtime.approvalRequest?.approval_id === "confirm_suggested_threshold";
+    const badge = pending ? "Suggested limit" : scope.mode === "absolute" ? "Absolute limit" : "Per-machine baseline";
     const interpretation = evidence.trend_filters?.interpretation;
-    addNode("msg status rule",
-      `<strong>${badge}</strong>: marking points ${escapeHtml(ruleLabel(scope))}` +
-      (interpretation ? `<br><span class="interpretation">${escapeHtml(interpretation)}</span>` : ""));
+    const html = `<strong>${badge}</strong>: marking points ${escapeHtml(ruleLabel(scope))}` +
+      (interpretation ? `<br><span class="interpretation">${escapeHtml(interpretation)}</span>` : "");
+    const existing = timeline.querySelector(".msg.status.rule");
+    if (existing) existing.innerHTML = html;
+    else addNode("msg status rule", html);
   }
 
   if (runtime.approvalRequest) {
@@ -684,11 +744,15 @@ document.getElementById("composer").onsubmit = (event) => {
   evidencePane.innerHTML = '<div class="empty-state small"><p>No evidence yet.</p></div>';
   drawPlot(null, null);
   addNode("msg user", escapeHtml(message));
-  send(() => window.OpoBff.startChat(message), "Analysing trends\u2026");
+  send(() => window.OpoBff.startChat(message, registeredAgents[agentSelect.selectedIndex]), "Analysing trends\u2026");
 };
 
 toggleRightPanel.onclick = () => {
   setRightPanelCollapsed(!mainLayout.classList.contains("right-panel-collapsed"));
+  ["trend-plot", "wafer-plot"].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el.data) Plotly.Plots.resize(el);
+  });
 };
 
 document.getElementById("reopen-btn").onclick = async () => {
@@ -711,4 +775,20 @@ document.getElementById("reopen-btn").onclick = async () => {
   }
 };
 
+async function loadAgents() {
+  try {
+    registeredAgents = await window.OpoBff.listAgents();
+  } catch (err) {
+    registeredAgents = [];
+    agentSelect.title = `Could not load agents: ${err.message}`;
+  }
+  agentSelect.innerHTML = registeredAgents.length
+    ? registeredAgents
+        .map((a) => `<option title="${escapeHtml(a.description)}">${escapeHtml(a.displayName || a.agentId)} (v${escapeHtml(a.version)})</option>`)
+        .join("")
+    : "<option>No agents registered</option>";
+  agentSelect.disabled = busy || !registeredAgents.length;
+}
+
+loadAgents();
 loadTrends();

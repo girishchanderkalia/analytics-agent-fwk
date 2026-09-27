@@ -45,10 +45,18 @@ window.OpoBff = {
     return response.series || [];
   },
 
-  startChat(message) {
+  async listAgents() {
+    const response = await requestJson(
+      `/api/applications/${encodeURIComponent(APPLICATION_ID)}/agents`,
+    );
+    return response.agents || [];
+  },
+
+  startChat(message, agent) {
     return postJson("/api/investigations/chat", {
       applicationId: APPLICATION_ID,
-      agentId: AGENT_ID,
+      agentId: agent?.agentId || AGENT_ID,
+      agentVersion: agent?.version ?? null,
       message,
       applicationContext: { source: "opo-monitoring-fe" },
     });

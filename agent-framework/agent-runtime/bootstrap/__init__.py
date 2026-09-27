@@ -1,15 +1,15 @@
 """Runtime bootstrap adapters."""
 
 from .model_gateway_adapter import (
+    AsyncPlatformModelGateway,
     ModelGatewayBootstrapError,
     ModelGatewayResponseError,
-    PlatformModelGateway,
-    create_model_gateway,
+    create_async_model_gateway,
 )
 
 __all__ = [
+    "AsyncPlatformModelGateway",
     "ModelGatewayBootstrapError",
     "ModelGatewayResponseError",
-    "PlatformModelGateway",
-    "create_model_gateway",
+    "create_async_model_gateway",
 ]

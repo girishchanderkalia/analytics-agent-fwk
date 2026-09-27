@@ -100,16 +100,6 @@ run_python_suite \
   "$ROOT_DIR/app-ui/opo-monitoring/opo-monitoring-service/opo-deterministic-logic/src"
 
 run_python_suite \
-  'OPO agent package' \
-  'app-ui/opo-monitoring/agent' \
-  "$ROOT_DIR/app-ui/opo-monitoring/agent"
-
-run_python_suite \
-  'OPO response compatibility' \
-  'app-ui/opo-monitoring/opo-monitoring-service/opo-response-compatibility' \
-  "$ROOT_DIR/app-ui/opo-monitoring/opo-monitoring-service/opo-response-compatibility/src"
-
-run_python_suite \
   'OPO capability service' \
   'app-ui/opo-monitoring/opo-monitoring-service/opo-capability-service' \
   "$ROOT_DIR/app-ui/opo-monitoring/opo-monitoring-service/opo-capability-service/src:$ROOT_DIR/app-ui/opo-monitoring/opo-monitoring-service/opo-deterministic-logic/src"
@@ -132,12 +122,7 @@ run_python_suite \
 run_python_suite \
   'Agent framework components' \
   'agent-framework' \
-  "$ROOT_DIR/agent-framework/agent-runtime"
-
-run_python_suite \
-  'Agent registration bootstrap' \
-  'agent-framework/agent-registration-bootstrap' \
-  "$ROOT_DIR/agent-framework/agent-registration-bootstrap/src"
+  "$ROOT_DIR:$ROOT_DIR/agent-framework/agent-runtime"
 
 printf '\n== OPO Java BFF ==\n'
 (

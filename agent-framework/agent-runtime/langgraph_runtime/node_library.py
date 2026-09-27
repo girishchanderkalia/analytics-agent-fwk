@@ -221,9 +221,16 @@ class StandardNodeLibrary:
             self.dependencies.interrupt_function
             or _langgraph_interrupt
         )
+        approval_id = definition.config.get("approval_id")
 
         async def interrupt_node(state: dict[str, Any]) -> dict[str, Any]:
             resolved_payload = _resolve_value(payload, state)
+            if isinstance(approval_id, str) and approval_id.strip():
+                resolved_payload = {
+                    "type": "approval_required",
+                    "approval_id": approval_id.strip(),
+                    "payload": resolved_payload,
+                }
             decision = interrupt_function(resolved_payload)
             decision = await _maybe_await(decision)
             updates = {result_key: decision}

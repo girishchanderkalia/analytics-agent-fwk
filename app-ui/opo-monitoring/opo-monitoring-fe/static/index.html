@@ -47,8 +47,16 @@
           <h2>Evidence &amp; result</h2>
           <p class="hint">Read from graph state, not model output.</p>
         </div>
-        <button id="toggle-right-panel" class="ghost panel-toggle" type="button"
-          aria-label="Minimize interaction and evidence panel" title="Minimize panel">&rarr;</button>
+        <div class="evidence-head-actions">
+          <div class="agent-picker">
+            <label for="agent-select">Agent</label>
+            <select id="agent-select" disabled>
+              <option>Loading&hellip;</option>
+            </select>
+          </div>
+          <button id="toggle-right-panel" class="ghost panel-toggle" type="button"
+            aria-label="Minimize interaction and evidence panel" title="Minimize panel">&rarr;</button>
+        </div>
       </div>
       <div class="right-content">
         <div id="timeline" class="timeline">

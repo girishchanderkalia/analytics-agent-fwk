@@ -14,7 +14,8 @@ trap cleanup EXIT
 required=(
   MODEL_GATEWAY_ENDPOINT
   MODEL_GATEWAY_MODEL
-  ANALYTICS_FOUNDATION_BASE_URL
+  ANALYTICS_FOUNDATION_MCP_URL
+  OPO_CAPABILITY_MCP_URL
 )
 
 for name in "${required[@]}"; do
@@ -30,12 +31,12 @@ docker run --rm -d \
   --name "${CONTAINER_NAME}" \
   -p "${HOST_PORT}:8000" \
   -v "$(pwd)/runtime-data:/app/runtime-data" \
-  -e AGENT_RUNTIME_REPOSITORY_ROOT=/app \
   -e AGENT_RUNTIME_DATABASE_PATH=/app/runtime-data/conversations.sqlite \
   -e MODEL_GATEWAY_ENDPOINT \
   -e MODEL_GATEWAY_MODEL \
   -e MODEL_GATEWAY_API_KEY \
-  -e ANALYTICS_FOUNDATION_BASE_URL \
+  -e ANALYTICS_FOUNDATION_MCP_URL \
+  -e OPO_CAPABILITY_MCP_URL \
   "${IMAGE_NAME}:${IMAGE_TAG}"
 
 python - <<PYTHON

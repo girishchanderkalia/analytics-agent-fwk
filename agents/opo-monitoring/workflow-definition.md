@@ -18,6 +18,21 @@ nodes:
     capability: data_query.read_trends
     activity: Reading OPO KPI trends
 
+  - id: review_trends
+    type: approval
+    approval: continue_to_outlier_detection
+    decision_field: outlier_detection_requested
+    decision_fields:
+      outlier_detection_requested: approved
+    payload:
+      question: Trend chart ready. Continue to outlier detection?
+      approve_label: Detect outliers
+      reject_label: Stop here
+      details:
+        Filters: ${state.trend_filters.interpretation}
+      trend_filters: ${state.trend_filters}
+    activity: Waiting for the analyst to review the trend chart
+
   - id: interpret_detection_scope
     type: model
     prompt: detection_scope
@@ -35,10 +50,48 @@ nodes:
       - trend_filters
     activity: Interpreting the outlier criteria
 
+  - id: confirm_threshold
+    type: approval
+    approval: confirm_suggested_threshold
+    decision_field: threshold_confirmed
+    decision_fields:
+      threshold_confirmed: approved
+      confirmed_threshold: limit_value
+    payload:
+      question: Apply the suggested absolute OPO KPI threshold, or enter your own?
+      approve_label: Apply threshold
+      reject_label: Cancel
+      details:
+        Suggested threshold: ${state.detection_scope.suggested_limit_value}
+        Direction: ${state.detection_scope.direction}
+        Rationale: ${state.detection_scope.suggested_limit_rationale}
+      input:
+        name: limit_value
+        label: Absolute OPO KPI threshold
+        type: number
+        value: ${state.detection_scope.suggested_limit_value}
+      detection_scope: ${state.detection_scope}
+    activity: Waiting for threshold confirmation
+
+  - id: analyse_trends_with_confirmed_threshold
+    type: operation
+    operation: analyse_trends_with_confirmed_threshold
+    activity: Identifying candidate outliers
+
   - id: analyse_trends
     type: operation
     operation: analyse_trends
     activity: Identifying candidate outliers
+
+  - id: read_metadata
+    type: capability
+    capability: data_query.read_metadata
+    activity: Resolving the wafer dataset
+
+  - id: preview_wafers
+    type: capability
+    capability: data_query.preview_wafers
+    activity: Previewing wafer-level data
 
   - id: approve_investigation
     type: approval
@@ -49,6 +102,9 @@ nodes:
       selected_outlier: selected_outlier_id
     selection_from: outliers
     payload:
+      question: Investigate the selected outlier?
+      approve_label: Investigate
+      reject_label: Reject
       detected_outliers: ${state.outliers}
       selected_outlier: ${state.selected_outlier}
     activity: Waiting for investigation approval
@@ -73,6 +129,26 @@ nodes:
     capability: data_query.read_wafers
     activity: Reading wafer-level evidence
 
+  - id: offer_spatial_analysis
+    type: approval
+    approval: analyse_spatial_pattern
+    decision_field: spatial_analysis_approved
+    decision_fields:
+      spatial_analysis_approved: approved
+    payload:
+      question: Analyse the spatial pattern of the anomalous wafers?
+      approve_label: Analyse pattern
+      reject_label: Skip to findings
+      details:
+        Anomalous wafers: ${state.anomalous_wafers}
+      anomalous_wafers: ${state.anomalous_wafers}
+    activity: Waiting for the follow-up action
+
+  - id: classify_spatial_pattern
+    type: operation
+    operation: classify_spatial_pattern
+    activity: Classifying the anomalous wafer spatial pattern
+
   - id: summarize_findings
     type: model
     prompt: findings_summary
@@ -82,11 +158,13 @@ nodes:
       - question
       - trend_filters
       - detection_scope
+      - confirmed_threshold
       - outliers
       - selected_outlier
       - workspace
       - registration
       - anomalous_wafers
+      - spatial_pattern
     activity: Preparing evidence-based findings
 
 edges:
@@ -94,12 +172,27 @@ edges:
     to: read_trends
 
   - from: read_trends
+    to: review_trends
+
+  - from: review_trends
     to: interpret_detection_scope
 
   - from: interpret_detection_scope
     to: analyse_trends
 
+  - from: confirm_threshold
+    to: analyse_trends_with_confirmed_threshold
+
   - from: analyse_trends
+    to: read_metadata
+
+  - from: analyse_trends_with_confirmed_threshold
+    to: read_metadata
+
+  - from: read_metadata
+    to: preview_wafers
+
+  - from: preview_wafers
     to: approve_investigation
 
   - from: approve_investigation
@@ -115,6 +208,12 @@ edges:
     to: read_wafers
 
   - from: read_wafers
+    to: offer_spatial_analysis
+
+  - from: offer_spatial_analysis
+    to: classify_spatial_pattern
+
+  - from: classify_spatial_pattern
     to: summarize_findings
 
   - from: summarize_findings
@@ -122,11 +221,39 @@ edges:
 
 routing:
   defaults:
-    analyse_trends: approve_investigation
+    read_trends: review_trends
+    review_trends: interpret_detection_scope
+    interpret_detection_scope: analyse_trends
+    confirm_threshold: analyse_trends_with_confirmed_threshold
+    analyse_trends: read_metadata
+    analyse_trends_with_confirmed_threshold: read_metadata
     approve_investigation: create_workspace
+    read_wafers: offer_spatial_analysis
+    offer_spatial_analysis: classify_spatial_pattern
 
   conditions:
+    # A first message that already asks for outliers skips the trend review pause.
+    - from: read_trends
+      when: "trend_filters.outliers_requested == true"
+      to: interpret_detection_scope
+
+    - from: review_trends
+      when: "outlier_detection_requested == false"
+      to: END
+
+    - from: interpret_detection_scope
+      when: "detection_scope.suggested_limit_value != null"
+      to: confirm_threshold
+
+    - from: confirm_threshold
+      when: "threshold_confirmed == false"
+      to: END
+
     - from: analyse_trends
+      when: "outliers == []"
+      to: summarize_findings
+
+    - from: analyse_trends_with_confirmed_threshold
       when: "outliers == []"
       to: summarize_findings
 
@@ -134,7 +261,39 @@ routing:
       when: "investigation_approved == false"
       to: END
 
+    - from: read_wafers
+      when: "anomalous_wafers == []"
+      to: summarize_findings
+
+    - from: offer_spatial_analysis
+      when: "spatial_analysis_approved == false"
+      to: summarize_findings
+
 approvals:
+  - id: continue_to_outlier_detection
+    required: true
+    decision_field: outlier_detection_requested
+    title: Continue to outlier detection
+    description: >
+      The trend chart is ready. Approve to detect outliers within the
+      displayed filters.
+
+  - id: confirm_suggested_threshold
+    required: true
+    decision_field: threshold_confirmed
+    title: Confirm suggested threshold
+    description: >
+      No explicit threshold was given. Approve the absolute OPO KPI cutoff
+      recommended from the empirical distribution statistics.
+
+  - id: analyse_spatial_pattern
+    required: true
+    decision_field: spatial_analysis_approved
+    title: Analyse wafer spatial pattern
+    description: >
+      Classify the anomalous wafer points as edge- or center-concentrated
+      before the findings are summarized.
+
   - id: investigate_outlier
     required: true
     decision_field: investigation_approved
@@ -146,27 +305,27 @@ approvals:
 
 # OPO Monitoring Investigation Workflow
 
-The workflow contains four logical stages.
+The workflow contains five analyst-facing steps. Each rejection ends the
+investigation before any later side effect runs.
 
-## 1. Interpret the request
+## 1. Display trends
 
-The model extracts trend filters and the requested outlier criteria into typed
-contracts.
+The model extracts trend filters and the runtime reads the trend series. When
+the request did not already ask for outliers, the runtime pauses so the analyst
+can review the trend chart before continuing to outlier detection.
 
-## 2. Read and analyse trends
+## 2. Interpret and confirm the outlier threshold
 
-The runtime invokes the trend-query capability and then runs deterministic
-application logic to identify candidate outliers.
+The model interprets the outlier criteria within the established filters. When
+no explicit threshold was named, it recommends a cutoff grounded in the
+distribution statistics and the runtime pauses for the analyst to confirm it.
 
-The language model does not decide which trend rows satisfy the deterministic
-outlier rule.
+## 3. Select an outlier to investigate
 
-## 3. Request analyst approval
-
-If candidate outliers exist, the runtime pauses and asks the analyst whether
-the selected candidate should be investigated.
-
-A rejected decision ends the investigation without creating a workspace.
+Deterministic application logic identifies candidate outliers. The language
+model does not decide which trend rows satisfy the outlier rule. A read-only
+wafer preview is loaded, then the runtime pauses for the analyst to approve the
+investigation of a selected candidate.
 
 ## 4. Perform the deep investigation
 
@@ -176,7 +335,12 @@ After approval, the runtime:
 2. Applies the selected filters.
 3. Registers the required wafer-level data.
 4. Reads wafer-level evidence.
-5. Produces an evidence-based findings summary.
+
+## 5. Follow-up analysis and findings
+
+When anomalous wafers exist, the runtime offers the wafer spatial-pattern
+analysis. The findings summary is produced afterwards so it can cite the
+spatial pattern when the analyst requested it.
 
 ## Observability
 

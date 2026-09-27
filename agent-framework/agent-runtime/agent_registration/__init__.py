@@ -18,7 +18,6 @@ from .markdown_validator import (
     MarkdownAgentPackageRegistrationValidator,
     fingerprint_markdown_package,
 )
-from .package_validator import GenericAgentPackageRegistrationValidator, fingerprint_agent_package
 from .service import AgentRegistrationService, AgentRegistrationValidator
 
 __all__ = [
@@ -32,10 +31,8 @@ __all__ = [
     "AgentRegistrationValidator",
     "BulkAgentRegistrationRequest",
     "BulkAgentRegistrationResult",
-    "GenericAgentPackageRegistrationValidator",
     "InMemoryAgentRegistrationCatalog",
     "MarkdownAgentPackageRegistrationValidator",
     "RegistrationStatus",
-    "fingerprint_agent_package",
     "fingerprint_markdown_package",
 ]

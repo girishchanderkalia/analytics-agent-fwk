@@ -12,6 +12,7 @@ import threading
 from typing import Any
 from uuid import uuid4
 
+from execution.definition_loader import load_agent_definition
 from host.runtime_models import (
     ChatCommand,
     ConversationStateError,
@@ -142,6 +143,22 @@ class LangGraphConversationService:
 
     def get_conversation(self, conversation_id: str) -> RuntimeResponse:
         return _response(self._metadata(conversation_id))
+
+    def list_agents(self, application_id: str) -> list[dict[str, Any]]:
+        agents = []
+        for record in self.catalog.list_for_application(application_id):
+            bundle = load_agent_definition(record.definition_root)
+            agents.append(
+                {
+                    "agent_id": record.key.agent_id,
+                    "version": record.key.version,
+                    "display_name": bundle.display_name,
+                    "description": str(
+                        bundle.agent.metadata.get("description") or ""
+                    ).strip(),
+                }
+            )
+        return agents
 
     def _initial_state(
         self,

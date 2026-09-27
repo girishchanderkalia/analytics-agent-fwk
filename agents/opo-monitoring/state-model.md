@@ -120,6 +120,38 @@ fields:
     type: optional_string
     default: null
     description: Current execution error when workflow processing fails.
+
+  outlier_detection_requested:
+    type: boolean
+    default: false
+    description: Whether the analyst continued from the trend chart to outlier detection.
+
+  threshold_confirmed:
+    type: boolean
+    default: false
+    description: Whether the analyst accepted the suggested absolute OPO KPI threshold.
+
+  confirmed_threshold:
+    type: optional_float
+    default: null
+    description: >
+      Absolute OPO KPI threshold the analyst confirmed or entered in place of
+      the suggested value.
+
+  dataset_metadata:
+    type: object
+    default: null
+    description: Dataset and table names published by Analytics Foundation.
+
+  spatial_analysis_approved:
+    type: boolean
+    default: false
+    description: Whether the analyst requested the wafer spatial-pattern analysis.
+
+  spatial_pattern:
+    type: object
+    default: null
+    description: Edge-versus-center classification of anomalous wafer points.
 ---
 
 # OPO Monitoring State Model
@@ -146,11 +178,19 @@ stateDiagram-v2
     [*] --> RequestReceived
     RequestReceived --> FiltersParsed
     FiltersParsed --> TrendsLoaded
-    TrendsLoaded --> DetectionScopeInterpreted
-    DetectionScopeInterpreted --> OutliersAnalysed
+    TrendsLoaded --> TrendReview: trend display request
+    TrendsLoaded --> DetectionScopeInterpreted: outliers requested
+    TrendReview --> Cancelled: rejected
+    TrendReview --> DetectionScopeInterpreted: approved
+
+    DetectionScopeInterpreted --> ThresholdConfirmation: suggested threshold
+    DetectionScopeInterpreted --> OutliersAnalysed: explicit threshold
+    ThresholdConfirmation --> Cancelled: rejected
+    ThresholdConfirmation --> OutliersAnalysed: approved
 
     OutliersAnalysed --> Findings: no candidate outliers
-    OutliersAnalysed --> InvestigationApproval: candidate found
+    OutliersAnalysed --> WaferPreviewLoaded: candidate found
+    WaferPreviewLoaded --> InvestigationApproval
 
     InvestigationApproval --> Cancelled: rejected
     InvestigationApproval --> WorkspaceCreated: approved
@@ -158,7 +198,11 @@ stateDiagram-v2
     WorkspaceCreated --> FiltersApplied
     FiltersApplied --> DataRegistered
     DataRegistered --> WaferEvidenceLoaded
-    WaferEvidenceLoaded --> Findings
+    WaferEvidenceLoaded --> Findings: no anomalous wafers
+    WaferEvidenceLoaded --> SpatialAnalysisOffer: anomalous wafers
+    SpatialAnalysisOffer --> SpatialPatternClassified: approved
+    SpatialAnalysisOffer --> Findings: declined
+    SpatialPatternClassified --> Findings
 
     Findings --> [*]
     Cancelled --> [*]
@@ -179,6 +223,7 @@ The following state fields may be cited as evidence:
 - `registration`
 - `anomalous_wafers`
 - `wafer_rows`
+- `spatial_pattern`
 
 The `findings` field is an output derived from evidence. The `findings` field is
 not independent source evidence.

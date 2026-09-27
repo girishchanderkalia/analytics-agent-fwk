@@ -82,6 +82,35 @@ class FakeRuntimeService:
             result={"outliers": [{"id": "outlier-1"}]},
         )
 
+    def list_agents(self, application_id: str) -> list[dict[str, Any]]:
+        return [
+            {
+                "agent_id": "opo-monitoring-agent",
+                "version": "1.0",
+                "display_name": "OPO Monitoring Agent",
+                "description": "Investigates OPO trends.",
+            }
+        ]
+
+
+def test_list_registered_agents_for_application() -> None:
+    response = TestClient(create_app(FakeRuntimeService())).get(
+        "/v1/applications/opo-monitoring/agents"
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "applicationId": "opo-monitoring",
+        "agents": [
+            {
+                "agentId": "opo-monitoring-agent",
+                "version": "1.0",
+                "displayName": "OPO Monitoring Agent",
+                "description": "Investigates OPO trends.",
+            }
+        ],
+    }
+
 
 def test_health_endpoint() -> None:
     response = TestClient(create_app(FakeRuntimeService())).get("/health")

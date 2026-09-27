@@ -14,8 +14,7 @@ Keep these boundaries clear: deterministic application data access is not agent 
 
 ## Repository Map
 
-- `agent-framework/agent-runtime/`: runtime APIs, LangGraph execution, agent registration/composition, workflow definitions/loaders, MCP tool registry, persistence, and runtime services.
-- `agent-framework/agent-registration-bootstrap/`: loads and validates application-agent packages and their MCP tool references.
+- `agent-framework/agent-runtime/`: runtime APIs, LangGraph execution, markdown agent registration and translation, MCP tool registry, conversation metadata persistence, and runtime bootstrap. The only runtime entry point is `runtime_api.langgraph_main:app`.
 - `agents/`: example declarative agent packages, including OPO Monitoring.
 - `analytics-foundation/analytics-foundation-api/`: deployable Analytics Foundation REST service.
 - `analytics-foundation/analytics-foundation-client/`: reusable typed HTTP client for Foundation APIs.
@@ -29,5 +28,5 @@ Keep these boundaries clear: deterministic application data access is not agent 
 - Follow the existing service boundaries and public HTTP contracts. Use the appropriate runtime client for agent conversations and the Foundation client for deterministic application data needs.
 - Keep agent-specific workflow and capability behavior in the agent package and framework/runtime abstractions, rather than embedding it in the UI BFF.
 - When changing MCP-backed behavior, preserve tool identity, discovery/registration, schema validation, and the agent's declared allowlist.
-- This repository contains compatibility layers and older runtime abstractions alongside the registered LangGraph path. Before changing execution behavior, trace the active composition and API entry point; do not assume similarly named legacy or test-only components are the production path.
+- The runtime has a single execution path: `runtime_api.langgraph_main:app` → `bootstrap.langgraph_runtime_composition` → `LangGraphConversationService` → LangGraph. Do not reintroduce parallel engines or composition layers; extend this path instead.
 - Prefer focused unit tests for a component change and black-box integration tests when changing a cross-service contract.
