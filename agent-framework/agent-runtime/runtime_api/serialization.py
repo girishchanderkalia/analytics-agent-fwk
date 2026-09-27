@@ -43,6 +43,7 @@ def runtime_response(response: Any) -> RuntimeResponseModel:
     return RuntimeResponseModel(
         conversation_id=response.conversation_id,
         agent_id=response.agent_id,
+        agent_version=getattr(response, "agent_version", None),
         status=str(plain_value(response.status)),
         version=response.version,
         result=plain_value(response.result),

@@ -3,6 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 export SLICE13K_ROOT_DIR="$ROOT_DIR"
+source "$ROOT_DIR/scripts/load-env.sh" "$ROOT_DIR/.env"
 RUN_DIR="${SLICE13K_RUN_DIR:-$ROOT_DIR/.run/slice13k}"
 LAUNCHER_LOG="$RUN_DIR/integration-launcher.log"
 
@@ -87,6 +88,7 @@ if [[ ! -f "$stamp" || "$(<"$stamp")" != "$dependency_hash" ]] || ! "$PYTHON_BIN
     -e "$ROOT_DIR/app-ui/opo-monitoring/opo-monitoring-service/opo-capability-service" \
     -e "$ROOT_DIR/app-ui/opo-monitoring/opo-monitoring-service/opo-deterministic-logic" \
     -e "$ROOT_DIR/agent-framework/integration-tests"
+  "$PYTHON_BIN" -m playwright install chromium
   printf '%s\n' "$dependency_hash" > "$stamp"
 fi
 export PYTHON_BIN

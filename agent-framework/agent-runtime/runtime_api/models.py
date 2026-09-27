@@ -5,19 +5,29 @@ from __future__ import annotations
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
+from pydantic.alias_generators import to_camel
 
 
 class StrictApiModel(BaseModel):
-    """Base model that rejects undeclared transport fields."""
+    """Base model that rejects undeclared transport fields.
 
-    model_config = ConfigDict(extra="forbid")
+    The wire format is camelCase; field names stay snake_case internally.
+    """
+
+    model_config = ConfigDict(
+        extra="forbid",
+        alias_generator=to_camel,
+        populate_by_name=True,
+    )
 
 
 class ChatRequest(StrictApiModel):
     """Start a new persisted agent conversation."""
 
+    application_id: str = Field(min_length=1)
     agent_id: str = Field(min_length=1)
     message: str = Field(min_length=1)
+    agent_version: str | None = None
     user_id: str | None = None
     application_context: dict[str, Any] = Field(default_factory=dict)
 
@@ -35,8 +45,14 @@ class ResumeConversationRequest(StrictApiModel):
 class RuntimeResponseModel(BaseModel):
     """Application-facing persisted runtime response."""
 
+    model_config = ConfigDict(
+        alias_generator=to_camel,
+        populate_by_name=True,
+    )
+
     conversation_id: str
     agent_id: str
+    agent_version: str | None = None
     status: str
     version: int
     result: dict[str, Any]

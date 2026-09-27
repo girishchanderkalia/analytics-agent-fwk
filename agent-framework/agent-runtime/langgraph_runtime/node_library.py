@@ -172,12 +172,44 @@ class StandardNodeLibrary:
             resolved_payload = _resolve_value(payload, state)
             decision = interrupt_function(resolved_payload)
             decision = await _maybe_await(decision)
-            return {result_key: decision}
+            updates = {result_key: decision}
+            decision_fields = definition.config.get("decision_fields", {})
+            if isinstance(decision_fields, Mapping) and isinstance(decision, Mapping):
+                for field, decision_key in decision_fields.items():
+                    if not isinstance(field, str) or not isinstance(decision_key, str):
+                        continue
+                    value = decision.get(decision_key)
+                    if field == "selected_outlier" and isinstance(value, str):
+                        candidates = state.get(
+                            definition.config.get("selection_from", "outliers"),
+                            [],
+                        )
+                        value = next(
+                            (
+                                item for item in candidates
+                                if isinstance(item, Mapping)
+                                and item.get("id") == value
+                            ),
+                            None,
+                        )
+                    updates[field] = value
+            return updates
 
         return interrupt_node
 
 
 def _model_input(config: Mapping[str, Any], state: Mapping[str, Any]) -> str:
+    # A node may declare the state it needs: evidence collections can be far
+    # larger than a model context window.
+    fields = config.get("inputs")
+    if isinstance(fields, list) and fields:
+        return str(
+            {
+                name: state[name]
+                for name in fields
+                if isinstance(name, str) and name in state
+            }
+        )
     input_path = config.get("input")
     if input_path is None:
         return str(state.get("messages", state))

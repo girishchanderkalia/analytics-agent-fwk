@@ -51,9 +51,9 @@ def adaptor() -> AnalyticsFoundationAdaptor:
     client.register(
         "read_trends",
         lambda request: {
-            "rows": [
+            "series": [
                 {
-                    "filters": request["filters"],
+                    "days": request["days"],
                     "value": 10,
                 }
             ]
@@ -61,10 +61,18 @@ def adaptor() -> AnalyticsFoundationAdaptor:
     )
 
     client.register(
+        "read_distribution_stats",
+        lambda request: {
+            "sample_count": 1,
+            "p95": 9.5,
+            "p99": 10.0,
+        },
+    )
+
+    client.register(
         "create_workspace",
         lambda request: {
-            "id": "workspace-1",
-            "purpose": request["purpose"],
+            "workspace_id": "workspace-1",
         },
     )
 
@@ -109,6 +117,7 @@ def test_registers_all_declared_capabilities(
     adaptor: AnalyticsFoundationAdaptor,
 ) -> None:
     assert adaptor.registry.names() == [
+        "data_query.read_distribution_stats",
         "data_query.read_trends",
         "data_query.read_wafers",
         "workspace.add_filters",
@@ -131,6 +140,12 @@ def test_invokes_trend_capability(
         {
             "trend_filters": {
                 "lookback_days": 7,
+                "start_date": None,
+                "end_date": None,
+                "lot_ids": [],
+                "product_ids": [],
+                "layer_ids": [],
+                "exposure_equipment_ids": [],
             }
         },
         context=context,
@@ -139,9 +154,7 @@ def test_invokes_trend_capability(
     assert updates == {
         "trend_series": [
             {
-                "filters": {
-                    "lookback_days": 7,
-                },
+                "days": 7,
                 "value": 10,
             }
         ]
@@ -157,7 +170,15 @@ def test_missing_permission_is_rejected(
         adaptor.invoke(
             "data_query.read_trends",
             {
-                "trend_filters": {},
+                "trend_filters": {
+                    "lookback_days": None,
+                    "start_date": None,
+                    "end_date": None,
+                    "lot_ids": [],
+                    "product_ids": [],
+                    "layer_ids": [],
+                    "exposure_equipment_ids": [],
+                },
             },
         )
 
@@ -173,20 +194,13 @@ def test_workspace_creation_maps_result(
 
     updates = adaptor.invoke(
         "workspace.create",
-        {
-            "selected_outlier": {
-                "lot_id": "LOT-1",
-            }
-        },
+        {},
         context=context,
     )
 
     assert updates == {
         "workspace": {
-            "id": "workspace-1",
-            "purpose": (
-                "opo-monitoring-investigation"
-            ),
+            "workspace_id": "workspace-1",
         }
     }
 
@@ -208,7 +222,7 @@ def test_registration_requires_approval(
             "workspace.register_dataset",
             {
                 "workspace": {
-                    "id": "workspace-1",
+                    "workspace_id": "workspace-1",
                 }
             },
             context=context,
@@ -229,7 +243,7 @@ def test_registration_runs_after_approval(
         "workspace.register_dataset",
         {
             "workspace": {
-                "id": "workspace-1",
+                "workspace_id": "workspace-1",
             }
         },
         context=context,

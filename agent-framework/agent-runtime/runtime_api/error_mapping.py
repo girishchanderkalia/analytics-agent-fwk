@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from fastapi import FastAPI, Request
@@ -21,6 +22,8 @@ from persistence.persistence_models import (
 )
 
 from .dependencies import RuntimeServiceUnavailableError
+
+logger = logging.getLogger(__name__)
 
 
 def error_response(
@@ -116,7 +119,6 @@ def install_error_handlers(app: FastAPI) -> None:
         request: Request,
         exc: RequestValidationError,
     ) -> JSONResponse:
-        del request
         details = [
             {
                 "location": list(error.get("loc", ())),
@@ -125,6 +127,12 @@ def install_error_handlers(app: FastAPI) -> None:
             }
             for error in exc.errors()
         ]
+        logger.warning(
+            "Rejected %s %s: %s",
+            request.method,
+            request.url.path,
+            details,
+        )
         return error_response(
             422,
             "request_validation_error",

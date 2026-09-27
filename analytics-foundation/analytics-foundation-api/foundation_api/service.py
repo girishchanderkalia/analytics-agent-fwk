@@ -57,7 +57,25 @@ class FoundationService:
   if request.workspace_id!="TREND_PREVIEW":self._workspace(request.workspace_id)
   rows=[]
   for raw in self.repo.wafer_rows():
-   if any(str(raw.get(k,""))!=str(v) for k,v in request.filters.items() if v is not None):continue
-   row=dict(raw);x=float(row.get("overlay_x_um",row.get("overlay_x",0)) or 0);y=float(row.get("overlay_y_um",row.get("overlay_y",0)) or 0);row.setdefault("overlay_magnitude_um",round(sqrt(x*x+y*y),4));rows.append(row)
+   row=_identified_wafer_row(raw)
+   if any(str(row.get(k,""))!=str(v) for k,v in request.filters.items() if v is not None):continue
+   x=float(row.get("overlay_x_um",row.get("overlay_x",0)) or 0);y=float(row.get("overlay_y_um",row.get("overlay_y",0)) or 0);row.setdefault("overlay_magnitude_um",round(sqrt(x*x+y*y),4));rows.append(row)
   anomalous=list(dict.fromkeys(str(r.get("wafer_id")) for r in rows if r.get("wafer_id") and float(r.get("overlay_magnitude_um",0))>.20))
   return WaferQueryResponse(workspace_id=request.workspace_id,table=request.table,rows=rows,anomalous_wafers=anomalous)
+
+# Wafer source columns are fully qualified; expose the identity the contract names.
+_WAFER_IDENTITY={
+ "wafer_id":("wafer_id","waferId","exposureprocessjob_waferexposureprocessjob_waferid"),
+ "lot_id":("lot_id","lotId","exposureprocessjob_lotid"),
+ "layer_id":("layer_id","layerId","measureprocessjob_layerid"),
+ "exposure_equipment_id":("exposure_equipment_id","exposureEquipmentId","machine","exposureprocessjob_equipment_equipmentid"),
+}
+
+def _identified_wafer_row(raw:dict)->dict:
+ row=dict(raw)
+ for name,candidates in _WAFER_IDENTITY.items():
+  if row.get(name) is not None:continue
+  for candidate in candidates:
+   value=raw.get(candidate)
+   if value is not None:row[name]=value;break
+ return row

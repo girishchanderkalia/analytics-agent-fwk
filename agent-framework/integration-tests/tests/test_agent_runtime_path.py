@@ -16,6 +16,7 @@ from e2e.assertions import assert_no_runtime_internals, assert_runtime_response
 
 def chat_request(settings, message: str) -> dict:
     request = {
+        "applicationId": settings.application_id,
         "agentId": settings.agent_id,
         "message": message,
         "userId": "e2e-test-user",
@@ -35,7 +36,7 @@ def require_model_backed_run(settings) -> None:
 def test_chat_requires_agent_id_and_message(client, settings):
     response = client.post(
         settings.bff_url + "/api/investigations/chat",
-        {"agentId": "  ", "message": ""},
+        {"applicationId": "  ", "agentId": "  ", "message": ""},
     )
 
     assert response.status_code == 400

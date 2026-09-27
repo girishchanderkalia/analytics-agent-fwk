@@ -22,6 +22,7 @@ class ConversationStore(Protocol):
         current_node: str | None = None,
         pending_approval: Mapping[str, Any] | None = None,
         conversation_id: str | None = None,
+        agent_version: str | None = None,
     ) -> ConversationRecord:
         """Create and persist a conversation."""
         ...

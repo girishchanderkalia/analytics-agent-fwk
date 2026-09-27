@@ -1,5 +1,6 @@
 """Analytics Foundation client contracts and implementations."""
 
+from .http_client import HttpAnalyticsFoundationClient
 from .in_memory_client import (
     AnalyticsFoundationClientError,
     AnalyticsFoundationInvalidResultError,
@@ -19,5 +20,6 @@ __all__ = [
     "AnalyticsFoundationOperationNotFoundError",
     "AnalyticsFoundationRequest",
     "AnalyticsFoundationResponse",
+    "HttpAnalyticsFoundationClient",
     "InMemoryAnalyticsFoundationClient",
 ]

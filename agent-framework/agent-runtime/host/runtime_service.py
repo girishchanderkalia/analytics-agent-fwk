@@ -75,6 +75,7 @@ class RuntimeService:
         self.agent_repository = agent_repository
         self.conversation_store = conversation_store
         self.engine_factory = engine_factory
+        self._agent_versions: dict[str, str | None] = {}
 
     def start_chat(self, command: ChatCommand) -> RuntimeResponse:
         """Start, execute, and persist a new agent conversation."""
@@ -94,6 +95,7 @@ class RuntimeService:
         record = self.conversation_store.create(
             conversation_id=conversation_id,
             agent_id=_bundle_agent_id(bundle),
+            agent_version=_bundle_version(bundle),
             state=execution_result.state,
             status=_conversation_status(execution_result.status),
             current_node=execution_result.current_node,
@@ -205,8 +207,18 @@ class RuntimeService:
 
         return supplied
 
-    @staticmethod
-    def _to_response(record: ConversationRecord) -> RuntimeResponse:
+    def _agent_version(self, agent_id: str) -> str | None:
+        """Resolve the declared version of an agent, if it still resolves."""
+
+        if agent_id not in self._agent_versions:
+            try:
+                bundle = self._load_agent(agent_id)
+            except Exception:
+                return None
+            self._agent_versions[agent_id] = _bundle_version(bundle)
+        return self._agent_versions[agent_id]
+
+    def _to_response(self, record: ConversationRecord) -> RuntimeResponse:
         """Create a public response without runtime-internal identifiers."""
 
         public_result = _public_result(record.state)
@@ -214,6 +226,11 @@ class RuntimeService:
         return RuntimeResponse(
             conversation_id=record.conversation_id,
             agent_id=record.agent_id,
+            # Conversations created before the column existed carry no version.
+            agent_version=(
+                record.agent_version
+                or self._agent_version(record.agent_id)
+            ),
             status=record.status.value,
             version=record.version,
             result=public_result,
@@ -245,6 +262,11 @@ def _conversation_status(status: ExecutionStatus) -> ConversationStatus:
         raise ConversationStateError(
             f"Unsupported execution status: {status!r}"
         ) from exc
+
+
+def _bundle_version(bundle: Any) -> str | None:
+    version = getattr(bundle, "version", None)
+    return str(version) if version is not None else None
 
 
 def _approval_as_dict(approval: Any) -> dict[str, Any] | None:

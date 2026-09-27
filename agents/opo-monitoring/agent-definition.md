@@ -46,7 +46,9 @@ models:
       lookback_days:
         type: optional_int
         default: null
-        description: Relative lookback period in days.
+        description: >
+          Relative lookback period in days. Leave null unless the analyst names
+          a period; a guessed window hides older evidence.
 
       start_date:
         type: optional_string

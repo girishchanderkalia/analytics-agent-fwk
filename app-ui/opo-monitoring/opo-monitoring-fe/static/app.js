@@ -1,6 +1,6 @@
 const timeline = document.getElementById("timeline");
 const evidencePane = document.getElementById("evidence");
-const threadInput = document.getElementById("thread-input");
+const conversationInput = document.getElementById("conversation-input");
 const messageInput = document.getElementById("message-input");
 const sendBtn = document.getElementById("send-btn");
 const interactionPanel = document.getElementById("interaction-panel");
@@ -9,8 +9,8 @@ const findingsContent = document.getElementById("findings-content");
 const mainLayout = document.querySelector("main");
 const toggleRightPanel = document.getElementById("toggle-right-panel");
 
-let threadId = null;
-let threadVersion = null;
+let conversationId = null;
+let conversationVersion = null;
 let busy = false;
 
 function setRightPanelCollapsed(collapsed) {
@@ -213,98 +213,59 @@ function setBusy(value, label) {
   }
 }
 
+// The runtime exposes one approval contract: approve or reject an investigation
+// for a candidate outlier chosen from the request payload.
 function renderGate(request) {
-  const isConfirm = request.type === "confirm_investigation";
-  const isThreshold = request.type === "clarify_absolute_threshold";
-  const isSelectAction = request.type === "select_next_action";
-  const isAwaitCommand = request.type === "await_next_command";
+  const payload = request.payload || {};
+  const candidates = payload.detected_outliers || [];
+  const selected = payload.selected_outlier;
 
-  let detail;
-  let selector = "";
+  const detail = selected
+    ? `Most extreme: <code>${escapeHtml(selected.machine)}</code> /
+       <code>${escapeHtml(selected.product)}</code> &mdash;
+       <code>${escapeHtml(selected.extreme_kpi_value)}</code> absolute OPO KPI,
+       <code>${escapeHtml((selected.outlier_dates || []).length)}</code> marked points`
+    : "No candidate was preselected.";
 
-  if (isConfirm) {
-    const c = request.candidate;
-    const extreme = c.extreme_kpi_value;
-    const unit = " absolute OPO KPI";
-    detail = `Most extreme: <code>${escapeHtml(c.machine)}</code> /
-      <code>${escapeHtml(c.product)}</code> &mdash;
-      <code>${escapeHtml(extreme)}</code>${unit},
-      <code>${escapeHtml(c.outlier_dates.length)}</code> marked points`;
-    selector = `<select id="outlier-select">${request.all_outliers
-      .map((o) => `<option value="${escapeHtml(o.machine)}">
-        ${escapeHtml(o.machine)} / ${escapeHtml(o.product)} — ${escapeHtml(o.extreme_kpi_value)} absolute OPO KPI
-      </option>`).join("")}</select>`;
-  } else if (isThreshold) {
-    detail = `<div class="threshold-reference">Reference values: P95 <code>${escapeHtml(request.p95)}</code>
-      &middot; P99 <code>${escapeHtml(request.p99)}</code></div>
-      <div class="threshold-recommendation">Model recommendation: use absolute cutoff
-      <code>${escapeHtml(request.suggested_limit_value)}</code></div>
-      <div class="threshold-rationale">${escapeHtml(request.rationale || "")}</div>`;
-    selector = `<input id="threshold-input" type="number" min="0" step="0.001"
-      value="${escapeHtml(request.suggested_limit_value)}" aria-label="Selected absolute OPO KPI cutoff" />`;
-  } else if (isSelectAction) {
-    detail = `Pick one of the model's own recommended next actions, or end the investigation here.`;
-    selector = `<select id="next-action-select">${request.options
-      .map((opt) => `<option value="${escapeHtml(opt)}">${escapeHtml(opt)}</option>`)
-      .join("")}</select>`;
-  } else if (isAwaitCommand) {
-    detail = `<code>${escapeHtml(request.series_count)}</code> series &middot;
-      <code>${escapeHtml(request.point_count)}</code> points shown above.`;
-    selector = `<input id="next-command-input" type="text"
-      placeholder="e.g. show outliers, show outliers above 3, or refine the filters"
-      aria-label="What would you like to do next?" />`;
-  } else {
-    detail = "";
-  }
+  const selector = candidates.length
+    ? `<select id="outlier-select" aria-label="Candidate outlier to investigate">${candidates
+        .map((candidate) => `<option value="${escapeHtml(candidate.id)}"${
+          selected && candidate.id === selected.id ? " selected" : ""
+        }>
+          ${escapeHtml(candidate.machine)} / ${escapeHtml(candidate.product)} —
+          ${escapeHtml(candidate.extreme_kpi_value)} absolute OPO KPI
+        </option>`).join("")}</select>`
+    : "";
 
   interactionPanel.hidden = false;
   interactionPanel.innerHTML = `
     <div class="gate">
-      <div class="gate-label">Agent response required</div>
-      <h3>${escapeHtml(request.question)}</h3>
+      <div class="gate-label">Approval required</div>
+      <h3>${escapeHtml(gateQuestion(request))}</h3>
       <div class="gate-detail">${detail}</div>
       ${selector}
       <div class="gate-actions">
-        <button data-action="approve">${isSelectAction || isAwaitCommand ? "Continue" : "Use selected cutoff"}</button>
-        ${isSelectAction || isAwaitCommand ? "" : '<button data-action="reject" class="reject">Reject</button>'}
+        <button data-action="approve">Investigate</button>
+        <button data-action="reject" class="reject">Reject</button>
       </div>
     </div>`;
-  const gate = interactionPanel;
 
+  const gate = interactionPanel;
   gate.querySelector('[data-action="approve"]').onclick = () => {
-    if (isThreshold) {
-      const input = gate.querySelector("#threshold-input");
-      const value = Number(input?.value);
-      if (!Number.isFinite(value) || value < 0) {
-        input?.focus();
-        return;
-      }
-      resolveGate(gate, "Cutoff approved", { approved: true, limit_value: value });
-      return;
-    }
-    if (isSelectAction) {
-      const select = gate.querySelector("#next-action-select");
-      resolveGate(gate, "Selected", { action: select?.value });
-      return;
-    }
-    if (isAwaitCommand) {
-      const input = gate.querySelector("#next-command-input");
-      const value = input?.value.trim();
-      if (!value) {
-        input?.focus();
-        return;
-      }
-      addNode("msg user", escapeHtml(value));
-      resolveGate(gate, "Sent", { message: value });
-      return;
-    }
-    const select = document.getElementById("outlier-select");
-    const decision = { approved: true };
-    if (isConfirm && select) decision.machine = select.value;
-    resolveGate(gate, "Approved", decision);
+    const select = gate.querySelector("#outlier-select");
+    resolveGate(gate, "Approved", {
+      approved: true,
+      selectedOutlierId: select?.value ?? null,
+    });
   };
-  gate.querySelector('[data-action="reject"]')?.addEventListener("click", () =>
-    resolveGate(gate, "Rejected", { approved: false }));
+  gate.querySelector('[data-action="reject"]').onclick = () =>
+    resolveGate(gate, "Rejected", { approved: false });
+}
+
+function gateQuestion(request) {
+  return request.approval_id === "investigate_outlier"
+    ? "Investigate the selected outlier?"
+    : `Approval required: ${request.approval_id}`;
 }
 
 function resolveGate(gateNode, label, decision) {
@@ -315,20 +276,26 @@ function resolveGate(gateNode, label, decision) {
   if (select) select.disabled = true;
   const input = gateNode.querySelector("input");
   if (input) input.disabled = true;
-  send(() => window.OpoBff.resume(threadId, decision, threadVersion), "Continuing investigation\u2026");
+  send(
+    () => window.OpoBff.resume(conversationId, decision, conversationVersion),
+    "Continuing investigation\u2026",
+  );
 }
 
 function renderEvidence(evidence) {
   if (!evidence) return;
   let html = "";
 
+  const filters = evidence.trend_filters || {};
+  const list = (values) => (values || []).join(", ");
   const scope = [
-    ["Range", evidence.lookback_days ? `Last ${evidence.lookback_days} days` : null],
-    ["Machine", evidence.machine_id],
-    ["Lot", evidence.lot_id],
-    ["Product", evidence.product_id],
-    ["Layer", evidence.layer_id],
-    ["Exposure equipment", evidence.exposure_equipment_id],
+    ["Range", filters.lookback_days ? `Last ${filters.lookback_days} days` : null],
+    ["From", filters.start_date],
+    ["To", filters.end_date],
+    ["Lots", list(filters.lot_ids)],
+    ["Products", list(filters.product_ids)],
+    ["Layers", list(filters.layer_ids)],
+    ["Exposure equipment", list(filters.exposure_equipment_ids)],
   ].filter(([, value]) => value);
   if (scope.length) {
     html += `<div class="card"><h3>Scope</h3>${scope
@@ -345,20 +312,23 @@ function renderEvidence(evidence) {
     </div>`;
   }
 
-  if (evidence.workspace_id) {
+  if (evidence.workspace?.workspace_id) {
     html += `<div class="card"><h3>Workspace</h3>
-      <div class="kv"><span>ID</span><span>${escapeHtml(evidence.workspace_id)}</span></div>
-      ${Object.entries(evidence.filters || {}).map(([k, v]) =>
+      <div class="kv"><span>ID</span><span>${escapeHtml(evidence.workspace.workspace_id)}</span></div>
+      ${Object.entries(evidence.applied_filters || {}).map(([k, v]) =>
         `<div class="kv"><span>${escapeHtml(k)}</span><span>${escapeHtml(v)}</span></div>`).join("")}
     </div>`;
   }
 
-  if (evidence.registration_history?.length) {
-    html += `<div class="card"><h3>Registration</h3>${evidence.registration_history
-      .map((s) => `<div class="step">
-        <span class="dot ${s.status === "READY" ? "done" : ""}"></span>
-        <span>${escapeHtml(s.status)} — ${escapeHtml(s.progress_pct)}%</span>
-      </div>`).join("")}</div>`;
+  if (evidence.registration) {
+    const registration = evidence.registration;
+    html += `<div class="card"><h3>Registration</h3>
+      <div class="step">
+        <span class="dot ${registration.status === "READY" ? "done" : ""}"></span>
+        <span>${escapeHtml(registration.status)} — ${escapeHtml(registration.progress_pct)}%</span>
+      </div>
+      <div class="kv"><span>Table</span><span>${escapeHtml(registration.table)}</span></div>
+    </div>`;
   }
 
   if (evidence.wafer_rows?.length) {
@@ -388,8 +358,14 @@ function renderEvidence(evidence) {
   if (html) evidencePane.innerHTML = html;
 }
 
-function ruleLabel(evidence) {
-  const { mode, limit_value: limit, direction, baseline_deviation_pct: deviation, threshold_unit: unit } = evidence;
+function ruleLabel(scope) {
+  const {
+    mode,
+    limit_value: limit,
+    direction,
+    baseline_deviation_pct: deviation,
+    threshold_unit: unit,
+  } = scope;
   return mode === "absolute"
     ? `${direction} ${limit}${unit === "percent" ? "% from baseline" : " absolute OPO KPI"}`
     : `more than ${deviation}% above each machine's own baseline`;
@@ -402,15 +378,16 @@ function renderTrendChart(evidence) {
 
   drawPlot(evidence.outliers, selected);
 
-  if (!evidence.mode) return;
-  const rule = ruleLabel(evidence);
+  const scope = evidence.detection_scope || {};
+  if (!scope.mode) return;
+  const rule = ruleLabel(scope);
 
   if (!evidence.outliers?.length) {
     note.textContent = `No points ${rule}`;
     return;
   }
 
-  const points = evidence.outliers.reduce((n, o) => n + o.outlier_dates.length, 0);
+  const points = evidence.outliers.reduce((n, o) => n + (o.outlier_dates || []).length, 0);
   note.innerHTML = `<span class="ring-key"></span>${points} points ${rule},
      across ${evidence.outliers.length} series`;
 }
@@ -621,48 +598,62 @@ function renderWaferMap(evidence) {
   Plotly.react(plotEl, traces, waferLayout, PLOT_CONFIG);
 }
 
-function handleResponse(data) {
-  threadId = data.thread_id;
-  threadVersion = data.version ?? null;
-  threadInput.value = threadId;
-  if (data.evidence?.trend_series) trendSeries = data.evidence.trend_series;
-  renderTrendChart(data.evidence);
-  renderWaferMap(data.evidence);
-  renderEvidence(data.evidence);
+function handleResponse(runtime) {
+  conversationId = runtime.conversationId;
+  conversationVersion = runtime.version ?? null;
+  conversationInput.value = conversationId ?? "";
 
-  const firstResponse =
-    data.request?.type === "confirm_investigation" || data.status === "no_outliers";
-  if (firstResponse && data.evidence?.mode) {
-    const { mode, limit_value: used, requested_limit_value: asked, interpretation } =
-      data.evidence;
-    const adjusted = mode === "absolute" && data.evidence.threshold_unit === "percent" && asked != null && asked !== used;
-    const badge = mode === "absolute" ? "Absolute limit" : "Per-machine baseline";
-    addNode("msg status",
-      `<strong>${badge}</strong>: marking points ${escapeHtml(ruleLabel(data.evidence))}` +
-      (adjusted ? ` (requested <code>${escapeHtml(asked)}</code>)` : "") +
+  const evidence = runtime.result || {};
+  if (evidence.trend_series) trendSeries = evidence.trend_series;
+  renderTrendChart(evidence);
+  renderWaferMap(evidence);
+  renderEvidence(evidence);
+
+  const scope = evidence.detection_scope || {};
+  if (scope.mode && !timeline.querySelector(".msg.status.rule")) {
+    const badge = scope.mode === "absolute" ? "Absolute limit" : "Per-machine baseline";
+    const interpretation = evidence.trend_filters?.interpretation;
+    addNode("msg status rule",
+      `<strong>${badge}</strong>: marking points ${escapeHtml(ruleLabel(scope))}` +
       (interpretation ? `<br><span class="interpretation">${escapeHtml(interpretation)}</span>` : ""));
   }
 
-  if (data.status === "awaiting_human") {
-    renderGate(data.request);
-  } else if (data.status === "no_outliers") {
-    interactionPanel.hidden = true;
-    findingsPanel.hidden = true;
-    addNode("msg agent", `<span class="badge ready">No outliers</span>
-      <p>No points fall ${escapeHtml(ruleLabel(data.evidence))}.</p>`);
-  } else if (data.status === "cancelled") {
-    interactionPanel.hidden = true;
+  if (runtime.approvalRequest) {
+    renderGate(runtime.approvalRequest);
+    return;
+  }
+
+  interactionPanel.hidden = true;
+
+  if (runtime.status === "cancelled") {
     findingsPanel.hidden = true;
     addNode("msg agent", `<span class="badge cancelled">Cancelled</span>
-      <p>Investigation stopped at <code>${escapeHtml(data.cancelled_at)}</code>.
+      <p>Investigation stopped${evidence.cancelled_at
+        ? ` at <code>${escapeHtml(evidence.cancelled_at)}</code>` : ""}.
       No downstream resources were provisioned.</p>`);
-  } else if (data.status === "complete") {
-    interactionPanel.hidden = true;
-    renderFindingsPanel(data.findings);
-    addNode("msg agent", `<span class="badge ready">Complete</span>
-      ${data.findings?.finding ? renderStructuredFindings(data.findings) :
-        `<div class="findings">${renderMarkdown(data.findings || "")}</div>`}`);
+    return;
   }
+
+  if (runtime.status === "failed") {
+    findingsPanel.hidden = true;
+    addNode("msg agent", `<span class="badge cancelled">Failed</span>
+      <p>The agent could not complete this investigation.</p>`);
+    return;
+  }
+
+  if (runtime.status !== "completed") return;
+
+  if (!(evidence.outliers || []).length) {
+    findingsPanel.hidden = true;
+    addNode("msg agent", `<span class="badge ready">No outliers</span>
+      <p>No points fall ${escapeHtml(scope.mode ? ruleLabel(scope) : "outside the detection rule")}.</p>`);
+    return;
+  }
+
+  renderFindingsPanel(evidence.findings);
+  addNode("msg agent", `<span class="badge ready">Complete</span>
+    ${evidence.findings?.finding ? renderStructuredFindings(evidence.findings) :
+      `<div class="findings">${renderMarkdown(evidence.findings || "")}</div>`}`);
 }
 
 async function send(call, busyLabel) {
@@ -682,9 +673,8 @@ document.getElementById("composer").onsubmit = (event) => {
   if (busy) return;
   const message = messageInput.value.trim();
   if (!message) return;
-  const useToolCalling = document.getElementById("tool-calling-toggle").checked;
-  threadId = null;
-  threadVersion = null;
+  conversationId = null;
+  conversationVersion = null;
   timeline.innerHTML = "";
   interactionPanel.hidden = true;
   interactionPanel.innerHTML = "";
@@ -694,49 +684,23 @@ document.getElementById("composer").onsubmit = (event) => {
   evidencePane.innerHTML = '<div class="empty-state small"><p>No evidence yet.</p></div>';
   drawPlot(null, null);
   addNode("msg user", escapeHtml(message));
-  send(() => window.OpoBff.startChat(message, useToolCalling), "Analysing trends\u2026");
+  send(() => window.OpoBff.startChat(message), "Analysing trends\u2026");
 };
 
 toggleRightPanel.onclick = () => {
   setRightPanelCollapsed(!mainLayout.classList.contains("right-panel-collapsed"));
 };
 
-document.getElementById("reopen-btn").onclick = async () => {  const id = threadInput.value.trim();
+document.getElementById("reopen-btn").onclick = async () => {
+  const id = conversationInput.value.trim();
   if (!id || busy) return;
   setBusy(true, "Reopening investigation…");
   try {
-    const data = await window.OpoBff.getConversation(id);
-    threadId = id;
-    threadVersion = data.version ?? null;
+    const runtime = await window.OpoBff.getConversation(id);
     timeline.innerHTML = "";
-    const evidence = {
-      mode: data.values?.mode,
-      limit_value: data.values?.limit_value,
-      direction: data.values?.direction,
-      baseline_deviation_pct: data.values?.baseline_deviation_pct,
-      lookback_days: data.values?.lookback_days,
-      machine_id: data.values?.machine_id,
-      lot_id: data.values?.lot_id,
-      product_id: data.values?.product_id,
-      layer_id: data.values?.layer_id,
-      exposure_equipment_id: data.values?.exposure_equipment_id,
-      trend_series: data.values?.trend_series,
-      analysis: data.values?.analysis,
-      outliers: data.values?.outliers,
-      selected_outlier: data.values?.selected,
-      workspace_id: data.values?.workspace_id,
-      filters: data.values?.filters,
-      registration_history: data.values?.registration_history,
-      wafer_rows: data.values?.wafer_data?.rows,
-      anomalous_wafers: data.values?.wafer_data?.anomalous_wafers,
-    };
-    renderEvidence(evidence);
-    renderTrendChart(evidence);
-    renderWaferMap(evidence);
-    addNode("msg status", `Reopened thread <code>${escapeHtml(id)}</code>`);
-    if (data.status === "awaiting_human") {
-      renderGate(data.request);
-    } else {
+    addNode("msg status", `Reopened conversation <code>${escapeHtml(id)}</code>`);
+    handleResponse(runtime);
+    if (!runtime.approvalRequest && runtime.status === "waiting_for_approval") {
       addNode("msg agent", "<p>This investigation has no pending decision.</p>");
     }
   } catch (err) {

@@ -12,20 +12,27 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 usage() {
   cat <<'USAGE'
-Usage: scripts/run-e2e-tests.sh [--with-agent] [pytest arguments...]
+Usage: scripts/run-e2e-tests.sh [--with-agent] [--ui-only] [pytest arguments...]
+
+Runs every end-to-end layer, including the Playwright browser tests that drive
+the OPO Monitoring UI on the BFF origin.
 
 Options:
-  --with-agent   Also run the model-backed chat tests. Requires a working
-                 model gateway configuration on the Agent Runtime.
+  --with-agent   Also run the model-backed tests, at both the HTTP and browser
+                 level. Requires a working model gateway configuration on the
+                 Agent Runtime.
+  --ui-only      Run only the browser tests.
   -h, --help     Show this message.
 
 Examples:
   scripts/run-e2e-tests.sh
   scripts/run-e2e-tests.sh -m deterministic
+  scripts/run-e2e-tests.sh --ui-only --headed
   scripts/run-e2e-tests.sh --with-agent -q
 
 Prerequisites: Python 3.13 or newer, a JDK, and Maven. Set PYTHON_BIN,
-JAVA_HOME, or MAVEN_BIN if any of them are not discoverable on PATH.
+JAVA_HOME, or MAVEN_BIN if any of them are not discoverable on PATH. The
+Chromium build used by the browser tests is installed automatically.
 USAGE
 }
 
@@ -34,6 +41,9 @@ for argument in "$@"; do
   case "$argument" in
     --with-agent)
       export RUN_AGENT_E2E=true
+      ;;
+    --ui-only)
+      pytest_args+=(-m ui)
       ;;
     -h | --help)
       usage

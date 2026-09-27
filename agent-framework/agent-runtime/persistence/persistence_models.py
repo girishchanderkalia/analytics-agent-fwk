@@ -48,6 +48,7 @@ class ConversationRecord:
     created_at: datetime
     updated_at: datetime
     version: int
+    agent_version: str | None = None
 
     @classmethod
     def create(
@@ -59,6 +60,7 @@ class ConversationRecord:
         current_node: str | None = None,
         pending_approval: Mapping[str, Any] | None = None,
         conversation_id: str | None = None,
+        agent_version: str | None = None,
     ) -> "ConversationRecord":
         """Create a new conversation record."""
 
@@ -115,6 +117,7 @@ class ConversationRecord:
             created_at=now,
             updated_at=now,
             version=1,
+            agent_version=agent_version,
         )
 
 

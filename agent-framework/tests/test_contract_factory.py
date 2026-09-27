@@ -292,7 +292,7 @@ def test_schema_contains_field_description(
 
     lookback_schema = schema["properties"]["lookback_days"]
 
-    assert lookback_schema["description"] == (
+    assert lookback_schema["description"].startswith(
         "Relative lookback period in days."
     )
 

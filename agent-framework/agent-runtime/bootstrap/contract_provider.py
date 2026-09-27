@@ -112,6 +112,33 @@ def create_contract_provider(bundle: Any) -> BundleContractProvider:
     return BundleContractProvider(bundle)
 
 
+@dataclass(frozen=True)
+class _DefinitionMetadata:
+    metadata: dict[str, Any]
+
+
+@dataclass(frozen=True)
+class _DefinitionBundle:
+    agent_id: str
+    version: str
+    agent: _DefinitionMetadata
+
+
+def create_contract_provider_for_definition(
+    definition: Any,
+) -> BundleContractProvider:
+    """Build contracts from the model declarations a definition carries."""
+
+    models = dict(definition.metadata.get("models", {}))
+    return BundleContractProvider(
+        _DefinitionBundle(
+            agent_id=definition.agent_id,
+            version=definition.version,
+            agent=_DefinitionMetadata({"models": models}),
+        )
+    )
+
+
 def _build_contracts(bundle: Any) -> dict[str, type[Any]]:
     models = _agent_metadata(bundle).get("models")
 

@@ -18,9 +18,17 @@ public class DownstreamClientConfiguration {
                         RestClient.Builder builder,
                         @Value("${downstream.runtime-service.base-url}") String baseUrl) {
 
+                SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
+
+                requestFactory.setConnectTimeout(5_000);
+                // Agent turns call a model and several governed tools, so this is
+                // far longer than a deterministic Foundation read.
+                requestFactory.setReadTimeout(300_000);
+
                 RestClient client = builder
                                 .clone()
                                 .baseUrl(baseUrl)
+                                .requestFactory(requestFactory)
                                 .build();
 
                 return new HttpRuntimeServiceClient(client);

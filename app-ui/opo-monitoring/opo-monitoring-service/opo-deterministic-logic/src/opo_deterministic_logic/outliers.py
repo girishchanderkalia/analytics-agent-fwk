@@ -58,8 +58,16 @@ def analyse_series(
         if values:
             extreme = max(values) if direction == "above" or mode == "baseline" else min(values)
         analysis.append({
+            # Series are split by machine, product, lot and layer, so all four
+            # are needed for an identifier that survives re-analysis.
+            "id": "::".join(
+                str(item.get(field) or "")
+                for field in ("machine", "product", "lot_id", "layer_id")
+            ),
             "machine": item.get("machine"),
             "product": item.get("product"),
+            "lot_id": item.get("lot_id"),
+            "layer_id": item.get("layer_id"),
             "baseline": round(baseline, 1),
             "limit_applied_value": round(applied, 2),
             "extreme_kpi_value": extreme,

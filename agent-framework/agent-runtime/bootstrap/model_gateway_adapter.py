@@ -62,7 +62,7 @@ class PlatformModelGateway:
             )
         except Exception as exc:
             raise ModelGatewayResponseError(
-                "The hosted model invocation failed"
+                f"The hosted model invocation failed: {exc}"
             ) from exc
 
         output = result.output
@@ -79,6 +79,44 @@ def create_model_gateway() -> PlatformModelGateway:
     """Create the framework-owned Model Gateway adapter."""
 
     return PlatformModelGateway(
+        model=_load_platform_model()
+    )
+
+
+class AsyncPlatformModelGateway(PlatformModelGateway):
+    """Await the hosted model from inside an already running event loop."""
+
+    async def invoke_structured(
+        self,
+        system_prompt: str,
+        input_text: str,
+        output_contract: type[Any],
+    ) -> Any:
+        agent = self.agent_factory(
+            model=self.model,
+            output_type=output_contract,
+            system_prompt=system_prompt,
+        )
+
+        try:
+            result = await agent.run(input_text)
+        except Exception as exc:
+            raise ModelGatewayResponseError(
+                f"The hosted model invocation failed: {exc}"
+            ) from exc
+
+        output = result.output
+
+        if hasattr(output, "model_dump"):
+            return output.model_dump(mode="python")
+
+        return output
+
+
+def create_async_model_gateway() -> AsyncPlatformModelGateway:
+    """Create the Model Gateway used by asynchronous graph execution."""
+
+    return AsyncPlatformModelGateway(
         model=_load_platform_model()
     )
 

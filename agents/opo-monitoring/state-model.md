@@ -39,6 +39,11 @@ fields:
     default: {}
     description: Selected outlier detection mode and threshold.
 
+  threshold_context:
+    type: object
+    default: null
+    description: Empirical KPI distribution context used for threshold interpretation.
+
   analysis:
     type: object_list
     default: []

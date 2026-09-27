@@ -35,6 +35,7 @@ class SQLiteConversationStore:
         current_node: str | None = None,
         pending_approval: Mapping[str, Any] | None = None,
         conversation_id: str | None = None,
+        agent_version: str | None = None,
     ) -> ConversationRecord:
         """Create and persist a conversation."""
 
@@ -45,6 +46,7 @@ class SQLiteConversationStore:
             current_node=current_node,
             pending_approval=pending_approval,
             conversation_id=conversation_id,
+            agent_version=agent_version,
         )
 
         with self._connect() as connection:
@@ -54,6 +56,7 @@ class SQLiteConversationStore:
                     INSERT INTO conversations (
                         conversation_id,
                         agent_id,
+                        agent_version,
                         status,
                         current_node,
                         state_json,
@@ -62,11 +65,12 @@ class SQLiteConversationStore:
                         updated_at,
                         version
                     )
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         record.conversation_id,
                         record.agent_id,
+                        record.agent_version,
                         record.status.value,
                         record.current_node,
                         _serialize(record.state),
@@ -95,6 +99,7 @@ class SQLiteConversationStore:
                 SELECT
                     conversation_id,
                     agent_id,
+                    agent_version,
                     status,
                     current_node,
                     state_json,
@@ -249,6 +254,7 @@ class SQLiteConversationStore:
                 CREATE TABLE IF NOT EXISTS conversations (
                     conversation_id TEXT PRIMARY KEY,
                     agent_id TEXT NOT NULL,
+                    agent_version TEXT NULL,
                     status TEXT NOT NULL,
                     current_node TEXT NULL,
                     state_json TEXT NOT NULL,
@@ -271,12 +277,29 @@ class SQLiteConversationStore:
                 ON conversations (status)
                 """
             )
+            self._add_missing_columns(connection)
+
+    @staticmethod
+    def _add_missing_columns(connection: sqlite3.Connection) -> None:
+        """Bring a database created before a column was introduced up to date."""
+
+        existing = {
+            row["name"]
+            for row in connection.execute(
+                "PRAGMA table_info(conversations)"
+            )
+        }
+        if "agent_version" not in existing:
+            connection.execute(
+                "ALTER TABLE conversations ADD COLUMN agent_version TEXT NULL"
+            )
 
 
 def _row_to_record(row: sqlite3.Row) -> ConversationRecord:
     return ConversationRecord(
         conversation_id=row["conversation_id"],
         agent_id=row["agent_id"],
+        agent_version=row["agent_version"],
         status=ConversationStatus(row["status"]),
         current_node=row["current_node"],
         state=_deserialize(row["state_json"]),

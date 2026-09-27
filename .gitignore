@@ -21,4 +21,7 @@ ai-enabled-analytics-v2/deploy/*.tar
 
 .run/
 
+# Local secrets and machine-specific overrides. Never commit; .env.example is the template.
+.env
+.env.local
 

@@ -37,6 +37,32 @@ class InMemoryAgentRegistrationCatalog:
                 if key.application_id == application_id
             )
 
+    def resolve(
+        self,
+        application_id: str,
+        agent_id: str,
+        version: str | None = None,
+    ) -> AgentRegistrationRecord:
+        """Resolve one registered agent owned by an application.
+
+        An application may register several agents and several versions, so
+        both identifiers are required; the latest version is used only when no
+        version is requested.
+        """
+
+        key = (application_id, agent_id)
+        with self._lock:
+            matches = [
+                record
+                for record_key, record in sorted(self._records.items())
+                if (record_key.application_id, record_key.agent_id) == key
+                and (version is None or record_key.version == version)
+            ]
+
+        if not matches:
+            raise KeyError(f"{application_id}/{agent_id}/{version or 'latest'}")
+        return matches[-1]
+
     def register_atomic(
         self,
         records: tuple[AgentRegistrationRecord, ...],

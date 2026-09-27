@@ -6,6 +6,7 @@ from collections.abc import Mapping
 from copy import deepcopy
 from typing import Any
 import ast
+import logging
 
 
 from .execution_context import ExecutionContext
@@ -22,6 +23,9 @@ from .expression_evaluator import (
     evaluate_condition,
 )
 from .node_executors import NodeExecutor
+
+
+log = logging.getLogger(__name__)
 
 
 class WorkflowEngine:
@@ -382,6 +386,10 @@ class WorkflowEngine:
             return self._completed_result(state)
 
         except Exception as exc:
+            log.exception(
+                "Workflow failed at node %r",
+                current_node,
+            )
             state["status"] = ExecutionStatus.FAILED.value
             state["failure_reason"] = type(exc).__name__
             state["error"] = {
@@ -738,15 +746,13 @@ class WorkflowEngine:
                 state.get("application_context", {})
             )
 
+        # wafer_rows and anomalous_wafers are not aliases: the first is the
+        # evidence, the second the identifiers flagged within it.
         if "wafer_rows" not in state:
-            state["wafer_rows"] = deepcopy(
-                state.get("anomalous_wafers", [])
-            )
+            state["wafer_rows"] = []
 
         if "anomalous_wafers" not in state:
-            state["anomalous_wafers"] = deepcopy(
-                state.get("wafer_rows", [])
-            )
+            state["anomalous_wafers"] = []
 
         if "pending_approval" not in state:
             state["pending_approval"] = deepcopy(
@@ -780,10 +786,6 @@ class WorkflowEngine:
             (
                 "application_context",
                 "conversation_context",
-            ),
-            (
-                "wafer_rows",
-                "anomalous_wafers",
             ),
             (
                 "pending_approval",

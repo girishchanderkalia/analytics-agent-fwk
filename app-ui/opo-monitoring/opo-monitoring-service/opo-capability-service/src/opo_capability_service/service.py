@@ -1,7 +1,7 @@
 from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
-from opo_deterministic_logic import analyse_series, classify_wafer_spatial_pattern, normalize_wafer_rows
+from opo_deterministic_logic import analyse_series, classify_wafer_spatial_pattern, detect_outliers, normalize_wafer_rows
 from .errors import CapabilityInputError, UnknownCapabilityError
 from .models import AnalyseTrendsRequest, ClassifySpatialPatternRequest, NormalizeWaferEvidenceRequest
 
@@ -10,8 +10,9 @@ class OpoCapabilityService:
         try:
             if name == "analyze_trends":
                 request=AnalyseTrendsRequest.model_validate(arguments)
-                analysis=analyse_series(request.series, mode=request.mode, limit_value=request.limit_value, direction=request.direction, baseline_deviation_pct=request.baseline_deviation_pct, limit_unit=request.limit_unit)
-                return {"analysis": analysis}
+                # A null value means the caller expressed no preference.
+                rules={"mode":request.mode or "baseline","limit_value":request.limit_value,"direction":request.direction or "below","baseline_deviation_pct":3.0 if request.baseline_deviation_pct is None else request.baseline_deviation_pct,"limit_unit":request.limit_unit or "percent"}
+                return {"analysis": analyse_series(request.series, **rules), "outliers": detect_outliers(request.series, **rules)}
             if name == "normalize_wafer_evidence":
                 request=NormalizeWaferEvidenceRequest.model_validate(arguments)
                 return normalize_wafer_rows(request.rows, filters=request.filters, anomaly_threshold_um=request.anomaly_threshold_um)

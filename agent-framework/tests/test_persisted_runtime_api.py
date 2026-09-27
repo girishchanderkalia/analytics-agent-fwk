@@ -94,6 +94,7 @@ def test_chat_creates_persisted_conversation() -> None:
     response = TestClient(create_app(service)).post(
         "/v1/chat",
         json={
+            "applicationId": "opo-monitoring",
             "agent_id": "opo-monitoring-agent",
             "message": "Show trends and outliers",
             "application_context": {"lookback_days": 30},
@@ -102,7 +103,7 @@ def test_chat_creates_persisted_conversation() -> None:
 
     assert response.status_code == 200
     body = response.json()
-    assert body["conversation_id"] == "conversation-1"
+    assert body["conversationId"] == "conversation-1"
     assert body["version"] == 1
     assert body["status"] == "waiting_for_approval"
     assert service.chat_commands[0].message == "Show trends and outliers"
@@ -148,7 +149,7 @@ def test_get_conversation_returns_latest_checkpoint() -> None:
     )
 
     assert response.status_code == 200
-    assert response.json()["conversation_id"] == "conversation-1"
+    assert response.json()["conversationId"] == "conversation-1"
     assert response.json()["result"]["outliers"][0]["id"] == "outlier-1"
 
 

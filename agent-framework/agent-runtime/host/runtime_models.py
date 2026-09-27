@@ -26,10 +26,18 @@ class ChatCommand:
     message: str
     user_id: str | None = None
     application_context: Mapping[str, Any] = field(default_factory=dict)
+    application_id: str | None = None
+    agent_version: str | None = None
 
     def validate(self) -> None:
         _require_non_empty(self.agent_id, "agent_id")
         _require_non_empty(self.message, "message")
+
+        if self.application_id is not None:
+            _require_non_empty(self.application_id, "application_id")
+
+        if self.agent_version is not None:
+            _require_non_empty(self.agent_version, "agent_version")
 
         if self.user_id is not None:
             _require_non_empty(self.user_id, "user_id")
@@ -95,6 +103,7 @@ class RuntimeResponse:
     version: int
     result: dict[str, Any]
     approval_request: dict[str, Any] | None = None
+    agent_version: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """Return a transport-friendly public representation."""
@@ -102,6 +111,7 @@ class RuntimeResponse:
         return {
             "conversationId": self.conversation_id,
             "agentId": self.agent_id,
+            "agentVersion": self.agent_version,
             "status": self.status,
             "version": self.version,
             "result": dict(self.result),

@@ -2,7 +2,7 @@ schema_version: "1.0"
 state:
   question: {type: string, required: true}
   next_command: {type: [string, "null"], default: null}
-  use_tool_calling: {type: boolean, default: false}
+  use_tool_calling: {type: boolean, default: true}
   lookback_days: {type: [integer, "null"], default: null}
   start_date: {type: [string, "null"], default: null}
   end_date: {type: [string, "null"], default: null}

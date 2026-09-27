@@ -11,6 +11,7 @@ class Settings:
     opo_capability_url: str
     runtime_url: str
     bff_url: str
+    application_id: str
     agent_id: str
     agent_version: str | None
     request_timeout_seconds: float
@@ -30,6 +31,7 @@ class Settings:
             ),
             runtime_url=_url("RUNTIME_URL", "http://localhost:8000"),
             bff_url=_url("BFF_URL", "http://localhost:8080"),
+            application_id=os.getenv("OPO_APPLICATION_ID", "opo-monitoring"),
             agent_id=os.getenv("OPO_AGENT_ID", "opo-monitoring-agent"),
             agent_version=_optional("OPO_AGENT_VERSION"),
             request_timeout_seconds=float(

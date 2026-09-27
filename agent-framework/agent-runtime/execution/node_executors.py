@@ -164,7 +164,7 @@ class NodeExecutor:
 
         result = context.model_gateway.invoke_structured(
             system_prompt=system_prompt,
-            input_text=_build_model_input(state),
+            input_text=_build_model_input(state, node.get("inputs")),
             output_contract=output_contract,
         )
 
@@ -398,15 +398,29 @@ def _required_string(
 
 def _build_model_input(
     state: Mapping[str, Any],
+    fields: Any = None,
 ) -> str:
-    """Build model input from workflow state."""
+    """Build model input from workflow state.
+
+    A node may declare `inputs` to bound what it sends: evidence collections
+    such as wafer rows can be far larger than a model context window.
+    """
 
     question = state.get("question", "")
     messages = state.get("messages", [])
 
+    if isinstance(fields, list) and fields:
+        selected = {
+            name: state[name]
+            for name in fields
+            if isinstance(name, str) and name in state
+        }
+    else:
+        selected = dict(state)
+
     return (
         f"Question:\n{question}\n\n"
-        f"Workflow state:\n{dict(state)}\n\n"
+        f"Workflow state:\n{selected}\n\n"
         f"Conversation messages:\n{messages}"
     )
 

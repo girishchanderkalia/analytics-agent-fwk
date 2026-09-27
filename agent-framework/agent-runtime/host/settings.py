@@ -22,7 +22,6 @@ class RuntimeSettings:
     model_name: str
     model_api_key: str | None
     analytics_foundation_base_url: str
-    analytics_foundation_operation_paths: Mapping[str, str]
     ca_bundle_path: Path | None
     request_timeout_seconds: float
     maximum_steps: int
@@ -46,15 +45,6 @@ class RuntimeSettings:
         ca_bundle_raw = env.get("AGENT_RUNTIME_CA_BUNDLE_PATH", "").strip()
         ca_bundle_path = Path(ca_bundle_raw).resolve() if ca_bundle_raw else None
 
-        operation_paths = {
-            "read_trends": _required(env, "AF_READ_TRENDS_PATH"),
-            "read_wafers": _required(env, "AF_READ_WAFERS_PATH"),
-            "create_workspace": _required(env, "AF_CREATE_WORKSPACE_PATH"),
-            "apply_filters": _required(env, "AF_APPLY_FILTERS_PATH"),
-            "register_dataset": _required(env, "AF_REGISTER_DATASET_PATH"),
-            "get_registration": _required(env, "AF_GET_REGISTRATION_PATH"),
-        }
-
         settings = cls(
             repository_root=repository_root,
             database_path=database_path,
@@ -65,7 +55,6 @@ class RuntimeSettings:
                 env,
                 "ANALYTICS_FOUNDATION_BASE_URL",
             ),
-            analytics_foundation_operation_paths=operation_paths,
             ca_bundle_path=ca_bundle_path,
             request_timeout_seconds=_positive_float(
                 env,

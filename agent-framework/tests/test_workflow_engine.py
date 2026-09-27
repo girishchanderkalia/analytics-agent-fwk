@@ -170,6 +170,16 @@ class FakeCapabilityDispatcher:
                 ]
             }
 
+        if capability_id == "data_query.read_distribution_stats":
+            assert "query:trends:read" in permissions
+            return {
+                "threshold_context": {
+                    "p95": 9.5,
+                    "p99": 10.0,
+                    "sample_count": 1,
+                }
+            }
+
         if capability_id == "workspace.create":
             assert (
                 "workspace:create"
@@ -510,6 +520,7 @@ def test_workflow_completes_when_no_outliers_exist() -> None:
 
     assert capability_dispatcher.invocations == [
         "data_query.read_trends",
+        "data_query.read_distribution_stats",
     ]
 
     assert operation_registry.invocations == [
@@ -588,6 +599,7 @@ def test_workflow_pauses_for_approval_when_outlier_exists() -> None:
 
     assert capability_dispatcher.invocations == [
         "data_query.read_trends",
+        "data_query.read_distribution_stats",
     ]
 
     assert operation_registry.invocations == [
@@ -657,6 +669,7 @@ def test_approved_workflow_resumes_and_completes() -> None:
 
     assert capability_dispatcher.invocations == [
         "data_query.read_trends",
+        "data_query.read_distribution_stats",
         "workspace.create",
         "workspace.add_filters",
         "workspace.register_dataset",
@@ -697,6 +710,7 @@ def test_rejected_workflow_is_cancelled() -> None:
 
     assert capability_dispatcher.invocations == [
         "data_query.read_trends",
+        "data_query.read_distribution_stats",
     ]
 
 

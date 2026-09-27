@@ -16,6 +16,7 @@ class ConversationMetadata:
     public_result: Mapping[str, Any]
     pending_approval: Mapping[str, Any] | None
     version: int
+    application_id: str | None = None
 
 class SQLiteConversationMetadataStore:
     def __init__(self,path: Path|str) -> None:
@@ -23,12 +24,12 @@ class SQLiteConversationMetadataStore:
     def create(self, **v):
         now=datetime.now(timezone.utc).isoformat()
         with self._connect() as c:
-            c.execute("INSERT INTO langgraph_conversations VALUES (?,?,?,?,?,?,?,?,?,?)",(v["conversation_id"],v["agent_id"],v["agent_version"],v["definition_digest"],v["status"],json.dumps(v["public_result"]),json.dumps(v["pending_approval"]) if v["pending_approval"] is not None else None,1,now,now))
+            c.execute("INSERT INTO langgraph_conversations (conversation_id,agent_id,agent_version,definition_digest,status,public_result_json,pending_approval_json,version,created_at,updated_at,application_id) VALUES (?,?,?,?,?,?,?,?,?,?,?)",(v["conversation_id"],v["agent_id"],v["agent_version"],v["definition_digest"],v["status"],json.dumps(v["public_result"]),json.dumps(v["pending_approval"]) if v["pending_approval"] is not None else None,1,now,now,v.get("application_id")))
         return self.get(v["conversation_id"])
     def get(self,conversation_id):
-        with self._connect() as c: row=c.execute("SELECT * FROM langgraph_conversations WHERE conversation_id=?",(conversation_id,)).fetchone()
+        with self._connect() as c: row=c.execute("SELECT conversation_id,agent_id,agent_version,definition_digest,status,public_result_json,pending_approval_json,version,application_id FROM langgraph_conversations WHERE conversation_id=?",(conversation_id,)).fetchone()
         if row is None: raise KeyError(conversation_id)
-        return ConversationMetadata(row[0],row[1],row[2],row[3],row[4],json.loads(row[5]),json.loads(row[6]) if row[6] else None,row[7])
+        return ConversationMetadata(row[0],row[1],row[2],row[3],row[4],json.loads(row[5]),json.loads(row[6]) if row[6] else None,row[7],row[8])
     def update(self, *, conversation_id, expected_version, status, public_result, pending_approval):
         now=datetime.now(timezone.utc).isoformat()
         with self._connect() as c:
@@ -39,3 +40,6 @@ class SQLiteConversationMetadataStore:
     def _setup(self):
         with self._connect() as c:
             c.execute("""CREATE TABLE IF NOT EXISTS langgraph_conversations (conversation_id TEXT PRIMARY KEY,agent_id TEXT NOT NULL,agent_version TEXT NOT NULL,definition_digest TEXT NOT NULL,status TEXT NOT NULL,public_result_json TEXT NOT NULL,pending_approval_json TEXT,version INTEGER NOT NULL,created_at TEXT NOT NULL,updated_at TEXT NOT NULL)""")
+            columns={row[1] for row in c.execute("PRAGMA table_info(langgraph_conversations)")}
+            if "application_id" not in columns:
+                c.execute("ALTER TABLE langgraph_conversations ADD COLUMN application_id TEXT NULL")

@@ -7,11 +7,11 @@ class StrictModel(BaseModel):
 
 class AnalyseTrendsRequest(StrictModel):
     series: list[dict[str, Any]]
-    mode: str = "baseline"
+    mode: str | None = "baseline"
     limit_value: float | None = None
-    direction: str = "below"
-    baseline_deviation_pct: float = Field(default=3.0, ge=0)
-    limit_unit: str = "percent"
+    direction: str | None = "below"
+    baseline_deviation_pct: float | None = Field(default=3.0, ge=0)
+    limit_unit: str | None = "percent"
 
 class NormalizeWaferEvidenceRequest(StrictModel):
     rows: list[dict[str, Any]]

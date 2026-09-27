@@ -194,20 +194,6 @@ main.right-panel-collapsed {
   min-width: 0;
 }
 
-.tool-calling-control {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  color: var(--muted);
-  font-size: 12px;
-  white-space: nowrap;
-}
-
-.tool-calling-control input {
-  accent-color: var(--accent);
-  margin: 0;
-}
-
 .evidence-pane {
   display: flex;
   flex-direction: column;

@@ -10,6 +10,7 @@ nodes:
     type: model
     prompt: trend_filters
     output: TrendFilters
+    output_to: trend_filters
     activity: Interpreting the investigation request
 
   - id: read_trends
@@ -17,10 +18,20 @@ nodes:
     capability: data_query.read_trends
     activity: Reading OPO KPI trends
 
+  - id: read_distribution_stats
+    type: capability
+    capability: data_query.read_distribution_stats
+    activity: Reading KPI distribution context
+
   - id: interpret_detection_scope
     type: model
     prompt: detection_scope
     output: DetectionScope
+    output_to: detection_scope
+    inputs:
+      - question
+      - trend_filters
+      - threshold_context
     activity: Interpreting the outlier criteria
 
   - id: analyse_trends
@@ -32,6 +43,13 @@ nodes:
     type: approval
     approval: investigate_outlier
     decision_field: investigation_approved
+    decision_fields:
+      investigation_approved: approved
+      selected_outlier: selected_outlier_id
+    selection_from: outliers
+    payload:
+      detected_outliers: ${state.outliers}
+      selected_outlier: ${state.selected_outlier}
     activity: Waiting for investigation approval
 
   - id: create_workspace
@@ -58,6 +76,16 @@ nodes:
     type: model
     prompt: findings_summary
     output: FindingsSummary
+    output_to: findings
+    inputs:
+      - question
+      - trend_filters
+      - detection_scope
+      - outliers
+      - selected_outlier
+      - workspace
+      - registration
+      - anomalous_wafers
     activity: Preparing evidence-based findings
 
 edges:
@@ -65,6 +93,9 @@ edges:
     to: read_trends
 
   - from: read_trends
+    to: read_distribution_stats
+
+  - from: read_distribution_stats
     to: interpret_detection_scope
 
   - from: interpret_detection_scope

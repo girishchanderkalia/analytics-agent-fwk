@@ -18,3 +18,9 @@ def client(settings: Settings):
     )
     yield value
     value.close()
+
+
+@pytest.fixture(scope="session")
+def base_url(settings: Settings) -> str:
+    """Serves the Playwright fixtures: the UI shares the BFF origin."""
+    return settings.bff_url

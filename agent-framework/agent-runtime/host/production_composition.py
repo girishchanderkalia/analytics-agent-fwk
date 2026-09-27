@@ -22,6 +22,7 @@ from persistence.sqlite_conversation_store import (
 )
 
 from .runtime_context_factory import (
+    ExecutionSecurityContext,
     RuntimeContextFactory,
 )
 from .runtime_service import (
@@ -67,15 +68,17 @@ def create_production_runtime_service(
             capability_registry
         ),
         operations=operations,
-        permissions=(
-            permissions
-            if permissions is not None
-            else frozenset()
-        ),
-        approved_capabilities=(
-            approved_capabilities
-            if approved_capabilities is not None
-            else frozenset()
+        security_context=ExecutionSecurityContext(
+            permissions=(
+                permissions
+                if permissions is not None
+                else frozenset()
+            ),
+            approved_capabilities=(
+                approved_capabilities
+                if approved_capabilities is not None
+                else frozenset()
+            ),
         ),
     )
 

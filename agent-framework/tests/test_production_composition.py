@@ -39,12 +39,6 @@ def valid_environment(tmp_path: Path) -> dict[str, str]:
         "MODEL_GATEWAY_MODEL": "test-model",
         "MODEL_GATEWAY_API_KEY": "secret",
         "ANALYTICS_FOUNDATION_BASE_URL": "https://foundation.invalid",
-        "AF_READ_TRENDS_PATH": "/query/trends",
-        "AF_READ_WAFERS_PATH": "/query/wafers",
-        "AF_CREATE_WORKSPACE_PATH": "/workspace/create",
-        "AF_APPLY_FILTERS_PATH": "/workspace/filters",
-        "AF_REGISTER_DATASET_PATH": "/workspace/register",
-        "AF_GET_REGISTRATION_PATH": "/workspace/registration",
     }
 
 
@@ -52,9 +46,9 @@ def test_settings_load_from_environment(tmp_path: Path) -> None:
     settings = RuntimeSettings.from_environment(valid_environment(tmp_path))
     assert settings.model_name == "test-model"
     assert settings.maximum_steps == 100
-    assert settings.analytics_foundation_operation_paths[
-        "read_trends"
-    ] == "/query/trends"
+    assert settings.analytics_foundation_base_url == (
+        "https://foundation.invalid"
+    )
 
 
 def test_missing_required_setting_is_rejected(tmp_path: Path) -> None:

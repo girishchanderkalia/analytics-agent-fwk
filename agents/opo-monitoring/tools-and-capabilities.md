@@ -8,11 +8,35 @@ approvals:
   required_for:
     - workspace.register_dataset
 
+operations:
+  - id: analyse_trends
+    server: opo-capability
+    tool: analyze_trends
+    version: "1"
+    owner: OPO Monitoring application
+    description: >
+      Application-owned threshold and outlier rules, reached through the
+      framework's MCP tool boundary.
+
+    request:
+      series: ${state.trend_series}
+      mode: ${state.detection_scope.mode}
+      limit_value: ${state.detection_scope.limit_value}
+      direction: ${state.detection_scope.direction}
+      baseline_deviation_pct: ${state.detection_scope.baseline_deviation_pct}
+      limit_unit: ${state.detection_scope.threshold_unit}
+
+    result:
+      analysis: ${result.analysis}
+      outliers: ${result.outliers}
+
 capabilities:
   - id: data_query.read_trends
     operation: read_trends
+    server: analytics-foundation
+    tool: query_trends
     owner: Analytics Foundation
-    version: "1.0"
+    version: "1"
 
     permissions:
       - query:trends:read
@@ -21,15 +45,48 @@ capabilities:
     approval_required: false
 
     request:
-      filters: ${state.trend_filters}
+      days: ${state.trend_filters.lookback_days}
+      start_date: ${state.trend_filters.start_date}
+      end_date: ${state.trend_filters.end_date}
+      lot_ids: ${state.trend_filters.lot_ids}
+      product_ids: ${state.trend_filters.product_ids}
+      layer_ids: ${state.trend_filters.layer_ids}
+      exposure_equipment_ids: ${state.trend_filters.exposure_equipment_ids}
 
     result:
-      trend_series: ${result.rows}
+      trend_series: ${result.series}
+
+  - id: data_query.read_distribution_stats
+    operation: read_distribution_stats
+    server: analytics-foundation
+    tool: get_distribution_stats
+    owner: Analytics Foundation
+    version: "1"
+
+    permissions:
+      - query:trends:read
+
+    side_effect: false
+    approval_required: false
+
+    request:
+      days: ${state.trend_filters.lookback_days}
+      start_date: ${state.trend_filters.start_date}
+      end_date: ${state.trend_filters.end_date}
+      lot_ids: ${state.trend_filters.lot_ids}
+      product_ids: ${state.trend_filters.product_ids}
+      layer_ids: ${state.trend_filters.layer_ids}
+      exposure_equipment_ids: ${state.trend_filters.exposure_equipment_ids}
+
+    result:
+      threshold_context: ${result}
 
   - id: workspace.create
     operation: create_workspace
+    server: analytics-foundation
+    tool: create_workspace
     owner: Analytics Foundation
-    version: "1.0"
+    version: "1"
 
     permissions:
       - workspace:create
@@ -37,17 +94,17 @@ capabilities:
     side_effect: true
     approval_required: false
 
-    request:
-      purpose: opo-monitoring-investigation
-      selected_outlier: ${state.selected_outlier}
+    request: {}
 
     result:
       workspace: ${result}
 
   - id: workspace.add_filters
     operation: add_filters
+    server: analytics-foundation
+    tool: add_workspace_filters
     owner: Analytics Foundation
-    version: "1.0"
+    version: "1"
 
     permissions:
       - workspace:write
@@ -56,7 +113,7 @@ capabilities:
     approval_required: false
 
     request:
-      workspace_id: ${state.workspace.id}
+      workspace_id: ${state.workspace.workspace_id}
       filters: ${state.trend_filters}
 
     result:
@@ -64,8 +121,10 @@ capabilities:
 
   - id: workspace.register_dataset
     operation: register_dataset
+    server: analytics-foundation
+    tool: register_dataset
     owner: Analytics Foundation
-    version: "1.0"
+    version: "1"
 
     permissions:
       - workspace:register
@@ -74,7 +133,7 @@ capabilities:
     approval_required: true
 
     request:
-      workspace_id: ${state.workspace.id}
+      workspace_id: ${state.workspace.workspace_id}
       dataset: overlay
       table: overlay_wafer_points
 
@@ -83,8 +142,10 @@ capabilities:
 
   - id: data_query.read_wafers
     operation: read_wafers
+    server: analytics-foundation
+    tool: query_wafers
     owner: Analytics Foundation
-    version: "1.0"
+    version: "1"
 
     permissions:
       - query:wafers:read
@@ -93,12 +154,13 @@ capabilities:
     approval_required: false
 
     request:
-      workspace_id: ${state.workspace.id}
-      selected_outlier: ${state.selected_outlier}
-      registration: ${state.registration}
+      workspace_id: ${state.workspace.workspace_id}
+      table: ${state.registration.table}
+      filters: {}
 
     result:
       wafer_rows: ${result.rows}
+      anomalous_wafers: ${result.anomalous_wafers}
 ---
 
 # OPO Monitoring Tools and Capabilities

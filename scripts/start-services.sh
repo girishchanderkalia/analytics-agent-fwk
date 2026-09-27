@@ -8,6 +8,8 @@ LOG_DIR="$RUN_DIR/logs"
 PID_DIR="$RUN_DIR/pids"
 mkdir -p "$LOG_DIR" "$PID_DIR"
 
+source "$(dirname "${BASH_SOURCE[0]}")/load-env.sh" "$ROOT_DIR/.env"
+
 if [[ -z "${JAVA_HOME:-}" ]]; then
   JAVA_BIN="$(command -v java || true)"
   if [[ -z "$JAVA_BIN" ]]; then
@@ -61,7 +63,7 @@ BFF_PORT="${BFF_PORT:-8080}"
 FOUNDATION_START_CMD="${FOUNDATION_START_CMD:-\"$PYTHON_BIN\" -m uvicorn foundation_api.app:app --host 127.0.0.1 --port $FOUNDATION_PORT}"
 FOUNDATION_MCP_START_CMD="${FOUNDATION_MCP_START_CMD:-\"$PYTHON_BIN\" -m uvicorn analytics_foundation_mcp.app:app --host 127.0.0.1 --port $FOUNDATION_MCP_PORT}"
 OPO_CAPABILITY_START_CMD="${OPO_CAPABILITY_START_CMD:-\"$PYTHON_BIN\" -m uvicorn opo_capability_service.app:app --host 127.0.0.1 --port $OPO_CAPABILITY_PORT}"
-RUNTIME_START_CMD="${RUNTIME_START_CMD:-\"$PYTHON_BIN\" -m uvicorn runtime_api.main:app --host 127.0.0.1 --port $RUNTIME_PORT}"
+RUNTIME_START_CMD="${RUNTIME_START_CMD:-\"$PYTHON_BIN\" -m uvicorn runtime_api.langgraph_main:app --host 127.0.0.1 --port $RUNTIME_PORT}"
 if [[ -n "$MAVEN_SETTINGS" ]]; then
   BFF_START_CMD="${BFF_START_CMD:-\"$MAVEN_BIN\" -s \"$MAVEN_SETTINGS\" -DskipTests spring-boot:run}"
 else
@@ -73,9 +75,12 @@ export ANALYTICS_FOUNDATION_MCP_URL="${ANALYTICS_FOUNDATION_MCP_URL:-http://127.
 export OPO_CAPABILITY_MCP_URL="${OPO_CAPABILITY_MCP_URL:-http://127.0.0.1:$OPO_CAPABILITY_PORT/mcp}"
 export RUNTIME_SERVICE_BASE_URL="${RUNTIME_SERVICE_BASE_URL:-http://127.0.0.1:$RUNTIME_PORT}"
 export SERVER_PORT="$BFF_PORT"
+export AGENT_RUNTIME_REPOSITORY_ROOT="${AGENT_RUNTIME_REPOSITORY_ROOT:-$(cygpath -w "$ROOT_DIR")}"
+export AGENT_APPLICATION_ID="${AGENT_APPLICATION_ID:-opo-monitoring}"
+export AGENT_MARKDOWN_PACKAGES="${AGENT_MARKDOWN_PACKAGES:-$(cygpath -w "$ROOT_DIR/agents/opo-monitoring")}"
 
 # Windows Python uses semicolon-separated PYTHONPATH entries.
-export PYTHONPATH="$(cygpath -w "$ROOT_DIR/analytics-foundation/analytics-foundation-api");$(cygpath -w "$ROOT_DIR/analytics-foundation/analytics-foundation-mcp/src");$(cygpath -w "$ROOT_DIR/app-ui/opo-monitoring/opo-monitoring-service/opo-capability-service/src");$(cygpath -w "$ROOT_DIR/app-ui/opo-monitoring/opo-monitoring-service/opo-deterministic-logic/src");$(cygpath -w "$ROOT_DIR/analytics-foundation/analytics-foundation-client/src");$(cygpath -w "$ROOT_DIR/agent-framework/agent-runtime")${PYTHONPATH:+;$PYTHONPATH}"
+export PYTHONPATH="$(cygpath -w "$ROOT_DIR");$(cygpath -w "$ROOT_DIR/analytics-foundation/analytics-foundation-api");$(cygpath -w "$ROOT_DIR/analytics-foundation/analytics-foundation-mcp/src");$(cygpath -w "$ROOT_DIR/app-ui/opo-monitoring/opo-monitoring-service/opo-capability-service/src");$(cygpath -w "$ROOT_DIR/app-ui/opo-monitoring/opo-monitoring-service/opo-deterministic-logic/src");$(cygpath -w "$ROOT_DIR/analytics-foundation/analytics-foundation-client/src");$(cygpath -w "$ROOT_DIR/agent-framework/agent-runtime")${PYTHONPATH:+;$PYTHONPATH}"
 
 echo "Using Java:   $JAVA_EXE"
 echo "Using Python: $PYTHON_BIN"

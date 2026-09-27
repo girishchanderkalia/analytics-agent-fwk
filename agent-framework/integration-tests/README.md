@@ -57,3 +57,30 @@ The default run skips the model-backed chat tests. Run them with
 `RUN_AGENT_E2E=true` only when the runtime has a working model gateway
 configuration. Stop the services with Ctrl+C in the launcher terminal or
 run `scripts/stop-services.sh` from the repository root.
+
+## Browser (UI) tests
+
+`tests/test_ui_agent_workflow.py` drives the real OPO Monitoring front end with
+Playwright. The UI is served on the BFF origin, so the browser exercises the
+same `/api/trends/**` and `/api/investigations/**` routes a user would.
+
+```bash
+./scripts/run-ui-tests.sh
+```
+
+That wrapper is `scripts/run-e2e-tests.sh --ui-only`; the browser tests are part
+of the default e2e run and need no separate setup. The runner installs the
+Chromium browser binary the first time dependencies are provisioned.
+
+Without `RUN_AGENT_E2E=true` the UI run covers page load, deterministic trend
+rendering, thread-reopen error handling, and panel behaviour. With
+`RUN_AGENT_E2E=true` it also walks the full human-in-the-loop agent workflow
+from the browser: send a message, answer each gate, assert a terminal outcome.
+
+```bash
+RUN_AGENT_E2E=true ./scripts/run-ui-tests.sh
+```
+
+Add `--headed --slowmo 300` to watch the browser, or `--video retain-on-failure`
+to capture failures.
+

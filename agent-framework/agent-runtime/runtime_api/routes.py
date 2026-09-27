@@ -45,6 +45,8 @@ def start_chat(
             message=request.message,
             user_id=request.user_id,
             application_context=request.application_context,
+            application_id=request.application_id,
+            agent_version=request.agent_version,
         )
     )
 

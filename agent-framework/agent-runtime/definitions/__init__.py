@@ -1,6 +1,7 @@
 """Generic declarative agent-package definitions and normalization."""
 
 from .errors import AgentPackageError, AgentPackageManifestError
+from .markdown_translator import translate_bundle, translate_markdown_agent
 from .normalization_errors import DefinitionNormalizationError
 from .normalized_models import (
     NormalizedAgentDefinition,
@@ -30,4 +31,6 @@ __all__ = [
     "load_agent_package",
     "normalize_agent_package",
     "normalize_loaded_package",
+    "translate_bundle",
+    "translate_markdown_agent",
 ]
