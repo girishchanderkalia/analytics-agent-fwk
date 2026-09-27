@@ -12,6 +12,7 @@ sys.path.insert(0, str(ROOT / "agent-framework" / "agent-runtime"))
 from definitions import NormalizedNode
 from langgraph_runtime.standard_nodes import (
     NodeConfigurationError,
+    NodeExecutionError,
     StandardNodeDependencies,
     StandardNodeLibrary,
     UnsupportedNodeKindError,
@@ -72,6 +73,107 @@ def test_model_node_uses_generic_providers() -> None:
     result = run(node, {"question": "Explain"})
     assert result["interpretation"]["input_text"] == "Explain"
     assert result["interpretation"]["system_prompt"] == "interpret-request:Explain"
+
+
+def test_model_tool_uses_established_filters_and_call_limit() -> None:
+    deps = dependencies()
+    deps.tool_registry.register_many([
+        McpToolDescriptor(
+            McpToolKey("get_distribution_stats", "1", "data"),
+            "Read distribution statistics", {"type": "object", "properties": {"days": {"type": "integer"}}},
+        )
+    ])
+
+    class CallingModel:
+        async def invoke_structured(self, **kwargs):
+            tool = kwargs["tools"][0]
+            assert tool["json_schema"]["properties"]["days"]["type"] == "integer"
+            first = await tool["function"](days=7)
+            second = await tool["function"](days=7)
+            return {"first": first, "second": second}
+
+    node = StandardNodeLibrary(dependencies(
+        tool_registry=deps.tool_registry,
+        tool_invoker=deps.tool_invoker,
+        model_provider=CallingModel(),
+    )).create(NormalizedNode("scope", "model", {
+        "prompt": "scope", "output_contract": "Scope", "result_key": "scope",
+        "tools": [{"name": "get_distribution_stats", "version": "1", "server": "data",
+                   "arguments": {"days": "$.trend_filters.lookback_days"}}],
+        "max_tool_calls": 1,
+    }))
+
+    result = run(node, {"question": "outliers", "trend_filters": {"lookback_days": 7}})
+    assert result["scope"]["first"]["arguments"] == {"days": 7}
+    assert result["scope"]["second"] == {"error": "Model tool call limit exceeded"}
+
+
+def test_model_tool_rejects_changed_filters() -> None:
+    deps = dependencies()
+    deps.tool_registry.register_many([
+        McpToolDescriptor(McpToolKey("stats", "1", "data"), "Stats", {"type": "object"})
+    ])
+
+    class CallingModel:
+        async def invoke_structured(self, **kwargs):
+            return await kwargs["tools"][0]["function"](days=30)
+
+    node = StandardNodeLibrary(dependencies(
+        tool_registry=deps.tool_registry,
+        tool_invoker=deps.tool_invoker,
+        model_provider=CallingModel(),
+    )).create(NormalizedNode("scope", "model", {
+        "prompt": "scope", "output_contract": "Scope", "result_key": "scope",
+        "tools": [{"name": "stats", "version": "1", "server": "data",
+                   "arguments": {"days": "$.trend_filters.lookback_days"}}],
+        "max_tool_calls": 1,
+    }))
+
+    assert run(node, {"question": "outliers", "trend_filters": {"lookback_days": 7}}) == {
+        "scope": {"error": "Tool filters differ from established trend filters"}
+    }
+
+
+@pytest.mark.parametrize(
+    ("stats", "suggested", "accepted"),
+    [({"sample_count": 50, "p95": 3.2}, 3.2, True),
+     ({"sample_count": 50, "p95": 3.2}, 4.0, False),
+     ({"sample_count": 0, "p95": 3.2}, 3.2, False)],
+)
+def test_suggested_cutoff_must_match_tool_evidence(stats, suggested, accepted) -> None:
+    deps = dependencies()
+    deps.tool_registry.register_many([
+        McpToolDescriptor(McpToolKey("stats", "1", "data"), "Stats", {"type": "object"})
+    ])
+
+    class StatsInvoker:
+        def invoke(self, *, descriptor, arguments):
+            return stats
+
+    class CallingModel:
+        async def invoke_structured(self, **kwargs):
+            await kwargs["tools"][0]["function"](days=7)
+            return {"suggested_limit_value": suggested}
+
+    node = StandardNodeLibrary(dependencies(
+        tool_registry=deps.tool_registry,
+        tool_invoker=StatsInvoker(),
+        model_provider=CallingModel(),
+    )).create(NormalizedNode("scope", "model", {
+        "prompt": "scope", "output_contract": "Scope", "result_key": "scope",
+        "tools": [{"name": "stats", "version": "1", "server": "data",
+                   "arguments": {"days": "$.trend_filters.lookback_days"}}],
+        "max_tool_calls": 1,
+        "grounded_outputs": {"suggested_limit_value": ["p95", "p99"]},
+    }))
+    state = {"question": "outliers", "trend_filters": {"lookback_days": 7}}
+
+    if accepted:
+        assert run(node, state)["scope"]["suggested_limit_value"] == suggested
+    else:
+        with pytest.raises(NodeExecutionError) as exc:
+            run(node, state)
+        assert "not grounded" in str(exc.value.__cause__)
 
 
 def test_tool_node_resolves_arguments_and_invokes_mcp_tool() -> None:

@@ -177,6 +177,7 @@ Foundation API requests.
 | Operation | Capability | Side effect | Approval |
 | --- | --- | --- | --- |
 | Read OPO KPI trends | `data_query.read_trends` | No | No |
+| Read KPI distribution statistics (scope model tool) | `data_query.read_distribution_stats` | No | No |
 | Create investigation workspace | `workspace.create` | Yes | No |
 | Apply workspace filters | `workspace.add_filters` | Yes | No |
 | Register wafer data | `workspace.register_dataset` | Yes | Yes |

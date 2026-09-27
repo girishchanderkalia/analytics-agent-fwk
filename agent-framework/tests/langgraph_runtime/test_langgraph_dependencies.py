@@ -151,6 +151,17 @@ def test_contracts_come_from_the_authored_models(definition) -> None:
     assert "lookback_days" in contract.model_fields
 
 
+def test_detection_scope_model_declares_only_distribution_tool(definition) -> None:
+    nodes = {node.node_id: node for node in definition.graph.nodes}
+    scope = nodes["interpret_detection_scope"]
+
+    assert scope.config["max_tool_calls"] == 1
+    assert scope.config["grounded_outputs"] == {"suggested_limit_value": ["p95", "p99"]}
+    assert [tool["name"] for tool in scope.config["tools"]] == ["get_distribution_stats"]
+    assert scope.config["tools"][0]["arguments"]["days"] == "$.trend_filters.lookback_days"
+    assert "read_distribution_stats" not in nodes
+
+
 def test_every_declared_tool_resolves_for_compilation(definition) -> None:
     dependencies = compiler(definition).dependencies(definition)
 

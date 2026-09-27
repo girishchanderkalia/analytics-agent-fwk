@@ -47,6 +47,7 @@ class PlatformModelGateway:
         system_prompt: str,
         input_text: str,
         output_contract: type[Any],
+        tools: list[dict[str, Any]] | None = None,
     ) -> Any:
         """Run one typed request and return its validated output."""
 
@@ -54,6 +55,7 @@ class PlatformModelGateway:
             model=self.model,
             output_type=output_contract,
             system_prompt=system_prompt,
+            **({"tools": _model_tools(tools)} if tools else {}),
         )
 
         try:
@@ -91,11 +93,13 @@ class AsyncPlatformModelGateway(PlatformModelGateway):
         system_prompt: str,
         input_text: str,
         output_contract: type[Any],
+        tools: list[dict[str, Any]] | None = None,
     ) -> Any:
         agent = self.agent_factory(
             model=self.model,
             output_type=output_contract,
             system_prompt=system_prompt,
+            **({"tools": _model_tools(tools)} if tools else {}),
         )
 
         try:
@@ -119,6 +123,20 @@ def create_async_model_gateway() -> AsyncPlatformModelGateway:
     return AsyncPlatformModelGateway(
         model=_load_platform_model()
     )
+
+
+def _model_tools(tools: list[dict[str, Any]]) -> list[Any]:
+    from pydantic_ai import Tool
+
+    return [
+        Tool.from_schema(
+            function=tool["function"],
+            name=tool["name"],
+            description=tool["description"],
+            json_schema=tool["json_schema"],
+        )
+        for tool in tools
+    ]
 
 
 def _load_platform_model() -> Any:

@@ -67,6 +67,16 @@ class StandardNodeLibrary:
         prompt_provider = self.dependencies.require("prompt_provider")
         contract_provider = self.dependencies.require("contract_provider")
         model_provider = self.dependencies.require("model_provider")
+        configured_tools = definition.config.get("tools", [])
+        tools = []
+        if configured_tools:
+            registry = self.dependencies.require("tool_registry")
+            invoker = self.dependencies.require("tool_invoker")
+            for tool in configured_tools:
+                descriptor = registry.resolve(AgentToolReference(
+                    name=tool["name"], version=tool["version"], server=tool["server"]
+                ))
+                tools.append((descriptor, tool["arguments"]))
 
         async def model_node(state: dict[str, Any]) -> dict[str, Any]:
             try:
@@ -76,13 +86,57 @@ class StandardNodeLibrary:
                 contract = await _maybe_await(
                     contract_provider.get_contract(output_contract)
                 )
-                result = await _maybe_await(
-                    model_provider.invoke_structured(
-                        system_prompt=prompt,
-                        input_text=_model_input(definition.config, state),
-                        output_contract=contract,
-                    )
-                )
+                request = {
+                    "system_prompt": prompt,
+                    "input_text": _model_input(definition.config, state),
+                    "output_contract": contract,
+                }
+                if tools:
+                    call_count = 0
+                    model_tools = []
+                    tool_evidence = []
+                    for descriptor, arguments in tools:
+                        expected = _resolve_value(arguments, state)
+
+                        async def call_tool(
+                            _descriptor=descriptor, _expected=expected, **kwargs: Any
+                        ) -> Any:
+                            nonlocal call_count
+                            call_count += 1
+                            if call_count > definition.config["max_tool_calls"]:
+                                return {"error": "Model tool call limit exceeded"}
+                            if any(key not in _expected or _expected[key] != value for key, value in kwargs.items()):
+                                return {"error": "Tool filters differ from established trend filters"}
+                            try:
+                                evidence = await _maybe_await(invoker.invoke(
+                                    descriptor=_descriptor, arguments=_expected
+                                ))
+                                tool_evidence.append(evidence)
+                                return evidence
+                            except Exception:
+                                return {"error": "Model tool unavailable"}
+
+                        model_tools.append({
+                            "name": descriptor.key.name,
+                            "description": descriptor.description,
+                            "json_schema": descriptor.input_schema,
+                            "function": call_tool,
+                        })
+                    request["tools"] = model_tools
+                result = await _maybe_await(model_provider.invoke_structured(**request))
+                if hasattr(result, "model_dump"):
+                    result = result.model_dump(mode="python")
+                for field, sources in definition.config.get("grounded_outputs", {}).items():
+                    value = result.get(field)
+                    if value is not None and not any(
+                        isinstance(evidence, Mapping)
+                        and evidence.get("sample_count") != 0
+                        and value == evidence.get(source)
+                        for evidence in tool_evidence for source in sources
+                    ):
+                        raise NodeExecutionError(
+                            f"Model output {field!r} is not grounded in tool evidence"
+                        )
             except Exception as exc:
                 raise NodeExecutionError(
                     f"Model node {definition.node_id!r} failed"

@@ -185,14 +185,26 @@ prompts:
     When a value is not present, leave the corresponding field empty or null.
 
   detection_scope: |
-    Interpret the analyst's outlier request using the supplied KPI distribution
-    and trend context.
+    Interpret the analyst's outlier request within the established trend filters.
+    Do not re-extract or change those filters. A number with % is a percentage
+    threshold; a unitless number is an absolute OPO KPI threshold. An explicit
+    numeric threshold takes precedence: leave suggested_limit_value and
+    suggested_limit_rationale null when one was given.
 
-    Explicit numeric thresholds take precedence over configured defaults.
+    For a request without an explicit numeric threshold, call the
+    get_distribution_stats tool before recommending an absolute OPO KPI cutoff.
+    Call it at most once, with exactly the established trend filters; never
+    invent another filter. Use only the tool's p95, p99, mean, stdev and
+    bell_curve_range values; never invent or estimate distribution statistics.
+    Recommend p95 by default and p99 only for severe anomaly detection.
+    Set suggested_limit_value and suggested_limit_rationale from that evidence,
+    and set mode to absolute, limit_value to the suggested value, direction to
+    above, and threshold_unit to absolute. Never leave limit_value empty when
+    recommending a cutoff.
 
-    If no explicit threshold is supplied, use the configured baseline mode and
-    clearly state the interpretation.
-
+    If sample_count is zero, leave suggested_limit_value null and explain the
+    missing data in suggested_limit_rationale. If the tool fails or is
+    unavailable, leave both suggestion fields null; do not guess a cutoff.
     Do not claim that a threshold violation establishes a root cause.
 
   findings_summary: |

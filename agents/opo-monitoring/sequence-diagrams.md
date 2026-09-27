@@ -52,7 +52,13 @@ sequenceDiagram
     AF-->>Adaptor: Trend rows
     Adaptor-->>Runtime: Normalized trend evidence
 
-    Runtime->>Model: Interpret outlier criteria
+    Runtime->>Model: Interpret outlier criteria with established filters
+    Model->>Runtime: Call get_distribution_stats (at most once)
+    Runtime->>Adaptor: data_query.read_distribution_stats
+    Adaptor->>AF: Get filtered KPI distribution
+    AF-->>Adaptor: Empirical statistics
+    Adaptor-->>Runtime: Distribution evidence
+    Runtime-->>Model: Tool result
     Model-->>Runtime: Typed DetectionScope
 
     Runtime->>Agent: Run deterministic outlier analysis

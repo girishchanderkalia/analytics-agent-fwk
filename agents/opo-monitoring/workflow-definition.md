@@ -18,20 +18,21 @@ nodes:
     capability: data_query.read_trends
     activity: Reading OPO KPI trends
 
-  - id: read_distribution_stats
-    type: capability
-    capability: data_query.read_distribution_stats
-    activity: Reading KPI distribution context
-
   - id: interpret_detection_scope
     type: model
     prompt: detection_scope
     output: DetectionScope
     output_to: detection_scope
+    tools:
+      - data_query.read_distribution_stats
+    max_tool_calls: 1
+    grounded_outputs:
+      suggested_limit_value:
+        - p95
+        - p99
     inputs:
       - question
       - trend_filters
-      - threshold_context
     activity: Interpreting the outlier criteria
 
   - id: analyse_trends
@@ -93,9 +94,6 @@ edges:
     to: read_trends
 
   - from: read_trends
-    to: read_distribution_stats
-
-  - from: read_distribution_stats
     to: interpret_detection_scope
 
   - from: interpret_detection_scope

@@ -145,7 +145,7 @@ def _nodes(
 
         if kind == "model":
             nodes.append(
-                NormalizedNode(node_id, kind, _model_config(node, node_id))
+                NormalizedNode(node_id, kind, _model_config(node, node_id, bindings))
             )
             continue
 
@@ -166,7 +166,9 @@ def _nodes(
     return tuple(nodes), extra_edges
 
 
-def _model_config(node: Mapping[str, Any], node_id: str) -> dict[str, Any]:
+def _model_config(
+    node: Mapping[str, Any], node_id: str, bindings: Mapping[str, Mapping[str, Any]]
+) -> dict[str, Any]:
     contract = node.get("output_contract") or node.get("output")
     config = {
         "prompt": _text(node.get("prompt"), f"node {node_id} prompt"),
@@ -183,6 +185,51 @@ def _model_config(node: Mapping[str, Any], node_id: str) -> dict[str, Any]:
                 f"Node {node_id!r} inputs must be a list"
             )
         config["inputs"] = [str(item) for item in inputs]
+    tools = node.get("tools", [])
+    if not isinstance(tools, list):
+        raise DefinitionNormalizationError(f"Node {node_id!r} tools must be a list")
+    if tools:
+        config["tools"] = []
+        limit = node.get("max_tool_calls")
+        if not isinstance(limit, int) or isinstance(limit, bool) or limit < 1:
+            raise DefinitionNormalizationError(
+                f"Node {node_id!r} with tools requires a positive max_tool_calls"
+            )
+        config["max_tool_calls"] = limit
+        for identifier in tools:
+            name = _text(identifier, f"node {node_id} tool")
+            if name not in bindings:
+                raise DefinitionNormalizationError(
+                    f"Node {node_id!r} references undeclared tool {name!r}"
+                )
+            binding = bindings[name]
+            if binding.get("side_effect") is not False or binding.get("approval_required") is not False:
+                raise DefinitionNormalizationError(
+                    f"Node {node_id!r} tool {name!r} must be read-only and not require approval"
+                )
+            config["tools"].append({
+                "name": _text(binding.get("tool"), f"{name} tool"),
+                "version": str(binding.get("version", "1")),
+                "server": _text(binding.get("server"), f"{name} server"),
+                "arguments": _references(binding.get("request", {})),
+            })
+    grounded = node.get("grounded_outputs")
+    if grounded is not None:
+        if not tools or not isinstance(grounded, Mapping):
+            raise DefinitionNormalizationError(
+                f"Node {node_id!r} grounded_outputs requires model tools and a mapping"
+            )
+        config["grounded_outputs"] = {
+            _text(field, f"node {node_id} grounded output"): [
+                _text(source, f"node {node_id} evidence field") for source in sources
+            ]
+            for field, sources in grounded.items()
+            if isinstance(sources, list) and sources
+        }
+        if len(config["grounded_outputs"]) != len(grounded):
+            raise DefinitionNormalizationError(
+                f"Node {node_id!r} grounded_outputs must list evidence fields"
+            )
     return config
 
 
