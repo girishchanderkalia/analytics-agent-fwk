@@ -25,3 +25,8 @@ ai-enabled-analytics-v2/deploy/*.tar
 .env
 .env.local
 
+runtime-data/
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+
