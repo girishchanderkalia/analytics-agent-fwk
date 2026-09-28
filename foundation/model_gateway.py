@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import logging
 import os
 from functools import lru_cache
+from pathlib import Path
 from typing import Any
 
 
@@ -11,17 +13,20 @@ class ModelGatewayConfigurationError(RuntimeError):
     """Raised when the model gateway is not configured correctly."""
 
 
+logger = logging.getLogger(__name__)
+
+
 @lru_cache(maxsize=1)
 @lru_cache(maxsize=1)
 def get_model() -> Any:
     """Return the configured PydanticAI model."""
 
-    _configure_ssl()
-
     provider_type = os.getenv(
         "MODEL_GATEWAY_PROVIDER",
         "openai"
     ).strip().lower()
+
+    _configure_ssl(provider_type)
 
     endpoint = _required("MODEL_GATEWAY_ENDPOINT")
 
@@ -118,12 +123,20 @@ def _required(name: str) -> str:
         )
     return value
 
-def _configure_ssl() -> None:
+def _configure_ssl(provider_type: str) -> None:
+    if provider_type != "azure":
+        return
+
     ca_bundle = os.getenv(
         "AGENT_RUNTIME_CA_BUNDLE_PATH",
         ""
     ).strip()
 
-    if ca_bundle:
+    if ca_bundle and Path(ca_bundle).is_file():
         os.environ["SSL_CERT_FILE"] = ca_bundle
         os.environ["REQUESTS_CA_BUNDLE"] = ca_bundle
+    elif ca_bundle:
+        logger.warning(
+            "Ignoring AGENT_RUNTIME_CA_BUNDLE_PATH because it is not a file: %s",
+            ca_bundle,
+        )

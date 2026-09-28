@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import os
 import sys
 from pathlib import Path
 from types import SimpleNamespace
@@ -51,4 +52,49 @@ def test_async_gateway_passes_schema_tools_to_agent(monkeypatch) -> None:
     assert asyncio.run(captured["tools"][0]["function"](days=7)) == {
         "p95": 3.2, "filters": {"days": 7}
     }
+
+
+def test_invalid_ca_bundle_preserves_existing_ssl_configuration(
+    monkeypatch, tmp_path
+) -> None:
+    from foundation import model_gateway
+
+    inherited_bundle = tmp_path / "inherited-ca.pem"
+    inherited_bundle.write_text("test CA", encoding="utf-8")
+    monkeypatch.setenv("AGENT_RUNTIME_CA_BUNDLE_PATH", str(tmp_path / "missing.pem"))
+    monkeypatch.setenv("SSL_CERT_FILE", str(inherited_bundle))
+    monkeypatch.setenv("REQUESTS_CA_BUNDLE", str(inherited_bundle))
+
+    model_gateway._configure_ssl("azure")
+
+    assert Path(os.environ["SSL_CERT_FILE"]) == inherited_bundle
+    assert Path(os.environ["REQUESTS_CA_BUNDLE"]) == inherited_bundle
+
+
+def test_valid_ca_bundle_is_applied(monkeypatch, tmp_path) -> None:
+    from foundation import model_gateway
+
+    ca_bundle = tmp_path / "custom-ca.pem"
+    ca_bundle.write_text("test CA", encoding="utf-8")
+    monkeypatch.setenv("AGENT_RUNTIME_CA_BUNDLE_PATH", str(ca_bundle))
+
+    model_gateway._configure_ssl("azure")
+
+    assert os.environ["SSL_CERT_FILE"] == str(ca_bundle)
+    assert os.environ["REQUESTS_CA_BUNDLE"] == str(ca_bundle)
+
+
+def test_openai_does_not_apply_azure_ca_bundle(monkeypatch, tmp_path) -> None:
+    from foundation import model_gateway
+
+    inherited_bundle = tmp_path / "inherited-ca.pem"
+    inherited_bundle.write_text("test CA", encoding="utf-8")
+    monkeypatch.setenv("AGENT_RUNTIME_CA_BUNDLE_PATH", str(tmp_path / "missing.pem"))
+    monkeypatch.setenv("SSL_CERT_FILE", str(inherited_bundle))
+    monkeypatch.setenv("REQUESTS_CA_BUNDLE", str(inherited_bundle))
+
+    model_gateway._configure_ssl("openai")
+
+    assert os.environ["SSL_CERT_FILE"] == str(inherited_bundle)
+    assert os.environ["REQUESTS_CA_BUNDLE"] == str(inherited_bundle)
 
