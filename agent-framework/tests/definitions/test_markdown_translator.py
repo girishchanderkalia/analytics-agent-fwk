@@ -122,6 +122,32 @@ def test_approval_nodes_declare_their_payload(definition) -> None:
     }
 
 
+def test_recommended_action_approval_uses_findings_as_options(definition) -> None:
+    config = node(definition, "select_next_action").config
+
+    assert config["approval_id"] == "select_recommended_action"
+    assert config["result_key"] == "next_action_approved"
+    assert config["decision_fields"] == {
+        "next_action_approved": "approved",
+        "selected_action": "selected_action",
+    }
+    assert config["payload"]["options"] == "$.findings.recommended_next_actions"
+
+
+def test_recommended_action_routes_only_the_supported_action(definition) -> None:
+    conditioned = {
+        (edge.source, edge.target, edge.condition)
+        for edge in definition.graph.edges
+        if edge.condition is not None
+    }
+
+    assert (
+        "select_next_action",
+        "classify_spatial_pattern",
+        'selected_action == "Analyze wafer spatial pattern"',
+    ) in conditioned
+
+
 def test_routing_conditions_become_conditional_edges(definition) -> None:
     conditioned = [
         edge for edge in definition.graph.edges if edge.condition is not None

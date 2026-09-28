@@ -54,12 +54,8 @@ const PLOT_CONFIG = { displaylogo: false, responsive: true, displayModeBar: fals
 
 let trendSeries = null;
 
-function drawPlot(outliers, selectedMachine) {
+function drawPlot(scope, selectedMachine) {
   if (!trendSeries) return;
-
-  const flaggedByMachine = new Map(
-    (outliers || []).map((o) => [`${o.machine}::${o.product}`, new Set(o.outlier_dates)])
-  );
 
   const traces = trendSeries.map((s, idx) => {
     const dimmed = selectedMachine && s.machine !== selectedMachine;
@@ -75,23 +71,42 @@ function drawPlot(outliers, selectedMachine) {
     };
   });
 
-  // Points matching the analyst's request, ringed in red. Keys are "index#date" (not
-  // bare dates) since several points in a series can share the same timestamp - e.g.
-  // multiple wafers from one lot - and a bare date would ring every point sharing it.
-  if (flaggedByMachine.size) {
-    const rings = { x: [], y: [], text: [] };
-    trendSeries.forEach((s) => {
-      const keys = flaggedByMachine.get(`${s.machine}::${s.product}`);
-      if (!keys) return;
-      s.points
-        .filter((p, i) => keys.has(`${i}#${p.date}`))
-        .forEach((p) => {
-          rings.x.push(p.date);
-          rings.y.push(p.kpi_value);
-          rings.text.push(`${s.machine} / ${s.product}`);
-        });
-    });
+  const rings = { x: [], y: [], text: [] };
+  if (scope?.mode) {
+    trendSeries.forEach((series) => {
+      const values = (series.points || [])
+        .map((point) => Number(point.kpi_value))
+        .filter(Number.isFinite)
+        .sort((left, right) => left - right);
+      if (!values.length) return;
 
+      const middle = Math.floor(values.length / 2);
+      const baseline = values.length % 2
+        ? values[middle]
+        : (values[middle - 1] + values[middle]) / 2;
+      const direction = scope.direction || "below";
+      const limit = Number(scope.limit_value);
+      const applied = scope.mode === "absolute"
+        ? scope.threshold_unit === "percent"
+          ? baseline * (1 + (direction === "above" ? limit : -limit) / 100)
+          : limit
+        : baseline * (1 + Number(scope.baseline_deviation_pct ?? 3) / 100);
+      if (!Number.isFinite(applied)) return;
+
+      (series.points || []).forEach((point) => {
+        const value = Number(point.kpi_value);
+        const matches = scope.mode === "baseline" || direction === "above"
+          ? value >= applied
+          : value <= applied;
+        if (!Number.isFinite(value) || !matches) return;
+        rings.x.push(point.date);
+        rings.y.push(value);
+        rings.text.push(`${series.machine} / ${series.product}`);
+      });
+    });
+  }
+
+  if (rings.x.length) {
     traces.push({
       type: "scatter",
       mode: "markers",
@@ -100,7 +115,7 @@ function drawPlot(outliers, selectedMachine) {
       y: rings.y,
       text: rings.text,
       marker: {
-        size: 15,
+        size: 12,
         color: "rgba(0,0,0,0)",
         line: { color: OUTLIER_COLOUR, width: 2.5 },
       },
@@ -245,6 +260,16 @@ function renderGate(request) {
         </option>`).join("")}</select>`
     : "";
 
+  const actionOptions = Array.isArray(payload.options) ? payload.options : null;
+  const actionSelector = actionOptions
+    ? `<label class="gate-input-label" for="action-select">Recommended action</label>
+       <select id="action-select" aria-label="Recommended action">
+         <option value="">Choose an action</option>
+         ${[...new Set([...actionOptions, "End investigation"])].map((option) =>
+           `<option value="${escapeHtml(option)}">${escapeHtml(option)}</option>`).join("")}
+       </select>`
+    : "";
+
   const field = payload.input;
   const input = field?.name
     ? `<label class="gate-input-label" for="gate-input">${escapeHtml(field.label || field.name)}</label>
@@ -259,18 +284,24 @@ function renderGate(request) {
       <h3>${escapeHtml(payload.question || gateQuestion(request))}</h3>
       <div class="gate-detail">${detail}</div>
       ${selector}
+      ${actionSelector}
       ${input}
       <div class="gate-actions">
-        <button data-action="approve">${escapeHtml(payload.approve_label || "Approve")}</button>
+        <button data-action="approve"${actionOptions ? " disabled" : ""}>${escapeHtml(payload.approve_label || "Approve")}</button>
         <button data-action="reject" class="reject">${escapeHtml(payload.reject_label || "Reject")}</button>
       </div>
     </div>`;
 
   const gate = interactionPanel;
+  const actionSelect = gate.querySelector("#action-select");
+  actionSelect?.addEventListener("change", () => {
+    gate.querySelector('[data-action="approve"]').disabled = !actionSelect.value;
+  });
   gate.querySelector('[data-action="approve"]').onclick = () => {
     const select = gate.querySelector("#outlier-select");
     const values = {};
     const inputEl = gate.querySelector("#gate-input");
+    if (actionSelect) values.selected_action = actionSelect.value;
     if (inputEl) {
       const raw = inputEl.value.trim();
       if (field.type === "number") {
@@ -298,6 +329,8 @@ function renderGate(request) {
 function gateQuestion(request) {
   return request.approval_id === "investigate_outlier"
     ? "Investigate the selected outlier?"
+    : request.approval_id === "select_recommended_action"
+      ? "Select and approve a recommended action?"
     : `Approval required: ${request.approval_id}`;
 }
 
@@ -428,10 +461,9 @@ function renderTrendChart(evidence) {
   if (!evidence) return;
   const note = document.getElementById("chart-note");
   const selected = evidence.selected_outlier?.machine || null;
-
-  drawPlot(evidence.outliers, selected);
-
   const scope = effectiveScope(evidence);
+  const hasAppliedRule = evidence.confirmed_threshold != null || evidence.outliers?.length > 0;
+  drawPlot(hasAppliedRule ? scope : null, selected);
   if (!scope.mode) return;
   const rule = ruleLabel(scope);
 
@@ -440,7 +472,8 @@ function renderTrendChart(evidence) {
     return;
   }
 
-  const points = evidence.outliers.reduce((n, o) => n + (o.outlier_dates || []).length, 0);
+  const points = evidence.outliers.reduce((total, item) =>
+    total + (item.outlier_dates || []).length, 0);
   note.innerHTML = `<span class="ring-key"></span>${points} points ${rule},
      across ${evidence.outliers.length} series`;
 }

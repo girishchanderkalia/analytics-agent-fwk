@@ -106,6 +106,16 @@ fields:
     default: null
     description: Structured evidence-based findings.
 
+  selected_action:
+    type: optional_string
+    default: null
+    description: Recommended action selected by the analyst.
+
+  next_action_approved:
+    type: boolean
+    default: false
+    description: Whether the analyst approved the selected recommended action.
+
   artifacts:
     type: object_list
     default: []
@@ -142,11 +152,6 @@ fields:
     type: object
     default: null
     description: Dataset and table names published by Analytics Foundation.
-
-  spatial_analysis_approved:
-    type: boolean
-    default: false
-    description: Whether the analyst requested the wafer spatial-pattern analysis.
 
   spatial_pattern:
     type: object
@@ -198,13 +203,11 @@ stateDiagram-v2
     WorkspaceCreated --> FiltersApplied
     FiltersApplied --> DataRegistered
     DataRegistered --> WaferEvidenceLoaded
-    WaferEvidenceLoaded --> Findings: no anomalous wafers
-    WaferEvidenceLoaded --> SpatialAnalysisOffer: anomalous wafers
-    SpatialAnalysisOffer --> SpatialPatternClassified: approved
-    SpatialAnalysisOffer --> Findings: declined
-    SpatialPatternClassified --> Findings
-
-    Findings --> [*]
+    WaferEvidenceLoaded --> Findings
+    Findings --> RecommendedActionSelection
+    RecommendedActionSelection --> SpatialPatternClassified: approved supported action
+    RecommendedActionSelection --> [*]: skipped or unsupported action
+    SpatialPatternClassified --> [*]
     Cancelled --> [*]
 ```
 

@@ -51,6 +51,8 @@ def answer_gate(page: Page) -> None:
 
     if gate.locator("#outlier-select").count():
         gate.locator("#outlier-select").select_option(index=0)
+    if gate.locator("#action-select").count():
+        gate.locator("#action-select").select_option(index=1)
 
     gate.locator('[data-action="approve"]').click()
     wait_for_turn(page)
@@ -122,6 +124,7 @@ def test_agent_workflow_runs_end_to_end_from_the_browser(page: Page, settings):
     expect(page.locator("#timeline .msg.agent .badge").last).to_have_text(
         re.compile(r"Complete|No outliers|Cancelled")
     )
+
 
 
 @pytest.mark.ui

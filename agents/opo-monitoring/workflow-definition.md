@@ -129,21 +129,6 @@ nodes:
     capability: data_query.read_wafers
     activity: Reading wafer-level evidence
 
-  - id: offer_spatial_analysis
-    type: approval
-    approval: analyse_spatial_pattern
-    decision_field: spatial_analysis_approved
-    decision_fields:
-      spatial_analysis_approved: approved
-    payload:
-      question: Analyse the spatial pattern of the anomalous wafers?
-      approve_label: Analyse pattern
-      reject_label: Skip to findings
-      details:
-        Anomalous wafers: ${state.anomalous_wafers}
-      anomalous_wafers: ${state.anomalous_wafers}
-    activity: Waiting for the follow-up action
-
   - id: classify_spatial_pattern
     type: operation
     operation: classify_spatial_pattern
@@ -166,6 +151,20 @@ nodes:
       - anomalous_wafers
       - spatial_pattern
     activity: Preparing evidence-based findings
+
+  - id: select_next_action
+    type: approval
+    approval: select_recommended_action
+    decision_field: next_action_approved
+    decision_fields:
+      next_action_approved: approved
+      selected_action: selected_action
+    payload:
+      question: Which recommended follow-up action should I perform?
+      approve_label: Approve action
+      reject_label: Skip
+      options: ${state.findings.recommended_next_actions}
+    activity: Waiting for the analyst to select and approve a recommended action
 
 edges:
   - from: parse_trend_request
@@ -208,15 +207,15 @@ edges:
     to: read_wafers
 
   - from: read_wafers
-    to: offer_spatial_analysis
-
-  - from: offer_spatial_analysis
-    to: classify_spatial_pattern
-
-  - from: classify_spatial_pattern
     to: summarize_findings
 
   - from: summarize_findings
+    to: select_next_action
+
+  - from: select_next_action
+    to: classify_spatial_pattern
+
+  - from: classify_spatial_pattern
     to: END
 
 routing:
@@ -228,8 +227,9 @@ routing:
     analyse_trends: read_metadata
     analyse_trends_with_confirmed_threshold: read_metadata
     approve_investigation: create_workspace
-    read_wafers: offer_spatial_analysis
-    offer_spatial_analysis: classify_spatial_pattern
+    read_wafers: summarize_findings
+    summarize_findings: select_next_action
+    select_next_action: END
 
   conditions:
     # A first message that already asks for outliers skips the trend review pause.
@@ -265,9 +265,13 @@ routing:
       when: "anomalous_wafers == []"
       to: summarize_findings
 
-    - from: offer_spatial_analysis
-      when: "spatial_analysis_approved == false"
-      to: summarize_findings
+    - from: select_next_action
+      when: "next_action_approved == false"
+      to: END
+
+    - from: select_next_action
+      when: 'selected_action == "Analyze wafer spatial pattern"'
+      to: classify_spatial_pattern
 
 approvals:
   - id: continue_to_outlier_detection
@@ -286,13 +290,13 @@ approvals:
       No explicit threshold was given. Approve the absolute OPO KPI cutoff
       recommended from the empirical distribution statistics.
 
-  - id: analyse_spatial_pattern
+  - id: select_recommended_action
     required: true
-    decision_field: spatial_analysis_approved
-    title: Analyse wafer spatial pattern
+    decision_field: next_action_approved
+    title: Select and approve a recommended action
     description: >
-      Classify the anomalous wafer points as edge- or center-concentrated
-      before the findings are summarized.
+      The analyst selects one of the model's recommended actions and approves
+      it before the workflow proceeds. Only supported actions are executed.
 
   - id: investigate_outlier
     required: true
@@ -336,11 +340,12 @@ After approval, the runtime:
 3. Registers the required wafer-level data.
 4. Reads wafer-level evidence.
 
-## 5. Follow-up analysis and findings
+## 5. Findings and recommended actions
 
-When anomalous wafers exist, the runtime offers the wafer spatial-pattern
-analysis. The findings summary is produced afterwards so it can cite the
-spatial pattern when the analyst requested it.
+The findings summary is produced first. The analyst can then select one of the
+model's recommended actions from a dropdown and approve it. The existing
+"Analyze wafer spatial pattern" action runs the deterministic classifier;
+recommendations without an implemented capability are not executed.
 
 ## Observability
 

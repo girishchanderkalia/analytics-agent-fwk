@@ -85,6 +85,10 @@ def test_expression_engine_evaluates_authored_conditions() -> None:
 
     assert engine.evaluate("outliers == []", {"outliers": []}) is True
     assert engine.evaluate("outliers == []", {"outliers": [1]}) is False
+    assert engine.evaluate(
+        'selected_action == "Analyze wafer spatial pattern"',
+        {"selected_action": "Analyze wafer spatial pattern"},
+    ) is True
     assert (
         engine.evaluate(
             "investigation_approved == false",

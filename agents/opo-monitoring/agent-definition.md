@@ -229,6 +229,11 @@ prompts:
     Include limitations and alternative explanations when the supplied
     evidence does not establish causality.
 
+    When anomalous wafers are present, include the exact recommended action
+    "Analyze wafer spatial pattern" in recommended_next_actions. This is the
+    only currently supported follow-up action; do not imply that other
+    recommendations will be executed automatically.
+
 evidence_labels:
   - trend_filters
   - trend_series
