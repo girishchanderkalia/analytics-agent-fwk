@@ -11,6 +11,11 @@ class ToolDefinition:
 
 TOOLS = (
     ToolDefinition(
+        "normalize_trend_window", "Normalize OPO trend window",
+        "Set the inclusive end date to one calendar month after the supplied start date.",
+        {"type":"object","properties":{"filters":{"type":"object"}},"required":["filters"],"additionalProperties":False},
+    ),
+    ToolDefinition(
         "analyze_trends", "Analyze OPO trends",
         "Apply application-owned threshold and outlier rules to retrieved trend series.",
         {"type":"object","properties":{"series":{"type":"array","items":{"type":"object"}},"mode":{"type":"string","enum":["baseline","absolute"]},"limit_value":{"type":["number","null"]},"direction":{"type":"string","enum":["above","below"]},"baseline_deviation_pct":{"type":"number","minimum":0},"limit_unit":{"type":"string","enum":["percent","absolute"]}},"required":["series"],"additionalProperties":False},

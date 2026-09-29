@@ -25,10 +25,27 @@
     <section class="timeline-pane">
       <section class="chart-panel">
         <div class="chart-head">
-          <h3>Daily overlay trend</h3>
+          <h3 id="trend-title">Daily overlay trend</h3>
           <span id="chart-note" class="chart-note">Loading&hellip;</span>
         </div>
         <div id="trend-plot" class="plot"></div>
+      </section>
+
+      <section id="tdbb-panel" class="tdbb-panel" hidden>
+        <div class="chart-head">
+          <h3>TDBB comparison</h3>
+          <span id="tdbb-period" class="chart-note"></span>
+        </div>
+        <div class="tdbb-views">
+          <div class="tdbb-view">
+            <h4>Budget comparison · before / after</h4>
+            <p>Bar plot unavailable: Analytics Foundation does not yet provide TDBB budget data.</p>
+          </div>
+          <div class="tdbb-view">
+            <h4>Wafer / field by TDBB budget</h4>
+            <p>Wafer and field plots unavailable: TDBB processing and spatial data are not yet connected.</p>
+          </div>
+        </div>
       </section>
 
       <section class="wafer-panel">
@@ -84,8 +101,8 @@
   </main>
 
   <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
-  <script src="/static/bff-client.js"></script>
-  <script src="/static/app.js"></script>
+  <script src="/static/bff-client.js?v=4"></script>
+  <script src="/static/app.js?v=12"></script>
 </body>
 
 </html>

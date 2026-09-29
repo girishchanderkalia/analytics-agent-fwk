@@ -52,13 +52,13 @@ window.OpoBff = {
     return response.agents || [];
   },
 
-  startChat(message, agent) {
+  startChat(message, agent, availableTrendScopes = []) {
     return postJson("/api/investigations/chat", {
       applicationId: APPLICATION_ID,
       agentId: agent?.agentId || AGENT_ID,
       agentVersion: agent?.version ?? null,
       message,
-      applicationContext: { source: "opo-monitoring-fe" },
+      applicationContext: { source: "opo-monitoring-fe", available_trend_scopes: availableTrendScopes },
     });
   },
 

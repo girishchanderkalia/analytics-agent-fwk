@@ -8,7 +8,7 @@ def create_app(handler: McpHandler | None = None) -> FastAPI:
     @app.get("/health")
     def health(): return {"status":"pass"}
     @app.get("/ready")
-    def ready(): return {"status":"ready","tools":3}
+    def ready(): return {"status":"ready","tools":4}
     @app.post("/mcp")
     def mcp(request: dict): return active.handle(request)
     return app

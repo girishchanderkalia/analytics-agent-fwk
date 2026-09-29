@@ -3,8 +3,8 @@ set -euo pipefail
 
 # Local deployment for manual UI testing. Run from Git Bash:
 #   scripts/local-deploy.sh [--agents "<pkg-dir>[;<pkg-dir>...]"] [--no-browser]
-# --agents registers extra agent packages alongside agents/opo-monitoring so the
-# UI agent selector has more than one entry; each needs a distinct id/version.
+# --agents registers extra agent packages alongside the two OPO Monitoring
+# agents; each needs a distinct id/version.
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 EXTRA_AGENTS=""
@@ -61,7 +61,7 @@ else
 fi
 export PYTHON_BIN
 
-packages="$(cygpath -w "$ROOT_DIR/agents/opo-monitoring")"
+packages="$(cygpath -w "$ROOT_DIR/agents/opo-monitoring");$(cygpath -w "$ROOT_DIR/agents/opo-monitoring-v2")"
 if [[ -n "$EXTRA_AGENTS" ]]; then
   IFS=';' read -r -a extra_dirs <<< "$EXTRA_AGENTS"
   for dir in "${extra_dirs[@]}"; do

@@ -1,14 +1,13 @@
 ---
-id: opo-monitoring-agent
-version: "1.0"
+id: opo-monitoring-v2
+version: "2.0"
 kind: agent
 
-display_name: OPO-monitoring-v1
+display_name: OPO-monitoring-v2
 
 description: >
-  Supports conversational investigation of OPO KPI trends, candidate
-  outliers, and wafer-level evidence using governed Analytics Foundation
-  capabilities.
+  Displays a scoped OPO performance trend and sets up an analyst-requested
+  before/after TDBB comparison. TDBB measurements are not yet available.
 
 ownership:
   owner: OPO Monitoring application
@@ -21,14 +20,12 @@ defaults:
 
 conversation:
   welcome_message: >
-    I can help investigate OPO trends, identify candidate outliers, and
-    perform an analyst-approved wafer-level investigation.
+    Ask for OPO performance by product, layer, scanner and start date. After
+    reviewing the trend, tell me when you observed a jump.
 
   suggested_prompts:
-    - Show OPO trends for the last seven days.
-    - Identify significant outliers.
-    - Investigate the selected outlier.
-    - Explain the evidence behind the finding.
+    - Show OPO performance by product, layer and scanner since a date.
+    - I observe a jump from 1 Sep to 17 Sep and want to know what changed in OPO.
 
 context:
   accepted:
@@ -39,6 +36,7 @@ context:
     - selected_layer_ids
     - selected_equipment_ids
     - workspace_id
+    - available_trend_scopes
 
 models:
   TrendFilters:
@@ -53,12 +51,12 @@ models:
       start_date:
         type: optional_string
         default: null
-        description: Inclusive ISO start date.
+        description: Inclusive ISO start date of the requested calendar month.
 
       end_date:
         type: optional_string
         default: null
-        description: Inclusive ISO end date.
+        description: Inclusive ISO date one day before the next month's start date.
 
       lot_ids:
         type: string_list
@@ -91,6 +89,17 @@ models:
         description: >
           True when the request already asks for outliers, anomalies,
           extreme values, or a threshold; false for a trend display request.
+
+  ComparisonScope:
+    fields:
+      change_date:
+        type: optional_string
+        default: null
+        description: ISO date when the analyst observed a change, or null if unspecified.
+      interpretation:
+        type: string
+        default: ""
+        description: Restatement of the analyst's before/after question.
 
   DetectionScope:
     fields:
@@ -181,7 +190,18 @@ models:
 
 prompts:
   trend_filters: |
-    Extract trend filters from the analyst request.
+    Extract the product, layer, scanner, and starting date from the analyst
+    request. For a supplied starting date, use its ISO date as start_date and
+    the day before the same date next month as inclusive end_date. Use explicit dates instead
+    of lookback_days. A named scanner is an exposure equipment identifier:
+    put scanner 1234 in exposure_equipment_ids as "1234", not in lot_ids.
+    If the year is missing, use only entries in
+    conversation_context.available_trend_scopes whose product, layer and scanner
+    all match the request. Choose a year only when its requested one-month
+    window overlaps a month in those matching entries. If none match, leave
+    start_date and end_date null and explain that the year needs clarification
+    in interpretation. Never infer a year from another product, layer, or
+    scanner, or from today's date.
 
     Do not invent lot identifiers, product identifiers, layer identifiers,
     equipment identifiers, dates, or filter values.
@@ -191,9 +211,18 @@ prompts:
 
     When a value is not present, leave the corresponding field empty or null.
 
-    Set outliers_requested to true only when the request asks for outliers,
-    anomalies, extreme values, or names a threshold; otherwise set it to false
-    so the analyst can review the trend chart first.
+    The current Foundation trend series contains one scalar OPO KPI value,
+    not separate X and Y measurements. Do not claim otherwise.
+
+  comparison_scope: |
+    Interpret the analyst's follow-up question using the original trend filters
+    and trend series. For a change "from 1 Sep to 17 Sep", use 1 Sep as the
+    before/after boundary, NOT 17 Sep. The later date describes the observed
+    after period. Resolve a missing year from trend_filters.start_date; the
+    boundary must fall within the queried trend window. If it does not, or
+    the date remains ambiguous, leave change_date null. Do not claim to know
+    what caused the change. TDBB budgets and wafer/field measurements are
+    unavailable; do not invent them or substitute OPO KPI values for TDBB data.
 
   detection_scope: |
     Interpret the analyst's outlier request within the established trend filters.

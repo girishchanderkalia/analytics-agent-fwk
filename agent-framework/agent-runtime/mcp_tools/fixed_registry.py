@@ -34,6 +34,7 @@ FOUNDATION_TOOLS: tuple[tuple[str, str], ...] = (
 
 # Application-owned deterministic calculations, reached over the same boundary.
 CAPABILITY_TOOLS: tuple[tuple[str, str], ...] = (
+    ("normalize_trend_window", "Apply a one-month OPO trend window."),
     ("analyze_trends", "Apply threshold and outlier rules to trend series."),
     ("normalize_wafer_evidence", "Normalize wafer rows and flag anomalies."),
     ("classify_spatial_pattern", "Classify anomalous wafer points radially."),
