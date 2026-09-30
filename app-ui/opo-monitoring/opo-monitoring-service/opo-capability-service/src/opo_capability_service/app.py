@@ -1,5 +1,6 @@
 from __future__ import annotations
 from fastapi import FastAPI
+from .catalog import TOOLS
 from .mcp import McpHandler
 
 def create_app(handler: McpHandler | None = None) -> FastAPI:
@@ -8,7 +9,7 @@ def create_app(handler: McpHandler | None = None) -> FastAPI:
     @app.get("/health")
     def health(): return {"status":"pass"}
     @app.get("/ready")
-    def ready(): return {"status":"ready","tools":4}
+    def ready(): return {"status":"ready","tools":len(TOOLS)}
     @app.post("/mcp")
     def mcp(request: dict): return active.handle(request)
     return app

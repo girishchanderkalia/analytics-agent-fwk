@@ -47,6 +47,7 @@ paths:
         - {$ref: '#/components/parameters/ProductIds'}
         - {$ref: '#/components/parameters/LayerIds'}
         - {$ref: '#/components/parameters/ExposureEquipmentIds'}
+        - {$ref: '#/components/parameters/ChuckIds'}
       responses:
         '200':
           description: Trend series for deterministic application display.
@@ -162,8 +163,71 @@ paths:
           content:
             application/json:
               schema: {$ref: '#/components/schemas/WaferQueryResponse'}
+  /tdbb/runs:
+    post:
+      operationId: runTdbb
+      description: >-
+        Request TDBB processing (default 10par model, AVG and W2W context
+        levels) for all lots matching the filters before and after
+        change_date. The mock resolves the request to completed TDBB runs that
+        already exist (one run per lot) and returns their IDs with budgets and
+        wafer/field maps per period.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/TdbbRunRequest'}
+      responses:
+        '201':
+          description: Completed TDBB runs with budgets and wafer/field maps per period.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/TdbbRunResult'}
+        '422':
+          description: Invalid run request, e.g. change_date outside the window.
+  /tdbb/runs/{runId}:
+    get:
+      operationId: getTdbbRun
+      parameters:
+        - {$ref: '#/components/parameters/RunId'}
+      responses:
+        '200':
+          description: TDBB run metadata.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/TdbbRunInfo'}
+        '404':
+          description: Unknown run.
+  /tdbb/runs/{runId}/data:
+    get:
+      operationId: getTdbbData
+      parameters:
+        - {$ref: '#/components/parameters/RunId'}
+        - name: tables
+          in: query
+          style: form
+          explode: true
+          description: Subset of TDBB tables; all tables when omitted.
+          schema:
+            type: array
+            items: {type: string, enum: [ce_wafer, ce_field, nce_wafer, nce_field]}
+      responses:
+        '200':
+          description: TDBB output rows of one run, keyed by table.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/TdbbRunData'}
+        '404':
+          description: Unknown run.
+        '422':
+          description: Unknown table.
 components:
   parameters:
+    RunId:
+      name: runId
+      in: path
+      required: true
+      schema: {type: string, minLength: 1}
     WorkspaceId:
       name: workspaceId
       in: path
@@ -205,6 +269,12 @@ components:
       style: form
       explode: true
       schema: {type: array, items: {type: string}}
+    ChuckIds:
+      name: chuck_ids
+      in: query
+      style: form
+      explode: true
+      schema: {type: array, items: {type: string}}
   schemas:
     HealthResponse:
       type: object
@@ -229,6 +299,7 @@ components:
         product_ids: {type: array, items: {type: string}, default: []}
         layer_ids: {type: array, items: {type: string}, default: []}
         exposure_equipment_ids: {type: array, items: {type: string}, default: []}
+        chuck_ids: {type: array, items: {type: string}, default: []}
       additionalProperties: false
     TrendResponse:
       type: object
@@ -256,8 +327,11 @@ components:
       required: [date, kpi_value]
       properties:
         date: {type: string, format: date-time}
-        kpi_value: {type: number}
+        kpi_value: {type: number, description: Overlay X KPI (|mean|+3 sigma) in nm.}
+        kpi_value_y: {type: number, nullable: true, description: Overlay Y KPI (|mean|+3 sigma) in nm.}
         lot_id: {type: string, nullable: true}
+        wafer_id: {type: string, nullable: true}
+        chuck_id: {type: string, nullable: true}
       additionalProperties: false
     DistributionStats:
       type: object
@@ -341,4 +415,130 @@ components:
         anomalous_wafers:
           type: array
           items: {type: string}
+      additionalProperties: false
+    TdbbRunRequest:
+      type: object
+      required: [start_date, end_date, change_date]
+      properties:
+        start_date: {type: string, format: date}
+        end_date: {type: string, format: date}
+        change_date: {type: string, format: date, description: First day of the after period.}
+        lot_ids: {type: array, items: {type: string}, default: []}
+        product_ids: {type: array, items: {type: string}, default: []}
+        layer_ids: {type: array, items: {type: string}, default: []}
+        exposure_equipment_ids: {type: array, items: {type: string}, default: []}
+        chuck_ids: {type: array, items: {type: string}, default: []}
+        model_step: {type: string, enum: [10par], default: 10par}
+        context_levels:
+          type: array
+          items: {type: string, enum: [AVG, W2W]}
+          default: [AVG, W2W]
+      additionalProperties: false
+    TdbbRunResult:
+      type: object
+      required: [status, change_date, settings, periods, maps]
+      properties:
+        status: {type: string, enum: [COMPLETED]}
+        change_date: {type: string, format: date}
+        settings:
+          type: object
+          required: [model_step, context_levels, budgets]
+          properties:
+            model_step: {type: string}
+            context_levels: {type: array, items: {type: string}}
+            budgets: {type: array, items: {type: string}}
+          additionalProperties: false
+        periods:
+          type: array
+          items: {$ref: '#/components/schemas/TdbbPeriod'}
+        maps:
+          type: array
+          items: {$ref: '#/components/schemas/TdbbMap'}
+      additionalProperties: false
+    TdbbPeriod:
+      type: object
+      required: [period, start_date, end_date, run_ids, lot_count, wafer_count, budgets]
+      properties:
+        period: {type: string, enum: [before, after]}
+        start_date: {type: string, format: date}
+        end_date: {type: string, format: date}
+        run_ids:
+          type: array
+          description: Completed TDBB runs (one per lot) used for this period.
+          items: {type: string}
+        lot_count: {type: integer, minimum: 0}
+        wafer_count: {type: integer, minimum: 0}
+        budgets:
+          type: array
+          items:
+            type: object
+            required: [budget, label, metric, metric_label, context, context_label]
+            properties:
+              budget: {type: string, description: "<metric>.<context>, e.g. nce_wafer.average"}
+              label: {type: string}
+              metric: {type: string, enum: [nce_wafer, nce_field, ce_wafer, ce_field, ce_translation]}
+              metric_label: {type: string}
+              context: {type: string, enum: [average, chuck_to_chuck, lot_to_lot, wafer_to_wafer]}
+              context_label: {type: string}
+              x_m3s: {type: number, nullable: true, description: nm}
+              y_m3s: {type: number, nullable: true, description: nm}
+            additionalProperties: false
+      additionalProperties: false
+    TdbbMap:
+      type: object
+      required: [budget, period, level, points]
+      properties:
+        budget: {type: string}
+        period: {type: string, enum: [before, after]}
+        level: {type: string, enum: [wafer, field], description: Averaged per field center or per intrafield position.}
+        points:
+          type: array
+          items:
+            type: object
+            required: [x, y, dx, dy]
+            properties:
+              x: {type: number, description: mm}
+              y: {type: number, description: mm}
+              dx: {type: number, description: Mean X in nm}
+              dy: {type: number, description: Mean Y in nm}
+              m3s_x: {type: number, nullable: true}
+              m3s_y: {type: number, nullable: true}
+            additionalProperties: false
+      additionalProperties: false
+    TdbbRunInfo:
+      type: object
+      required: [run_id, status, model_step, context_levels, product_id, layer_id, exposure_equipment_id, lot_id, lot_start, wafers]
+      properties:
+        run_id: {type: string, minLength: 1}
+        status: {type: string, enum: [COMPLETED]}
+        model_step: {type: string}
+        context_levels: {type: array, items: {type: string}}
+        product_id: {type: string}
+        layer_id: {type: string}
+        exposure_equipment_id: {type: string}
+        lot_id: {type: string}
+        lot_start: {type: string, format: date-time}
+        wafers:
+          type: array
+          items:
+            type: object
+            required: [wafer_id]
+            properties:
+              wafer_id: {type: string}
+              chuck_id: {type: string, nullable: true}
+            additionalProperties: false
+      additionalProperties: false
+    TdbbRunData:
+      type: object
+      required: [run_id, tables]
+      properties:
+        run_id: {type: string, minLength: 1}
+        tables:
+          type: object
+          description: >-
+            Rows per TDBB table (ce_wafer, ce_field, nce_wafer, nce_field) in the
+            TDBB output schema; context_level AVG per lot, W2W per wafer.
+          additionalProperties:
+            type: array
+            items: {type: object, additionalProperties: true}
       additionalProperties: false

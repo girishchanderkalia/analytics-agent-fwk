@@ -73,10 +73,10 @@ def run(awaitable):
 def test_discovery_registers_with_existing_registry() -> None:
     provider = AnalyticsFoundationMcpToolProvider(FakeFoundationClient())
     tools = run(provider.discover_tools())
-    assert len(tools) == 9
+    assert len(tools) == 12
     registry = McpToolRegistry()
     registry.register_many(to_registry_descriptors(tools))
-    assert len(registry.snapshot()) == 9
+    assert len(registry.snapshot()) == 12
     assert all(item.key.server == "analytics-foundation" for item in registry.snapshot())
 
 

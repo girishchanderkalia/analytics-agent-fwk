@@ -1,54 +1,50 @@
 from __future__ import annotations
 from calendar import monthrange
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from datetime import date, timedelta
 import re
 from typing import Any
-from opo_deterministic_logic import analyse_series, classify_wafer_spatial_pattern, detect_outliers, normalize_wafer_rows
+from opo_deterministic_logic import analyse_series, classify_wafer_spatial_pattern, compare_tdbb_budgets, detect_outliers, normalize_wafer_rows, suggest_change_date
 from .errors import CapabilityInputError, UnknownCapabilityError
-from .models import AnalyseTrendsRequest, ClassifySpatialPatternRequest, NormalizeWaferEvidenceRequest
+from .models import AnalyseTrendsRequest, ClassifySpatialPatternRequest, CompareTdbbBudgetsRequest, NormalizeWaferEvidenceRequest, SuggestChangeDateRequest
+
+EXPLICIT_YEAR = re.compile(r"\b(?:\d{4}-\d{2}-\d{2}|\d{1,2}\s+[A-Za-z]+,?\s+\d{4}|[A-Za-z]+\s+\d{1,2},?\s+\d{4}|\d{1,2}/\d{1,2}/\d{4})\b")
+
+def _with_year(value: date, year: int) -> date:
+    return value.replace(year=year, day=min(value.day, monthrange(year, value.month)[1]))
 
 class OpoCapabilityService:
+    def __init__(self, today: Callable[[], date] = date.today) -> None:
+        self.today = today
+
     def invoke(self, name: str, arguments: Mapping[str, Any]) -> dict[str, Any]:
         try:
             if name == "normalize_trend_window":
                 filters = dict(arguments["filters"])
-                question = str(arguments.get("question") or "")
-                explicit_year = re.search(r"\b(?:\d{4}-\d{2}-\d{2}|\d{1,2}\s+[A-Za-z]+\s+\d{4})\b", question)
-                if question and not explicit_year:
-                    matching_months = {
-                        month for scope in arguments.get("available_scopes", [])
-                        if scope.get("product") in filters.get("product_ids", [])
-                        and scope.get("layer") in filters.get("layer_ids", [])
-                        and scope.get("scanner") in filters.get("exposure_equipment_ids", [])
-                        for month in scope.get("months", [])
-                    }
-                    if matching_months and filters.get("start_date"):
-                        parsed_start = date.fromisoformat(filters["start_date"])
-                        possible_starts = []
-                        for year in sorted({int(month[:4]) for month in matching_months}):
-                            try:
-                                candidate = parsed_start.replace(year=year)
-                            except ValueError:
-                                continue
-                            next_month = candidate.month % 12 + 1
-                            next_year = candidate.year + (candidate.month == 12)
-                            next_start = date(next_year, next_month, min(candidate.day, monthrange(next_year, next_month)[1]))
-                            if any(candidate.isoformat()[:7] <= month <= (next_start - timedelta(days=1)).isoformat()[:7] for month in matching_months):
-                                possible_starts.append(candidate)
-                        if possible_starts:
-                            filters["start_date"] = max(possible_starts).isoformat()
-                    if not matching_months or not filters.get("start_date") or not possible_starts:
-                        filters["start_date"] = None
-                        filters["end_date"] = None
-                        return {"trend_filters": filters}
+                if not filters.get("start_date"):
+                    filters["end_date"] = None
+                    return {"trend_filters": filters}
                 start = date.fromisoformat(filters["start_date"])
+                question = str(arguments.get("question") or "")
+                if question and not EXPLICIT_YEAR.search(question):
+                    # A date without a year means the most recent occurrence up to today.
+                    today = self.today()
+                    start = _with_year(start, today.year)
+                    if start > today:
+                        start = _with_year(start, today.year - 1)
                 next_month = start.month % 12 + 1
                 next_year = start.year + (start.month == 12)
                 next_start = date(next_year, next_month, min(start.day, monthrange(next_year, next_month)[1]))
+                filters["start_date"] = start.isoformat()
                 filters["end_date"] = (next_start - timedelta(days=1)).isoformat()
                 filters["lookback_days"] = None
                 return {"trend_filters": filters}
+            if name == "suggest_change_date":
+                request = SuggestChangeDateRequest.model_validate(arguments)
+                return suggest_change_date(request.series, request.end_date)
+            if name == "compare_tdbb_budgets":
+                request = CompareTdbbBudgetsRequest.model_validate(arguments)
+                return compare_tdbb_budgets(request.periods)
             if name == "analyze_trends":
                 request=AnalyseTrendsRequest.model_validate(arguments)
                 # A null value means the caller expressed no preference.

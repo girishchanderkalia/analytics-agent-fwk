@@ -8,6 +8,7 @@ from typing import Any, Awaitable, Callable
 from analytics_foundation_client import (
     AnalyticsFoundationClient,
     RegistrationRequest,
+    TdbbRunRequest,
     TrendQueryRequest,
     WaferQueryRequest,
     WorkspaceFiltersRequest,
@@ -36,6 +37,9 @@ class AnalyticsFoundationMcpToolProvider:
             "register_dataset": self._register_dataset,
             "get_registration_status": self._get_registration_status,
             "query_wafers": self._query_wafers,
+            "run_tdbb": self._run_tdbb,
+            "get_tdbb_run": self._get_tdbb_run,
+            "get_tdbb_data": self._get_tdbb_data,
         }
         self._tools = _tool_catalog()
 
@@ -107,6 +111,25 @@ class AnalyticsFoundationMcpToolProvider:
         result = await self._client.query_wafers(WaferQueryRequest.model_validate(values))
         return result.model_dump(mode="json")
 
+    async def _run_tdbb(self, values: Mapping[str, Any]) -> Mapping[str, Any]:
+        result = await self._client.run_tdbb(TdbbRunRequest.model_validate(values))
+        return result.model_dump(mode="json")
+
+    async def _get_tdbb_run(self, values: Mapping[str, Any]) -> Mapping[str, Any]:
+        run_id = _required_text(values, "run_id")
+        _reject_extra(values, {"run_id"})
+        result = await self._client.get_tdbb_run(run_id)
+        return result.model_dump(mode="json")
+
+    async def _get_tdbb_data(self, values: Mapping[str, Any]) -> Mapping[str, Any]:
+        run_id = _required_text(values, "run_id")
+        _reject_extra(values, {"run_id", "tables"})
+        tables = values.get("tables") or []
+        if not isinstance(tables, list) or not all(isinstance(table, str) for table in tables):
+            raise ValueError("tables must be a list of strings")
+        result = await self._client.get_tdbb_data(run_id, tables)
+        return result.model_dump(mode="json")
+
 
 def _required_text(values: Mapping[str, Any], field: str) -> str:
     value = values.get(field)
@@ -144,7 +167,21 @@ def _trend_schema() -> dict[str, Any]:
         "product_ids": {"type": "array", "items": {"type": "string"}},
         "layer_ids": {"type": "array", "items": {"type": "string"}},
         "exposure_equipment_ids": {"type": "array", "items": {"type": "string"}},
+        "chuck_ids": {"type": "array", "items": {"type": "string"}},
     })
+
+
+def _tdbb_schema() -> dict[str, Any]:
+    properties = dict(_trend_schema()["properties"])
+    del properties["days"]
+    properties.update({
+        "start_date": {"type": "string"},
+        "end_date": {"type": "string"},
+        "change_date": {"type": "string"},
+        "model_step": {"type": "string", "enum": ["10par"]},
+        "context_levels": {"type": "array", "items": {"type": "string", "enum": ["AVG", "W2W"]}},
+    })
+    return _object_schema(properties, ["start_date", "end_date", "change_date"])
 
 
 def _tool_catalog() -> tuple[FoundationMcpTool, ...]:
@@ -160,4 +197,7 @@ def _tool_catalog() -> tuple[FoundationMcpTool, ...]:
         FoundationMcpTool("register_dataset", "1", "Register a dataset in a workspace.", _object_schema({"workspace_id": {"type": "string"}, "dataset": {"type": "string"}, "table": {"type": "string"}}, ["workspace_id", "dataset", "table"]), any_object, {"destructiveHint": False}),
         FoundationMcpTool("get_registration_status", "1", "Get dataset registration status.", _object_schema({"workspace_id": {"type": "string"}, "registration_id": {"type": "string"}}, ["workspace_id", "registration_id"]), any_object, {"readOnlyHint": True}),
         FoundationMcpTool("query_wafers", "1", "Query wafer rows.", _object_schema({"workspace_id": {"type": "string"}, "table": {"type": "string"}, "filters": any_object}, ["workspace_id", "table"]), any_object, {"readOnlyHint": True}),
+        FoundationMcpTool("run_tdbb", "1", "Request TDBB processing before and after a change date; returns completed run IDs, budgets and maps.", _tdbb_schema(), any_object, {"destructiveHint": False}),
+        FoundationMcpTool("get_tdbb_run", "1", "Get TDBB run metadata.", _object_schema({"run_id": {"type": "string"}}, ["run_id"]), any_object, {"readOnlyHint": True}),
+        FoundationMcpTool("get_tdbb_data", "1", "Get TDBB output rows of one run.", _object_schema({"run_id": {"type": "string"}, "tables": {"type": "array", "items": {"type": "string", "enum": ["ce_wafer", "ce_field", "nce_wafer", "nce_field"]}}}, ["run_id"]), any_object, {"readOnlyHint": True}),
     )

@@ -10,6 +10,11 @@ const mainLayout = document.querySelector("main");
 const toggleRightPanel = document.getElementById("toggle-right-panel");
 const agentSelect = document.getElementById("agent-select");
 const tdbbPanel = document.getElementById("tdbb-panel");
+const ncePanel = document.getElementById("nce-panel");
+const V2_AGENT = "opo-monitoring-v2";
+const V3_AGENT = "opo-monitoring-v3";
+const selectedAgentId = () => registeredAgents[agentSelect.selectedIndex]?.agentId;
+const isScopedAgent = (agentId) => agentId === V2_AGENT || agentId === V3_AGENT;
 
 let conversationId = null;
 let conversationVersion = null;
@@ -77,8 +82,34 @@ function v2StarterPrompt() {
   return `Show OPO performance of product ${product}, layer ${layer} on scanner ${exposure_equipment_id || machine} since ${observed.month}-01`;
 }
 
+// Series are grouped per lot, so pick the product/layer/scanner scope with the most wafers.
+function v3StarterPrompt() {
+  const scopes = new Map();
+  (availableTrendSeries || []).forEach((series) => {
+    const scanner = series.exposure_equipment_id || series.machine;
+    if (!series.product || !series.layer_id || !scanner || !series.points?.length) return;
+    const key = `${series.product}\u0000${series.layer_id}\u0000${scanner}`;
+    const scope = scopes.get(key) || { product: series.product, layer: series.layer_id, scanner, dates: [] };
+    scope.dates.push(...series.points.map((point) => String(point.date).slice(0, 10)));
+    scopes.set(key, scope);
+  });
+  const observed = [...scopes.values()].sort((left, right) => right.dates.length - left.dates.length)[0];
+  if (!observed) return "Show OPO performance by product, layer, and scanner since a date";
+  const first = new Date(`${observed.dates.sort()[0]}T00:00:00Z`);
+  const since = new Date(Date.UTC(first.getUTCFullYear(), first.getUTCMonth(), 17))
+    .toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" });
+  return `Show OPO performance of product ${observed.product}, layer ${observed.layer} on scanner ${observed.scanner} since ${since}`;
+}
+
+function starterPrompt(agentId) {
+  if (agentId === V2_AGENT) return v2StarterPrompt();
+  if (agentId === V3_AGENT) return v3StarterPrompt();
+  return "Show me trends and outliers";
+}
+
 function drawPlot(scope, selectedMachine) {
   if (!trendSeries) return;
+  document.getElementById("trend-plot").style.height = "";
   if (!trendSeries.length) {
     Plotly.purge(document.getElementById("trend-plot"));
     return;
@@ -153,13 +184,225 @@ function drawPlot(scope, selectedMachine) {
   Plotly.react(document.getElementById("trend-plot"), traces, PLOT_LAYOUT, PLOT_CONFIG);
 }
 
+// v3 plots overlay X and Y of the scoped wafers in stacked panels so neither hides the other.
+function drawV3Trend(series, changeDate) {
+  const plot = document.getElementById("trend-plot");
+  const points = (series || []).flatMap((item) => item.points || [])
+    .sort((left, right) => String(left.date).localeCompare(String(right.date)));
+  if (!points.length) {
+    Plotly.purge(plot);
+    return 0;
+  }
+  const text = points.map((p) => [p.lot_id, p.wafer_id, p.chuck_id].filter(Boolean).join(" \u00b7 "));
+  const trace = (name, key, color, yaxis) => ({
+    type: "scatter",
+    mode: "markers",
+    name: `Overlay ${name}`,
+    x: points.map((p) => p.date),
+    y: points.map((p) => p[key]),
+    yaxis,
+    text,
+    marker: { size: 5, color, opacity: 0.8 },
+    hovertemplate: `%{x}<br>${name} %{y:.2f} nm<br>%{text}<extra></extra>`,
+  });
+  const axis = (title, domain) => ({ ...PLOT_LAYOUT.yaxis, title, domain });
+  const layout = {
+    ...PLOT_LAYOUT,
+    height: 360,
+    margin: { ...PLOT_LAYOUT.margin, t: 28 },
+    showlegend: true,
+    legend: { orientation: "h", x: 0, y: 1.1 },
+    yaxis: axis("X |m|+3\u03c3 (nm)", [0.54, 1]),
+    yaxis2: axis("Y |m|+3\u03c3 (nm)", [0, 0.46]),
+    shapes: changeDate ? [{
+      type: "line", xref: "x", yref: "paper", x0: changeDate, x1: changeDate, y0: 0, y1: 1,
+      line: { color: OUTLIER_COLOUR, dash: "dot", width: 1.5 },
+    }] : [],
+  };
+  plot.style.height = `${layout.height}px`;
+  Plotly.react(plot, [
+    trace("X", "kpi_value", "#4c9aff", "y"),
+    trace("Y", "kpi_value_y", "#f0883e", "y2"),
+  ], layout, PLOT_CONFIG);
+  return points.length;
+}
+
+let tdbbRun = null;
+
+function renderTdbb(evidence) {
+  const note = document.getElementById("tdbb-note");
+  const bars = document.getElementById("tdbb-bars");
+  const maps = document.getElementById("tdbb-maps");
+  const select = document.getElementById("tdbb-budget");
+  const scope = evidence.comparison_scope;
+  tdbbRun = evidence.tdbb_run || null;
+  document.getElementById("tdbb-period").textContent = scope?.change_date
+    ? `Before / after ${scope.change_date}`
+    : "Change date unavailable";
+  if (!tdbbRun) {
+    note.textContent = scope?.change_date ? "TDBB has not run yet." : (scope?.interpretation || "");
+    Plotly.purge(bars);
+    Plotly.purge(maps);
+    select.innerHTML = "";
+    return;
+  }
+  const [before, after] = ["before", "after"].map((name) => tdbbRun.periods.find((p) => p.period === name));
+  const settings = tdbbRun.settings;
+  note.textContent = `${settings.model_step} \u00b7 ${settings.context_levels.join(" + ")} \u00b7 before ${before.start_date} \u2013 ${before.end_date}: ${before.lot_count} lots / ${before.wafer_count} wafers \u00b7 after ${after.start_date} \u2013 ${after.end_date}: ${after.lot_count} lots / ${after.wafer_count} wafers`;
+
+  drawTdbbOverview(bars, before, after);
+
+  const mapped = before.budgets.filter((b) => tdbbRun.maps.some((m) => m.budget === b.budget));
+  const current = select.value;
+  select.innerHTML = mapped.map((b) => `<option value="${escapeHtml(b.budget)}">${escapeHtml(b.label)}</option>`).join("");
+  const largest = evidence.tdbb_comparison?.largest_increase?.budget;
+  const choose = [current, largest, "nce_wafer.average"].find((key) => mapped.some((b) => b.budget === key));
+  select.value = choose || mapped[0]?.budget || "";
+  select.onchange = () => drawTdbbMaps(select.value);
+  drawTdbbMaps(select.value);
+}
+
+// Mirrors the TDBB Overview: metrics as columns, context levels as rows, X/Y bars before vs after.
+function drawTdbbOverview(plot, before, after) {
+  const metrics = [...new Map(before.budgets.map((b) => [b.metric, b.metric_label])).entries()];
+  const contexts = [...new Map(before.budgets.map((b) => [b.context, b.context_label])).entries()];
+  const cell = (period, metric, context) => period.budgets.find((b) => b.metric === metric && b.context === context) || {};
+  const top = Math.max(0.1, ...[before, after].flatMap((p) => p.budgets.flatMap((b) => [b.x_m3s ?? 0, b.y_m3s ?? 0]))) * 1.18;
+  const gap = 0.012;
+  const width = (1 - 0.04) / metrics.length;
+  const height = (1 - 0.06) / contexts.length;
+  const traces = [];
+  const layout = {
+    paper_bgcolor: "rgba(0,0,0,0)",
+    plot_bgcolor: "rgba(0,0,0,0)",
+    font: { color: "#8b97a8", size: 10 },
+    margin: { l: 34, r: 8, t: 46, b: 20 },
+    height: 150 * contexts.length + 70,
+    barmode: "group",
+    bargap: 0.25,
+    showlegend: true,
+    legend: { orientation: "h", x: 1, xanchor: "right", y: 1.07 },
+    hovermode: "closest",
+    annotations: [],
+  };
+  contexts.forEach(([context, contextLabel], row) => {
+    metrics.forEach(([metric, metricLabel], column) => {
+      const index = row * metrics.length + column + 1;
+      const suffix = index === 1 ? "" : index;
+      const x0 = 0.04 + column * width;
+      const y1 = 0.94 - row * height;
+      layout[`xaxis${suffix}`] = { domain: [x0 + gap, x0 + width - gap], anchor: `y${suffix}`, type: "category", fixedrange: true, linecolor: "#2a3441", tickfont: { size: 10 } };
+      layout[`yaxis${suffix}`] = { domain: [y1 - height + 0.035, y1 - 0.01], anchor: `x${suffix}`, range: [0, top], fixedrange: true, gridcolor: "#2a3441", zeroline: false, showticklabels: column === 0, tickfont: { size: 9 } };
+      [["before", before, "#8fb8de"], ["after", after, "#f0883e"]].forEach(([name, period, color]) => {
+        const values = cell(period, metric, context);
+        traces.push({
+          type: "bar",
+          name: name === "before" ? `Before (${period.start_date} \u2013 ${period.end_date})` : `After (${period.start_date} \u2013 ${period.end_date})`,
+          legendgroup: name,
+          showlegend: index === 1,
+          xaxis: `x${suffix}`,
+          yaxis: `y${suffix}`,
+          x: ["X", "Y"],
+          y: [values.x_m3s, values.y_m3s],
+          marker: { color },
+          text: [values.x_m3s, values.y_m3s].map((v) => (v == null ? "" : v.toFixed(2))),
+          textposition: "outside",
+          textfont: { size: 9, color: "#c9d1d9" },
+          cliponaxis: false,
+          hovertemplate: `${metricLabel} \u00b7 ${contextLabel}<br>%{x}: %{y:.3f} nm<extra>${name}</extra>`,
+        });
+      });
+      if (row === 0) {
+        layout.annotations.push({ xref: "paper", yref: "paper", x: x0 + width / 2, xanchor: "center", y: 0.985, showarrow: false, text: `<b>${metricLabel}</b>`, font: { color: "#e4e8ee", size: 11 } });
+      }
+    });
+    layout.annotations.push({ xref: "paper", yref: "paper", x: 0, y: 0.94 - row * height - height / 2, xanchor: "right", showarrow: false, textangle: -90, text: `<b>${contextLabel}</b>`, font: { color: "#e4e8ee", size: 11 } });
+  });
+  plot.style.height = `${layout.height}px`;
+  Plotly.react(plot, traces, layout, PLOT_CONFIG);
+}
+
+// Wafer metrics map per field center, field metrics per intrafield position; before/after share scales.
+function drawTdbbMaps(budget) {
+  const plot = document.getElementById("tdbb-maps");
+  if (!tdbbRun || !budget) return;
+  const level = tdbbRun.maps.find((m) => m.budget === budget)?.level || "wafer";
+  const panels = [[level, "before"], [level, "after"]];
+  const mapFor = (l, period) => tdbbRun.maps.find((m) => m.budget === budget && m.level === l && m.period === period)?.points || [];
+  const magnitude = (p) => Math.max(p.m3s_x ?? 0, p.m3s_y ?? 0);
+  const all = panels.flatMap(([l, period]) => mapFor(l, period));
+  const colorMax = Math.max(...all.map(magnitude), 0.001);
+  const longest = () => Math.max(...all.map((p) => Math.hypot(p.dx, p.dy)), 1e-6);
+  const target = { wafer: 14, field: 4 };
+  const traces = [];
+  const layout = {
+    paper_bgcolor: "rgba(0,0,0,0)",
+    plot_bgcolor: "rgba(0,0,0,0)",
+    font: { color: "#8b97a8", size: 11 },
+    margin: { l: 8, r: 8, t: 22, b: 8 },
+    height: 320,
+    showlegend: false,
+    hovermode: "closest",
+    annotations: [],
+    shapes: [],
+  };
+  panels.forEach(([l, period], index) => {
+    const suffix = index ? index + 1 : "";
+    const points = mapFor(l, period);
+    const scale = target[l] / longest();
+    const range = l === "wafer" ? 160 : 20;
+    layout[`xaxis${suffix}`] = { domain: [index * 0.5 + 0.01, index * 0.5 + 0.45], range: [-range, range], visible: false, fixedrange: true, constrain: "domain" };
+    layout[`yaxis${suffix}`] = { domain: [0, 0.92], range: [-range, range], visible: false, fixedrange: true, scaleanchor: `x${suffix}`, constrain: "domain" };
+    layout.annotations.push({
+      xref: "paper", yref: "paper", x: index * 0.5 + 0.23, y: 1, showarrow: false,
+      text: `<b>${l === "wafer" ? "Wafer" : "Field"} \u00b7 ${period}</b>`, font: { color: "#e4e8ee", size: 11 },
+    });
+    if (l === "wafer") {
+      layout.shapes.push({ type: "circle", xref: `x${suffix}`, yref: `y${suffix}`, x0: -150, y0: -150, x1: 150, y1: 150, line: { color: "#667085", width: 1 } });
+    } else {
+      layout.shapes.push({ type: "rect", xref: `x${suffix}`, yref: `y${suffix}`, x0: -13, y0: -16.5, x1: 13, y1: 16.5, line: { color: "#667085", width: 1 } });
+    }
+    traces.push({
+      type: "scatter",
+      mode: "lines",
+      xaxis: `x${suffix}`,
+      yaxis: `y${suffix}`,
+      x: points.flatMap((p) => [p.x, p.x + p.dx * scale, null]),
+      y: points.flatMap((p) => [p.y, p.y + p.dy * scale, null]),
+      line: { color: "#e4e8ee", width: 1.2 },
+      hoverinfo: "skip",
+    });
+    traces.push({
+      type: "scatter",
+      mode: "markers",
+      xaxis: `x${suffix}`,
+      yaxis: `y${suffix}`,
+      x: points.map((p) => p.x),
+      y: points.map((p) => p.y),
+      customdata: points.map((p) => [p.dx, p.dy, p.m3s_x, p.m3s_y]),
+      marker: {
+        size: level === "wafer" ? 7 : 12,
+        color: points.map(magnitude),
+        cmin: 0,
+        cmax: colorMax,
+        colorscale: "Viridis",
+        showscale: index === 1,
+        colorbar: { title: { text: "3\u03c3 nm", side: "right" }, thickness: 10, len: 0.9 },
+      },
+      hovertemplate: "(%{x:.1f}, %{y:.1f}) mm<br>mean %{customdata[0]:.3f} / %{customdata[1]:.3f} nm<br>|m|+3\u03c3 X %{customdata[2]:.2f} Y %{customdata[3]:.2f} nm<extra></extra>",
+    });
+  });
+  plot.style.height = `${layout.height}px`;
+  Plotly.react(plot, traces, layout, PLOT_CONFIG);
+}
+
 async function loadTrends() {
   try {
     trendSeries = await window.OpoBff.loadTrends();
     availableTrendSeries = trendSeries;
     drawPlot(null, null);
-    if (registeredAgents[agentSelect.selectedIndex]?.agentId === "opo-monitoring-v2") {
-      messageInput.value = v2StarterPrompt();
+    if (isScopedAgent(selectedAgentId())) {
+      messageInput.value = starterPrompt(selectedAgentId());
       Plotly.purge(document.getElementById("trend-plot"));
     }
     const points = trendSeries.reduce((total, series) => total + series.points.length, 0);
@@ -399,11 +642,29 @@ function renderEvidence(evidence) {
     ["Products", list(filters.product_ids)],
     ["Layers", list(filters.layer_ids)],
     ["Exposure equipment", list(filters.exposure_equipment_ids)],
+    ["Chucks", list(filters.chuck_ids)],
   ].filter(([, value]) => value);
   if (scope.length) {
     html += `<div class="card"><h3>Scope</h3>${scope
       .map(([label, value]) => `<div class="kv"><span>${escapeHtml(label)}</span><span>${escapeHtml(value)}</span></div>`)
       .join("")}</div>`;
+  }
+
+  if (evidence.tdbb_comparison?.budgets?.length) {
+    const comparison = evidence.tdbb_comparison;
+    const value = (v) => (v == null ? "" : Number(v).toFixed(2));
+    const pct = (v) => (v == null ? "" : `${v > 0 ? "+" : ""}${v}%`);
+    html += `<div class="card"><h3>TDBB budgets (nm)</h3>
+      <div class="kv"><span>Runs before / after</span><span>${escapeHtml(comparison.before.run_count)} / ${escapeHtml(comparison.after.run_count)}</span></div>
+      ${comparison.headline ? `<p>${escapeHtml(comparison.headline)}</p>` : ""}
+      <table>
+        <tr><th>Budget</th><th>X before</th><th>X after</th><th>\u0394X</th><th>Y before</th><th>Y after</th><th>\u0394Y</th></tr>
+        ${comparison.budgets.map((b) => `<tr class="${comparison.largest_increase?.budget === b.budget ? "anomalous" : ""}">
+          <td>${escapeHtml(b.label)}</td>
+          <td>${escapeHtml(value(b.before_x))}</td><td>${escapeHtml(value(b.after_x))}</td><td>${escapeHtml(pct(b.delta_x_pct))}</td>
+          <td>${escapeHtml(value(b.before_y))}</td><td>${escapeHtml(value(b.after_y))}</td><td>${escapeHtml(pct(b.delta_y_pct))}</td>
+        </tr>`).join("")}
+      </table></div>`;
   }
 
   if (evidence.selected_outlier) {
@@ -730,25 +991,39 @@ function handleResponse(runtime) {
   conversationInput.value = conversationId ?? "";
 
   const evidence = runtime.result || {};
-  const isV2 = runtime.agentId === "opo-monitoring-v2" ||
-    (!runtime.agentId && registeredAgents[agentSelect.selectedIndex]?.agentId === "opo-monitoring-v2");
+  const agentId = runtime.agentId || selectedAgentId();
+  const isV3 = agentId === V3_AGENT;
+  const isV2 = isScopedAgent(agentId);
   document.getElementById("trend-title").textContent = isV2 ? "OPO performance trend" : "Daily overlay trend";
   document.querySelector(".wafer-panel").hidden = isV2;
   tdbbPanel.hidden = !isV2 || !evidence.comparison_scope;
-  if (isV2 && evidence.comparison_scope) {
-    document.getElementById("tdbb-period").textContent = evidence.comparison_scope.change_date
-      ? `Before / after ${evidence.comparison_scope.change_date}`
-      : "Change date unavailable";
-  }
+  document.getElementById("tdbb-views").hidden = !isV3;
+  ncePanel.hidden = !isV3 || !evidence.tdbb_run;
   if (evidence.trend_series) trendSeries = evidence.trend_series;
   else if (isV2) trendSeries = [];
-  renderTrendChart(evidence);
-  if (isV2) {
+  if (isV3) {
+    const filters = evidence.trend_filters || {};
+    const wafers = drawV3Trend(trendSeries, evidence.comparison_scope?.change_date);
+    document.getElementById("chart-note").textContent = filters.start_date
+      ? `${filters.start_date} to ${filters.end_date || "?"} \u00b7 ${wafers} wafers \u00b7 overlay X / Y (nm)`
+      : "Start date needed";
+    if (evidence.comparison_scope) renderTdbb(evidence);
+  } else if (isV2) {
+    renderTrendChart(evidence);
     const filters = evidence.trend_filters || {};
     const points = (trendSeries || []).reduce((total, series) => total + (series.points || []).length, 0);
     document.getElementById("chart-note").textContent = filters.start_date
-      ? `${filters.start_date} to ${filters.end_date || "?"} · ${points} KPI points · X/Y unavailable`
+      ? `${filters.start_date} to ${filters.end_date || "?"} \u00b7 ${points} KPI points \u00b7 X/Y unavailable`
       : "Year needed for this scope";
+    if (evidence.comparison_scope) {
+      document.getElementById("tdbb-period").textContent = evidence.comparison_scope.change_date
+        ? `Before / after ${evidence.comparison_scope.change_date}`
+        : "Change date unavailable";
+      document.getElementById("tdbb-note").textContent =
+        "Budget bars and wafer/field plots are unavailable in v2: Analytics Foundation TDBB data is not connected to this agent.";
+    }
+  } else {
+    renderTrendChart(evidence);
   }
   renderWaferMap(evidence);
   renderEvidence(evidence);
@@ -759,15 +1034,34 @@ function handleResponse(runtime) {
       return;
     }
     interactionPanel.hidden = true;
-    if (runtime.status === "completed" && evidence.comparison_scope) {
-      addNode("msg agent", `<span class="badge ready">Comparison set up</span>
-        <p>Before/after TDBB budgets and wafer/field plots are waiting for Analytics Foundation data. No TDBB measurements or cause can be reported yet.</p>`);
+    if (!isV3) {
+      if (runtime.status === "completed" && evidence.comparison_scope) {
+        addNode("msg agent", `<span class="badge ready">Comparison set up</span>
+          <p>Before/after TDBB budgets and wafer/field plots are waiting for Analytics Foundation data. No TDBB measurements or cause can be reported yet.</p>`);
+      } else if (runtime.status === "cancelled") {
+        addNode("msg agent", "<p>Comparison finished without TDBB analysis.</p>");
+      } else if (runtime.status === "completed" && !evidence.trend_filters?.start_date) {
+        addNode("msg agent", "<p>No matching trend data was available to determine a year. Please include a year in the date and try again.</p>");
+      } else if (runtime.status === "failed") {
+        addNode("msg agent", "<p>Could not set up the comparison.</p>");
+      }
+      return;
+    }
+    if (runtime.status === "completed" && evidence.tdbb_summary) {
+      const summary = evidence.tdbb_summary;
+      const limits = (summary.limitations || []).map((item) => `<li>${escapeHtml(item)}</li>`).join("");
+      addNode("msg agent", `<span class="badge ready">TDBB comparison</span>
+        ${renderMarkdown(summary.message || "")}
+        ${evidence.tdbb_comparison?.headline ? `<p><strong>${escapeHtml(evidence.tdbb_comparison.headline)}</strong></p>` : ""}
+        ${limits ? `<ul>${limits}</ul>` : ""}`);
+    } else if (runtime.status === "completed" && evidence.comparison_scope && !evidence.comparison_scope.change_date) {
+      addNode("msg agent", `<p>No change date could be used within the analysed window. ${escapeHtml(evidence.comparison_scope.interpretation || "")}</p>`);
     } else if (runtime.status === "cancelled") {
-      addNode("msg agent", "<p>Comparison finished without TDBB analysis.</p>");
+      addNode("msg agent", "<p>Finished without TDBB analysis.</p>");
     } else if (runtime.status === "completed" && !evidence.trend_filters?.start_date) {
-      addNode("msg agent", "<p>No matching trend data was available to determine a year. Please include a year in the date and try again.</p>");
+      addNode("msg agent", "<p>No start date was found. Please include a date such as \"since 17 Aug\".</p>");
     } else if (runtime.status === "failed") {
-      addNode("msg agent", "<p>Could not set up the comparison.</p>");
+      addNode("msg agent", "<p>Could not complete the TDBB comparison.</p>");
     }
     return;
   }
@@ -848,7 +1142,8 @@ document.getElementById("composer").onsubmit = (event) => {
   findingsPanel.hidden = true;
   findingsContent.innerHTML = "";
   tdbbPanel.hidden = true;
-  const isV2 = registeredAgents[agentSelect.selectedIndex]?.agentId === "opo-monitoring-v2";
+  ncePanel.hidden = true;
+  const isV2 = isScopedAgent(selectedAgentId());
   document.querySelector(".wafer-panel").hidden = isV2;
   messageInput.disabled = false;
   evidencePane.innerHTML = '<div class="empty-state small"><p>No evidence yet.</p></div>';
@@ -904,12 +1199,11 @@ async function loadAgents() {
 }
 
 agentSelect.addEventListener("change", () => {
-  const isV2 = registeredAgents[agentSelect.selectedIndex]?.agentId === "opo-monitoring-v2";
-  messageInput.value = isV2
-    ? v2StarterPrompt()
-    : "Show me trends and outliers";
+  const isV2 = isScopedAgent(selectedAgentId());
+  messageInput.value = starterPrompt(selectedAgentId());
   document.querySelector(".wafer-panel").hidden = isV2;
   tdbbPanel.hidden = true;
+  ncePanel.hidden = true;
   document.getElementById("trend-title").textContent = isV2 ? "OPO performance trend" : "Daily overlay trend";
   if (isV2) {
     Plotly.purge(document.getElementById("trend-plot"));

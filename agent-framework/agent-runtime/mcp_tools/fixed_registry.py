@@ -30,6 +30,9 @@ FOUNDATION_TOOLS: tuple[tuple[str, str], ...] = (
     ("register_dataset", "Register a dataset in a workspace."),
     ("get_registration_status", "Read dataset registration status."),
     ("query_wafers", "Read wafer-level evidence."),
+    ("run_tdbb", "Run TDBB processing before and after a change date."),
+    ("get_tdbb_run", "Read TDBB run metadata."),
+    ("get_tdbb_data", "Read TDBB output rows of one run."),
 )
 
 # Application-owned deterministic calculations, reached over the same boundary.
@@ -38,6 +41,8 @@ CAPABILITY_TOOLS: tuple[tuple[str, str], ...] = (
     ("analyze_trends", "Apply threshold and outlier rules to trend series."),
     ("normalize_wafer_evidence", "Normalize wafer rows and flag anomalies."),
     ("classify_spatial_pattern", "Classify anomalous wafer points radially."),
+    ("compare_tdbb_budgets", "Compare TDBB budgets before and after a change."),
+    ("suggest_change_date", "Suggest the day the overlay KPIs stepped."),
 )
 
 

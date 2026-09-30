@@ -71,6 +71,7 @@ def test_openapi_contract_has_required_operations():
         "queryTrends", "getTrendDistribution", "createWorkspace",
         "addWorkspaceFilters", "getWorkspaceConnectionInfo",
         "registerDataset", "getRegistrationStatus", "queryWafers",
+        "runTdbb", "getTdbbRun", "getTdbbData",
     }
 
 

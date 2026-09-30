@@ -21,6 +21,10 @@ from .models import (
     HealthResponse,
     RegistrationRequest,
     RegistrationStatus,
+    TdbbRunData,
+    TdbbRunInfo,
+    TdbbRunRequest,
+    TdbbRunResult,
     TrendQueryRequest,
     TrendResponse,
     WaferQueryRequest,
@@ -174,6 +178,33 @@ class AnalyticsFoundationClient:
             json_body=request.model_dump(mode="json"),
         )
 
+    async def run_tdbb(self, request: TdbbRunRequest) -> TdbbRunResult:
+        return await self._request(
+            "POST",
+            "/tdbb/runs",
+            TdbbRunResult,
+            json_body=request.model_dump(mode="json"),
+        )
+
+    async def get_tdbb_run(self, run_id: str) -> TdbbRunInfo:
+        return await self._request(
+            "GET",
+            f"/tdbb/runs/{_segment(run_id)}",
+            TdbbRunInfo,
+        )
+
+    async def get_tdbb_data(
+        self,
+        run_id: str,
+        tables: list[str] | None = None,
+    ) -> TdbbRunData:
+        return await self._request(
+            "GET",
+            f"/tdbb/runs/{_segment(run_id)}/data",
+            TdbbRunData,
+            params=[("tables", table) for table in tables or []],
+        )
+
     async def _request(
         self,
         method: str,
@@ -225,6 +256,7 @@ def _query_parameters(request: TrendQueryRequest) -> list[tuple[str, str]]:
         "product_ids",
         "layer_ids",
         "exposure_equipment_ids",
+        "chuck_ids",
     )
     for name in scalar_fields:
         value = getattr(request, name)

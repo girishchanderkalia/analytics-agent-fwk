@@ -4,7 +4,7 @@ from opo_capability_service.app import create_app
 def test_tool_catalog_matches_slice_13g():
     client=TestClient(create_app())
     body=client.post("/mcp",json={"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}).json()
-    assert {tool["name"] for tool in body["result"]["tools"]}=={"analyze_trends","normalize_wafer_evidence","classify_spatial_pattern"}
+    assert {tool["name"] for tool in body["result"]["tools"]}=={"normalize_trend_window","analyze_trends","normalize_wafer_evidence","classify_spatial_pattern","compare_tdbb_budgets","suggest_change_date"}
 
 def test_tools_call_returns_structured_content():
     client=TestClient(create_app())
@@ -20,4 +20,4 @@ def test_unknown_tool_is_protocol_error():
 def test_health_and_ready():
     client=TestClient(create_app())
     assert client.get("/health").status_code==200
-    assert client.get("/ready").json()=={"status":"ready","tools":3}
+    assert client.get("/ready").json()=={"status":"ready","tools":6}

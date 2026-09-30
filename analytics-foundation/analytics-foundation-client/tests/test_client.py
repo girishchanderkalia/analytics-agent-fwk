@@ -78,6 +78,24 @@ def test_display_trends_uses_repeated_list_query_parameters() -> None:
         run(http_client.aclose())
 
 
+def test_tdbb_data_requests_one_run_and_table_subset() -> None:
+    captured = {}
+
+    def handler(request):
+        captured["path"] = request.url.raw_path.decode().split("?")[0]
+        captured["query"] = request.url.query.decode()
+        return httpx.Response(200, json={"run_id": "run 1", "tables": {"nce_wafer": [{"nce_wafer_x": 0.1}]}})
+
+    value, http_client = client(handler)
+    try:
+        result = run(value.get_tdbb_data("run 1", ["nce_wafer"]))
+        assert result.tables["nce_wafer"][0]["nce_wafer_x"] == 0.1
+        assert captured["path"] == "/tdbb/runs/run%201/data"
+        assert captured["query"] == "tables=nce_wafer"
+    finally:
+        run(http_client.aclose())
+
+
 def test_post_operations_match_foundation_contract() -> None:
     captured = []
 
@@ -150,6 +168,7 @@ def test_post_operations_match_foundation_contract() -> None:
             "product_ids": [],
             "layer_ids": [],
             "exposure_equipment_ids": [],
+            "chuck_ids": [],
         }) in captured
     finally:
         run(http_client.aclose())

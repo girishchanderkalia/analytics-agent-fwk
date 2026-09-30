@@ -49,6 +49,9 @@ def test_foundation_operations_are_all_exposed() -> None:
         "register_dataset",
         "get_registration_status",
         "query_wafers",
+        "run_tdbb",
+        "get_tdbb_run",
+        "get_tdbb_data",
     }
 
 
@@ -60,9 +63,12 @@ def test_application_calculations_are_exposed() -> None:
     }
 
     assert names == {
+        "normalize_trend_window",
         "analyze_trends",
         "normalize_wafer_evidence",
         "classify_spatial_pattern",
+        "compare_tdbb_budgets",
+        "suggest_change_date",
     }
 
 

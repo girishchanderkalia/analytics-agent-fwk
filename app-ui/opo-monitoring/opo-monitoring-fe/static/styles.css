@@ -594,10 +594,45 @@ tr.anomalous td {
   margin-top: 14px;
 }
 
+.tdbb-views[hidden] {
+  display: none;
+}
+
+.nce-views {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.tdbb-overview {
+  grid-column: 1 / -1;
+}
+
+.placeholder-note {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
 .tdbb-view {
   min-height: 155px;
   padding: 16px;
-  border: 1px dashed var(--border);
+  border: 1px solid var(--border);
+}
+
+.tdbb-note {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.tdbb-map-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.tdbb-map-head select {
+  font-size: 12px;
 }
 
 .tdbb-view h4 {

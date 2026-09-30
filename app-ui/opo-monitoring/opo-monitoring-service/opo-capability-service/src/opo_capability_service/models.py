@@ -18,6 +18,13 @@ class NormalizeWaferEvidenceRequest(StrictModel):
     filters: dict[str, Any] = Field(default_factory=dict)
     anomaly_threshold_um: float = Field(default=0.20, ge=0)
 
+class CompareTdbbBudgetsRequest(StrictModel):
+    periods: list[dict[str, Any]]
+
+class SuggestChangeDateRequest(StrictModel):
+    series: list[dict[str, Any]]
+    end_date: str | None = None
+
 class ClassifySpatialPatternRequest(StrictModel):
     rows: list[dict[str, Any]]
     anomalous_wafer_ids: list[str]
