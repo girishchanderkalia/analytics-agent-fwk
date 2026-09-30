@@ -43,6 +43,7 @@ CAPABILITY_TOOLS: tuple[tuple[str, str], ...] = (
     ("classify_spatial_pattern", "Classify anomalous wafer points radially."),
     ("compare_tdbb_budgets", "Compare TDBB budgets before and after a change."),
     ("suggest_change_date", "Suggest the day the overlay KPIs stepped."),
+    ("resolve_change_date", "Resolve and validate the analyst's change date."),
 )
 
 

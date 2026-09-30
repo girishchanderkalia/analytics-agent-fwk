@@ -49,7 +49,7 @@ def test_suggest_change_date_finds_the_step_and_prefills_the_question():
     series = _daily([(day, 2.4 + 0.02 * (day % 3)) for day in range(1, 11)] + [(day, 3.4 + 0.02 * (day % 3)) for day in range(11, 21)])
     result = OpoCapabilityService().invoke("suggest_change_date", {"series": series, "end_date": "2026-08-20"})
     assert result["change_date"] == "2026-08-11"
-    assert result["question"] == "I observe a jump from 11 Aug to 20 Aug. I want to know what has been changed in OPO."
+    assert result["question"] == "I observe a jump from 11 Aug 2026 to 20 Aug 2026. I want to know what has been changed in OPO."
 
 def test_suggest_change_date_stays_empty_without_a_step():
     series = _daily([(day, 2.4 + 0.05 * (day % 4)) for day in range(1, 21)])
@@ -67,3 +67,18 @@ def test_normalize_evidence():
 def test_classify_pattern():
     result=OpoCapabilityService().invoke("classify_spatial_pattern",{"rows":[{"wafer_id":"W1","position_x":10,"position_y":0}],"anomalous_wafer_ids":["W1"]})
     assert result["pattern"]=="edge-concentrated"
+
+WINDOW = {"start_date": "2026-08-17", "end_date": "2026-09-16"}
+
+def _resolve(change_date, question):
+    return OpoCapabilityService().invoke("resolve_change_date", {**WINDOW, "scope": {"change_date": change_date, "interpretation": "jump"}, "question": question})["comparison_scope"]
+
+def test_yearless_change_date_takes_the_year_of_the_window():
+    assert _resolve("2025-09-01", "I observe a jump from 1 Sep to 17 Sep")["change_date"] == "2026-09-01"
+
+def test_change_date_outside_the_window_is_rejected():
+    scope = _resolve("2026-09-20", "jump on 20 Sep 2026")
+    assert scope["change_date"] is None and "outside the analysed window" in scope["interpretation"]
+
+def test_missing_change_date_stays_null():
+    assert _resolve(None, "what changed?")["change_date"] is None

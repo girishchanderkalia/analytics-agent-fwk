@@ -64,6 +64,11 @@ nodes:
       - trend_filters
     activity: Identifying the before and after periods
 
+  - id: resolve_change
+    type: operation
+    operation: resolve_change_date
+    activity: Placing the change date in the analysed window
+
   - id: run_tdbb
     type: capability
     capability: processing.run_tdbb
@@ -111,6 +116,8 @@ edges:
   - from: request_comparison
     to: interpret_comparison
   - from: interpret_comparison
+    to: resolve_change
+  - from: resolve_change
     to: run_tdbb
   - from: run_tdbb
     to: compare_tdbb
@@ -126,7 +133,8 @@ routing:
     read_trends: suggest_change
     suggest_change: request_comparison
     request_comparison: interpret_comparison
-    interpret_comparison: run_tdbb
+    interpret_comparison: resolve_change
+    resolve_change: run_tdbb
     review_tdbb: summarize_tdbb
     summarize_tdbb: END
   conditions:
@@ -139,7 +147,7 @@ routing:
     - from: request_comparison
       when: "comparison_requested == false"
       to: END
-    - from: interpret_comparison
+    - from: resolve_change
       when: "comparison_scope.change_date == null"
       to: END
     - from: review_tdbb

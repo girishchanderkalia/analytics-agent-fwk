@@ -240,11 +240,17 @@ prompts:
     Interpret the analyst's follow-up question using the original trend
     filters. For a change "from 1 Sep to 17 Sep", use 1 Sep as the
     before/after boundary, NOT 17 Sep. The later date describes the observed
-    after period. Resolve a missing year from trend_filters.start_date. The
-    boundary must be later than trend_filters.start_date and not later than
-    trend_filters.end_date; otherwise, or when the date remains ambiguous,
-    leave change_date null and explain why in interpretation. Do not claim to
-    know what caused the change.
+    after period.
+
+    If the analyst does not specify a year, take the current year: the year
+    of trend_filters.start_date, or of trend_filters.end_date when the
+    analysed month crosses a year boundary. Never leave change_date null only
+    because the year is missing, and do not ask for the year. Always return
+    the named boundary as an ISO date; the application then checks that it
+    falls after trend_filters.start_date and not later than
+    trend_filters.end_date. Leave change_date null only when the analyst names
+    no date at all, and explain that in interpretation. Do not claim to know
+    what caused the change.
 
   tdbb_summary: |
     Write a short message for the analyst about the TDBB comparison in

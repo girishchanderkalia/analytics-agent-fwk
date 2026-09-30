@@ -16,6 +16,11 @@ TOOLS = (
         {"type":"object","properties":{"filters":{"type":"object"},"question":{"type":"string"}},"required":["filters"],"additionalProperties":False},
     ),
     ToolDefinition(
+        "resolve_change_date", "Resolve OPO change date",
+        "Resolve a change date without a year into the analysed window and reject dates outside it.",
+        {"type":"object","properties":{"scope":{"type":["object","null"]},"question":{"type":"string"},"start_date":{"type":"string"},"end_date":{"type":"string"}},"required":["scope","start_date","end_date"],"additionalProperties":False},
+    ),
+    ToolDefinition(
         "suggest_change_date", "Suggest OPO change date",
         "Suggest the day the overlay X/Y KPIs stepped, with a prefilled analyst question.",
         {"type":"object","properties":{"series":{"type":"array","items":{"type":"object"}},"end_date":{"type":["string","null"]}},"required":["series"],"additionalProperties":False},

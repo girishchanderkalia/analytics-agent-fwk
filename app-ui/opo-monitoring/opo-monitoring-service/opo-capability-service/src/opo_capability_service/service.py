@@ -39,6 +39,23 @@ class OpoCapabilityService:
                 filters["end_date"] = (next_start - timedelta(days=1)).isoformat()
                 filters["lookback_days"] = None
                 return {"trend_filters": filters}
+            if name == "resolve_change_date":
+                scope = dict(arguments.get("scope") or {})
+                start = date.fromisoformat(arguments["start_date"])
+                end = date.fromisoformat(arguments["end_date"])
+                if not scope.get("change_date"):
+                    return {"comparison_scope": {**scope, "change_date": None}}
+                change = date.fromisoformat(str(scope["change_date"])[:10])
+                if not EXPLICIT_YEAR.search(str(arguments.get("question") or "")):
+                    # A day without a year means that day inside the analysed window.
+                    change = next((c for c in (_with_year(change, y) for y in sorted({start.year, end.year})) if start < c <= end), change)
+                if not start < change <= end:
+                    scope["interpretation"] = (
+                        f"{scope.get('interpretation', '')} The change date {change.isoformat()} is outside the "
+                        f"analysed window after {start.isoformat()} up to {end.isoformat()}."
+                    ).strip()
+                    return {"comparison_scope": {**scope, "change_date": None}}
+                return {"comparison_scope": {**scope, "change_date": change.isoformat()}}
             if name == "suggest_change_date":
                 request = SuggestChangeDateRequest.model_validate(arguments)
                 return suggest_change_date(request.series, request.end_date)

@@ -69,6 +69,7 @@ def test_application_calculations_are_exposed() -> None:
         "classify_spatial_pattern",
         "compare_tdbb_budgets",
         "suggest_change_date",
+        "resolve_change_date",
     }
 
 

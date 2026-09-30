@@ -18,6 +18,23 @@ operations:
     result:
       trend_filters: ${result.trend_filters}
 
+  - id: resolve_change_date
+    server: opo-capability
+    tool: resolve_change_date
+    version: "1"
+    owner: OPO Monitoring application
+    description: >
+      Application-owned change-date resolution: a date without a year takes
+      the year that places it in the analysed window; dates outside the
+      window are rejected.
+    request:
+      scope: ${state.comparison_scope}
+      question: ${state.comparison_request}
+      start_date: ${state.trend_filters.start_date}
+      end_date: ${state.trend_filters.end_date}
+    result:
+      comparison_scope: ${result.comparison_scope}
+
   - id: suggest_change_date
     server: opo-capability
     tool: suggest_change_date

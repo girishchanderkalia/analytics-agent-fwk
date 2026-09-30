@@ -66,4 +66,4 @@ def _welch_t(left: Sequence[float], right: Sequence[float]) -> float:
 
 
 def _day(value: date) -> str:
-    return f"{value.day} {value:%b}"
+    return f"{value.day} {value:%b} {value.year}"
