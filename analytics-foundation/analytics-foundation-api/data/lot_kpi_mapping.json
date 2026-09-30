@@ -1,0 +1,932 @@
+[
+  {
+    "id": 161,
+    "lot_step_id": 33,
+    "lot_metrology_step_id": null,
+    "lot_exposure_step_id": 33,
+    "aggregation_level": "LOT",
+    "scandirection": null,
+    "association_type": null,
+    "association_method": null
+  },
+  {
+    "id": 253,
+    "lot_step_id": 49,
+    "lot_metrology_step_id": 36,
+    "lot_exposure_step_id": 47,
+    "aggregation_level": "LOT",
+    "scandirection": null,
+    "association_type": null,
+    "association_method": null
+  },
+  {
+    "id": 163,
+    "lot_step_id": 33,
+    "lot_metrology_step_id": null,
+    "lot_exposure_step_id": 33,
+    "aggregation_level": "CHUCK1",
+    "scandirection": null,
+    "association_type": null,
+    "association_method": null
+  },
+  {
+    "id": 254,
+    "lot_step_id": 49,
+    "lot_metrology_step_id": 36,
+    "lot_exposure_step_id": 47,
+    "aggregation_level": "CHUCK1",
+    "scandirection": null,
+    "association_type": null,
+    "association_method": null
+  },
+  {
+    "id": 168,
+    "lot_step_id": 33,
+    "lot_metrology_step_id": null,
+    "lot_exposure_step_id": 33,
+    "aggregation_level": "CHUCK2",
+    "scandirection": null,
+    "association_type": null,
+    "association_method": null
+  },
+  {
+    "id": 255,
+    "lot_step_id": 49,
+    "lot_metrology_step_id": 36,
+    "lot_exposure_step_id": 47,
+    "aggregation_level": "CHUCK2",
+    "scandirection": null,
+    "association_type": null,
+    "association_method": null
+  },
+  {
+    "id": 322,
+    "lot_step_id": 66,
+    "lot_metrology_step_id": 52,
+    "lot_exposure_step_id": 64,
+    "aggregation_level": "LOT",
+    "scandirection": null,
+    "association_type": null,
+    "association_method": null
+  },
+  {
+    "id": 323,
+    "lot_step_id": 66,
+    "lot_metrology_step_id": 52,
+    "lot_exposure_step_id": 64,
+    "aggregation_level": "CHUCK1",
+    "scandirection": null,
+    "association_type": null,
+    "association_method": null
+  },
+  {
+    "id": 324,
+    "lot_step_id": 66,
+    "lot_metrology_step_id": 52,
+    "lot_exposure_step_id": 64,
+    "aggregation_level": "CHUCK2",
+    "scandirection": null,
+    "association_type": null,
+    "association_method": null
+  },
+  {
+    "id": 169,
+    "lot_step_id": 35,
+    "lot_metrology_step_id": null,
+    "lot_exposure_step_id": 35,
+    "aggregation_level": "LOT",
+    "scandirection": null,
+    "association_type": null,
+    "association_method": null
+  },
+  {
+    "id": 170,
+    "lot_step_id": 35,
+    "lot_metrology_step_id": null,
+    "lot_exposure_step_id": 35,
+    "aggregation_level": "CHUCK1",
+    "scandirection": null,
+    "association_type": null,
+    "association_method": null
+  },
+  {
+    "id": 171,
+    "lot_step_id": 35,
+    "lot_metrology_step_id": null,
+    "lot_exposure_step_id": 35,
+    "aggregation_level": "CHUCK2",
+    "scandirection": null,
+    "association_type": null,
+    "association_method": null
+  },
+  {
+    "id": 256,
+    "lot_step_id": 50,
+    "lot_metrology_step_id": 37,
+    "lot_exposure_step_id": 48,
+    "aggregation_level": "LOT",
+    "scandirection": null,
+    "association_type": null,
+    "association_method": null
+  },
+  {
+    "id": 257,
+    "lot_step_id": 50,
+    "lot_metrology_step_id": 37,
+    "lot_exposure_step_id": 48,
+    "aggregation_level": "CHUCK1",
+    "scandirection": null,
+    "association_type": null,
+    "association_method": null
+  },
+  {
+    "id": 258,
+    "lot_step_id": 50,
+    "lot_metrology_step_id": 37,
+    "lot_exposure_step_id": 48,
+    "aggregation_level": "CHUCK2",
+    "scandirection": null,
+    "association_type": null,
+    "association_method": null
+  },
+  {
+    "id": 259,
+    "lot_step_id": 51,
+    "lot_metrology_step_id": 38,
+    "lot_exposure_step_id": 49,
+    "aggregation_level": "LOT",
+    "scandirection": null,
+    "association_type": null,
+    "association_method": null
+  },
+  {
+    "id": 260,
+    "lot_step_id": 51,
+    "lot_metrology_step_id": 38,
+    "lot_exposure_step_id": 49,
+    "aggregation_level": "CHUCK1",
+    "scandirection": null,
+    "association_type": null,
+    "association_method": null
+  },
+  {
+    "id": 261,
+    "lot_step_id": 51,
+    "lot_metrology_step_id": 38,
+    "lot_exposure_step_id": 49,
+    "aggregation_level": "CHUCK2",
+    "scandirection": null,
+    "association_type": null,
+    "association_method": null
+  },
+  {
+    "id": 421,
+    "lot_step_id": 79,
+    "lot_metrology_step_id": null,
+    "lot_exposure_step_id": 77,
+    "aggregation_level": "LOT",
+    "scandirection": null,
+    "association_type": null,
+    "association_method": null
+  },
+  {
+    "id": 422,
+    "lot_step_id": 79,
+    "lot_metrology_step_id": null,
+    "lot_exposure_step_id": 77,
+    "aggregation_level": "CHUCK1",
+    "scandirection": null,
+    "association_type": null,
+    "association_method": null
+  },
+  {
+    "id": 423,
+    "lot_step_id": 79,
+    "lot_metrology_step_id": null,
+    "lot_exposure_step_id": 77,
+    "aggregation_level": "CHUCK2",
+    "scandirection": null,
+    "association_type": null,
+    "association_method": null
+  },
+  {
+    "id": 325,
+    "lot_step_id": 67,
+    "lot_metrology_step_id": 53,
+    "lot_exposure_step_id": 65,
+    "aggregation_level": "LOT",
+    "scandirection": null,
+    "association_type": null,
+    "association_method": null
+  },
+  {
+    "id": 326,
+    "lot_step_id": 67,
+    "lot_metrology_step_id": 53,
+    "lot_exposure_step_id": 65,
+    "aggregation_level": "CHUCK1",
+    "scandirection": null,
+    "association_type": null,
+    "association_method": null
+  },
+  {
+    "id": 327,
+    "lot_step_id": 67,
+    "lot_metrology_step_id": 53,
+    "lot_exposure_step_id": 65,
+    "aggregation_level": "CHUCK2",
+    "scandirection": null,
+    "association_type": null,
+    "association_method": null
+  },
+  {
+    "id": 424,
+    "lot_step_id": 80,
+    "lot_metrology_step_id": 65,
+    "lot_exposure_step_id": null,
+    "aggregation_level": "LOT",
+    "scandirection": null,
+    "association_type": null,
+    "association_method": null
+  },
+  {
+    "id": 425,
+    "lot_step_id": 80,
+    "lot_metrology_step_id": 65,
+    "lot_exposure_step_id": null,
+    "aggregation_level": "CHUCK1",
+    "scandirection": null,
+    "association_type": null,
+    "association_method": null
+  },
+  {
+    "id": 426,
+    "lot_step_id": 80,
+    "lot_metrology_step_id": 65,
+    "lot_exposure_step_id": null,
+    "aggregation_level": "CHUCK2",
+    "scandirection": null,
+    "association_type": null,
+    "association_method": null
+  },
+  {
+    "id": 178,
+    "lot_step_id": 36,
+    "lot_metrology_step_id": 25,
+    "lot_exposure_step_id": 36,
+    "aggregation_level": "LOT",
+    "scandirection": null,
+    "association_type": null,
+    "association_method": null
+  },
+  {
+    "id": 179,
+    "lot_step_id": 36,
+    "lot_metrology_step_id": 25,
+    "lot_exposure_step_id": 36,
+    "aggregation_level": "CHUCK1",
+    "scandirection": null,
+    "association_type": null,
+    "association_method": null
+  },
+  {
+    "id": 180,
+    "lot_step_id": 36,
+    "lot_metrology_step_id": 25,
+    "lot_exposure_step_id": 36,
+    "aggregation_level": "CHUCK2",
+    "scandirection": null,
+    "association_type": null,
+    "association_method": null
+  },
+  {
+    "id": 328,
+    "lot_step_id": 68,
+    "lot_metrology_step_id": 54,
+    "lot_exposure_step_id": 66,
+    "aggregation_level": "LOT",
+    "scandirection": null,
+    "association_type": null,
+    "association_method": null
+  },
+  {
+    "id": 329,
+    "lot_step_id": 68,
+    "lot_metrology_step_id": 54,
+    "lot_exposure_step_id": 66,
+    "aggregation_level": "CHUCK1",
+    "scandirection": null,
+    "association_type": null,
+    "association_method": null
+  },
+  {
+    "id": 330,
+    "lot_step_id": 68,
+    "lot_metrology_step_id": 54,
+    "lot_exposure_step_id": 66,
+    "aggregation_level": "CHUCK2",
+    "scandirection": null,
+    "association_type": null,
+    "association_method": null
+  },
+  {
+    "id": 427,
+    "lot_step_id": 81,
+    "lot_metrology_step_id": null,
+    "lot_exposure_step_id": 78,
+    "aggregation_level": "LOT",
+    "scandirection": null,
+    "association_type": null,
+    "association_method": null
+  },
+  {
+    "id": 428,
+    "lot_step_id": 81,
+    "lot_metrology_step_id": null,
+    "lot_exposure_step_id": 78,
+    "aggregation_level": "CHUCK1",
+    "scandirection": null,
+    "association_type": null,
+    "association_method": null
+  },
+  {
+    "id": 429,
+    "lot_step_id": 81,
+    "lot_metrology_step_id": null,
+    "lot_exposure_step_id": 78,
+    "aggregation_level": "CHUCK2",
+    "scandirection": null,
+    "association_type": null,
+    "association_method": null
+  },
+  {
+    "id": 430,
+    "lot_step_id": 82,
+    "lot_metrology_step_id": 66,
+    "lot_exposure_step_id": 79,
+    "aggregation_level": "LOT",
+    "scandirection": null,
+    "association_type": null,
+    "association_method": null
+  },
+  {
+    "id": 431,
+    "lot_step_id": 82,
+    "lot_metrology_step_id": 66,
+    "lot_exposure_step_id": 79,
+    "aggregation_level": "CHUCK1",
+    "scandirection": null,
+    "association_type": null,
+    "association_method": null
+  },
+  {
+    "id": 432,
+    "lot_step_id": 82,
+    "lot_metrology_step_id": 66,
+    "lot_exposure_step_id": 79,
+    "aggregation_level": "CHUCK2",
+    "scandirection": null,
+    "association_type": null,
+    "association_method": null
+  },
+  {
+    "id": 232,
+    "lot_step_id": 42,
+    "lot_metrology_step_id": 29,
+    "lot_exposure_step_id": 40,
+    "aggregation_level": "LOT",
+    "scandirection": null,
+    "association_type": null,
+    "association_method": null
+  },
+  {
+    "id": 233,
+    "lot_step_id": 42,
+    "lot_metrology_step_id": 29,
+    "lot_exposure_step_id": 40,
+    "aggregation_level": "CHUCK1",
+    "scandirection": null,
+    "association_type": null,
+    "association_method": null
+  },
+  {
+    "id": 234,
+    "lot_step_id": 42,
+    "lot_metrology_step_id": 29,
+    "lot_exposure_step_id": 40,
+    "aggregation_level": "CHUCK2",
+    "scandirection": null,
+    "association_type": null,
+    "association_method": null
+  },
+  {
+    "id": 235,
+    "lot_step_id": 43,
+    "lot_metrology_step_id": 30,
+    "lot_exposure_step_id": 41,
+    "aggregation_level": "LOT",
+    "scandirection": null,
+    "association_type": null,
+    "association_method": null
+  },
+  {
+    "id": 236,
+    "lot_step_id": 43,
+    "lot_metrology_step_id": 30,
+    "lot_exposure_step_id": 41,
+    "aggregation_level": "CHUCK1",
+    "scandirection": null,
+    "association_type": null,
+    "association_method": null
+  },
+  {
+    "id": 237,
+    "lot_step_id": 43,
+    "lot_metrology_step_id": 30,
+    "lot_exposure_step_id": 41,
+    "aggregation_level": "CHUCK2",
+    "scandirection": null,
+    "association_type": null,
+    "association_method": null
+  },
+  {
+    "id": 238,
+    "lot_step_id": 44,
+    "lot_metrology_step_id": 31,
+    "lot_exposure_step_id": 42,
+    "aggregation_level": "LOT",
+    "scandirection": null,
+    "association_type": null,
+    "association_method": null
+  },
+  {
+    "id": 239,
+    "lot_step_id": 44,
+    "lot_metrology_step_id": 31,
+    "lot_exposure_step_id": 42,
+    "aggregation_level": "CHUCK1",
+    "scandirection": null,
+    "association_type": null,
+    "association_method": null
+  },
+  {
+    "id": 240,
+    "lot_step_id": 44,
+    "lot_metrology_step_id": 31,
+    "lot_exposure_step_id": 42,
+    "aggregation_level": "CHUCK2",
+    "scandirection": null,
+    "association_type": null,
+    "association_method": null
+  },
+  {
+    "id": 241,
+    "lot_step_id": 45,
+    "lot_metrology_step_id": 32,
+    "lot_exposure_step_id": 43,
+    "aggregation_level": "LOT",
+    "scandirection": null,
+    "association_type": null,
+    "association_method": null
+  },
+  {
+    "id": 242,
+    "lot_step_id": 45,
+    "lot_metrology_step_id": 32,
+    "lot_exposure_step_id": 43,
+    "aggregation_level": "CHUCK1",
+    "scandirection": null,
+    "association_type": null,
+    "association_method": null
+  },
+  {
+    "id": 243,
+    "lot_step_id": 45,
+    "lot_metrology_step_id": 32,
+    "lot_exposure_step_id": 43,
+    "aggregation_level": "CHUCK2",
+    "scandirection": null,
+    "association_type": null,
+    "association_method": null
+  },
+  {
+    "id": 244,
+    "lot_step_id": 46,
+    "lot_metrology_step_id": 33,
+    "lot_exposure_step_id": 44,
+    "aggregation_level": "LOT",
+    "scandirection": null,
+    "association_type": null,
+    "association_method": null
+  },
+  {
+    "id": 245,
+    "lot_step_id": 46,
+    "lot_metrology_step_id": 33,
+    "lot_exposure_step_id": 44,
+    "aggregation_level": "CHUCK1",
+    "scandirection": null,
+    "association_type": null,
+    "association_method": null
+  },
+  {
+    "id": 246,
+    "lot_step_id": 46,
+    "lot_metrology_step_id": 33,
+    "lot_exposure_step_id": 44,
+    "aggregation_level": "CHUCK2",
+    "scandirection": null,
+    "association_type": null,
+    "association_method": null
+  },
+  {
+    "id": 247,
+    "lot_step_id": 47,
+    "lot_metrology_step_id": 34,
+    "lot_exposure_step_id": 45,
+    "aggregation_level": "LOT",
+    "scandirection": null,
+    "association_type": null,
+    "association_method": null
+  },
+  {
+    "id": 248,
+    "lot_step_id": 47,
+    "lot_metrology_step_id": 34,
+    "lot_exposure_step_id": 45,
+    "aggregation_level": "CHUCK1",
+    "scandirection": null,
+    "association_type": null,
+    "association_method": null
+  },
+  {
+    "id": 249,
+    "lot_step_id": 47,
+    "lot_metrology_step_id": 34,
+    "lot_exposure_step_id": 45,
+    "aggregation_level": "CHUCK2",
+    "scandirection": null,
+    "association_type": null,
+    "association_method": null
+  },
+  {
+    "id": 301,
+    "lot_step_id": 59,
+    "lot_metrology_step_id": 45,
+    "lot_exposure_step_id": 57,
+    "aggregation_level": "LOT",
+    "scandirection": null,
+    "association_type": null,
+    "association_method": null
+  },
+  {
+    "id": 302,
+    "lot_step_id": 59,
+    "lot_metrology_step_id": 45,
+    "lot_exposure_step_id": 57,
+    "aggregation_level": "CHUCK1",
+    "scandirection": null,
+    "association_type": null,
+    "association_method": null
+  },
+  {
+    "id": 303,
+    "lot_step_id": 59,
+    "lot_metrology_step_id": 45,
+    "lot_exposure_step_id": 57,
+    "aggregation_level": "CHUCK2",
+    "scandirection": null,
+    "association_type": null,
+    "association_method": null
+  },
+  {
+    "id": 250,
+    "lot_step_id": 48,
+    "lot_metrology_step_id": 35,
+    "lot_exposure_step_id": 46,
+    "aggregation_level": "LOT",
+    "scandirection": null,
+    "association_type": null,
+    "association_method": null
+  },
+  {
+    "id": 251,
+    "lot_step_id": 48,
+    "lot_metrology_step_id": 35,
+    "lot_exposure_step_id": 46,
+    "aggregation_level": "CHUCK1",
+    "scandirection": null,
+    "association_type": null,
+    "association_method": null
+  },
+  {
+    "id": 252,
+    "lot_step_id": 48,
+    "lot_metrology_step_id": 35,
+    "lot_exposure_step_id": 46,
+    "aggregation_level": "CHUCK2",
+    "scandirection": null,
+    "association_type": null,
+    "association_method": null
+  },
+  {
+    "id": 304,
+    "lot_step_id": 60,
+    "lot_metrology_step_id": 46,
+    "lot_exposure_step_id": 58,
+    "aggregation_level": "LOT",
+    "scandirection": null,
+    "association_type": null,
+    "association_method": null
+  },
+  {
+    "id": 305,
+    "lot_step_id": 60,
+    "lot_metrology_step_id": 46,
+    "lot_exposure_step_id": 58,
+    "aggregation_level": "CHUCK1",
+    "scandirection": null,
+    "association_type": null,
+    "association_method": null
+  },
+  {
+    "id": 306,
+    "lot_step_id": 60,
+    "lot_metrology_step_id": 46,
+    "lot_exposure_step_id": 58,
+    "aggregation_level": "CHUCK2",
+    "scandirection": null,
+    "association_type": null,
+    "association_method": null
+  },
+  {
+    "id": 307,
+    "lot_step_id": 61,
+    "lot_metrology_step_id": 47,
+    "lot_exposure_step_id": 59,
+    "aggregation_level": "LOT",
+    "scandirection": null,
+    "association_type": null,
+    "association_method": null
+  },
+  {
+    "id": 308,
+    "lot_step_id": 61,
+    "lot_metrology_step_id": 47,
+    "lot_exposure_step_id": 59,
+    "aggregation_level": "CHUCK1",
+    "scandirection": null,
+    "association_type": null,
+    "association_method": null
+  },
+  {
+    "id": 309,
+    "lot_step_id": 61,
+    "lot_metrology_step_id": 47,
+    "lot_exposure_step_id": 59,
+    "aggregation_level": "CHUCK2",
+    "scandirection": null,
+    "association_type": null,
+    "association_method": null
+  },
+  {
+    "id": 310,
+    "lot_step_id": 62,
+    "lot_metrology_step_id": 48,
+    "lot_exposure_step_id": 60,
+    "aggregation_level": "LOT",
+    "scandirection": null,
+    "association_type": null,
+    "association_method": null
+  },
+  {
+    "id": 311,
+    "lot_step_id": 62,
+    "lot_metrology_step_id": 48,
+    "lot_exposure_step_id": 60,
+    "aggregation_level": "CHUCK1",
+    "scandirection": null,
+    "association_type": null,
+    "association_method": null
+  },
+  {
+    "id": 312,
+    "lot_step_id": 62,
+    "lot_metrology_step_id": 48,
+    "lot_exposure_step_id": 60,
+    "aggregation_level": "CHUCK2",
+    "scandirection": null,
+    "association_type": null,
+    "association_method": null
+  },
+  {
+    "id": 313,
+    "lot_step_id": 63,
+    "lot_metrology_step_id": 49,
+    "lot_exposure_step_id": 61,
+    "aggregation_level": "LOT",
+    "scandirection": null,
+    "association_type": null,
+    "association_method": null
+  },
+  {
+    "id": 314,
+    "lot_step_id": 63,
+    "lot_metrology_step_id": 49,
+    "lot_exposure_step_id": 61,
+    "aggregation_level": "CHUCK1",
+    "scandirection": null,
+    "association_type": null,
+    "association_method": null
+  },
+  {
+    "id": 315,
+    "lot_step_id": 63,
+    "lot_metrology_step_id": 49,
+    "lot_exposure_step_id": 61,
+    "aggregation_level": "CHUCK2",
+    "scandirection": null,
+    "association_type": null,
+    "association_method": null
+  },
+  {
+    "id": 316,
+    "lot_step_id": 64,
+    "lot_metrology_step_id": 50,
+    "lot_exposure_step_id": 62,
+    "aggregation_level": "LOT",
+    "scandirection": null,
+    "association_type": null,
+    "association_method": null
+  },
+  {
+    "id": 317,
+    "lot_step_id": 64,
+    "lot_metrology_step_id": 50,
+    "lot_exposure_step_id": 62,
+    "aggregation_level": "CHUCK1",
+    "scandirection": null,
+    "association_type": null,
+    "association_method": null
+  },
+  {
+    "id": 318,
+    "lot_step_id": 64,
+    "lot_metrology_step_id": 50,
+    "lot_exposure_step_id": 62,
+    "aggregation_level": "CHUCK2",
+    "scandirection": null,
+    "association_type": null,
+    "association_method": null
+  },
+  {
+    "id": 319,
+    "lot_step_id": 65,
+    "lot_metrology_step_id": 51,
+    "lot_exposure_step_id": 63,
+    "aggregation_level": "LOT",
+    "scandirection": null,
+    "association_type": null,
+    "association_method": null
+  },
+  {
+    "id": 320,
+    "lot_step_id": 65,
+    "lot_metrology_step_id": 51,
+    "lot_exposure_step_id": 63,
+    "aggregation_level": "CHUCK1",
+    "scandirection": null,
+    "association_type": null,
+    "association_method": null
+  },
+  {
+    "id": 321,
+    "lot_step_id": 65,
+    "lot_metrology_step_id": 51,
+    "lot_exposure_step_id": 63,
+    "aggregation_level": "CHUCK2",
+    "scandirection": null,
+    "association_type": null,
+    "association_method": null
+  },
+  {
+    "id": 388,
+    "lot_step_id": 78,
+    "lot_metrology_step_id": 64,
+    "lot_exposure_step_id": 76,
+    "aggregation_level": "LOT",
+    "scandirection": null,
+    "association_type": null,
+    "association_method": null
+  },
+  {
+    "id": 389,
+    "lot_step_id": 78,
+    "lot_metrology_step_id": 64,
+    "lot_exposure_step_id": 76,
+    "aggregation_level": "CHUCK1",
+    "scandirection": null,
+    "association_type": null,
+    "association_method": null
+  },
+  {
+    "id": 390,
+    "lot_step_id": 78,
+    "lot_metrology_step_id": 64,
+    "lot_exposure_step_id": 76,
+    "aggregation_level": "CHUCK2",
+    "scandirection": null,
+    "association_type": null,
+    "association_method": null
+  },
+  {
+    "id": 487,
+    "lot_step_id": 93,
+    "lot_metrology_step_id": 76,
+    "lot_exposure_step_id": 86,
+    "aggregation_level": "LOT",
+    "scandirection": null,
+    "association_type": null,
+    "association_method": null
+  },
+  {
+    "id": 488,
+    "lot_step_id": 93,
+    "lot_metrology_step_id": 76,
+    "lot_exposure_step_id": 86,
+    "aggregation_level": "CHUCK1",
+    "scandirection": null,
+    "association_type": null,
+    "association_method": null
+  },
+  {
+    "id": 489,
+    "lot_step_id": 93,
+    "lot_metrology_step_id": 76,
+    "lot_exposure_step_id": 86,
+    "aggregation_level": "CHUCK2",
+    "scandirection": null,
+    "association_type": null,
+    "association_method": null
+  },
+  {
+    "id": 493,
+    "lot_step_id": 93,
+    "lot_metrology_step_id": 76,
+    "lot_exposure_step_id": 88,
+    "aggregation_level": "LOT",
+    "scandirection": null,
+    "association_type": null,
+    "association_method": null
+  },
+  {
+    "id": 495,
+    "lot_step_id": 93,
+    "lot_metrology_step_id": 76,
+    "lot_exposure_step_id": 88,
+    "aggregation_level": "CHUCK1",
+    "scandirection": null,
+    "association_type": null,
+    "association_method": null
+  },
+  {
+    "id": 497,
+    "lot_step_id": 93,
+    "lot_metrology_step_id": 76,
+    "lot_exposure_step_id": 88,
+    "aggregation_level": "CHUCK2",
+    "scandirection": null,
+    "association_type": null,
+    "association_method": null
+  },
+  {
+    "id": 502,
+    "lot_step_id": 98,
+    "lot_metrology_step_id": 78,
+    "lot_exposure_step_id": 91,
+    "aggregation_level": "LOT",
+    "scandirection": null,
+    "association_type": null,
+    "association_method": null
+  },
+  {
+    "id": 503,
+    "lot_step_id": 98,
+    "lot_metrology_step_id": 78,
+    "lot_exposure_step_id": 91,
+    "aggregation_level": "CHUCK1",
+    "scandirection": null,
+    "association_type": null,
+    "association_method": null
+  },
+  {
+    "id": 504,
+    "lot_step_id": 98,
+    "lot_metrology_step_id": 78,
+    "lot_exposure_step_id": 91,
+    "aggregation_level": "CHUCK2",
+    "scandirection": null,
+    "association_type": null,
+    "association_method": null
+  }
+]

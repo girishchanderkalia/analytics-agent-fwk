@@ -5,10 +5,11 @@ from .models import *
 from .repositories.json_repository import JsonFoundationRepository
 from .service import FoundationService
 from .settings import get_settings
+from .overlay import OverlayQueryRequest,OverlayResponse
 app=FastAPI(title="Analytics Foundation API",version="1.0.0")
 @lru_cache
 def service():
- s=get_settings();return FoundationService(JsonFoundationRepository(s.data_dir),s.trend_table,s.wafer_table)
+ s=get_settings();return FoundationService(JsonFoundationRepository(s.data_dir,s.trend_rows_file,s.wafer_rows_file),s.trend_table,s.wafer_table)
 def dep():return service()
 @app.get("/health",response_model=HealthResponse)
 def health():return HealthResponse()
@@ -22,6 +23,10 @@ def metadata(s=Depends(dep)):return s.metadata()
 def display_trends(days:int|None=None,start_date:str|None=None,end_date:str|None=None,lot_ids:list[str]|None=None,product_ids:list[str]|None=None,layer_ids:list[str]|None=None,exposure_equipment_ids:list[str]|None=None,s=Depends(dep)):return s.trends(TrendQueryRequest(days=days,start_date=start_date,end_date=end_date,lot_ids=lot_ids or [],product_ids=product_ids or [],layer_ids=layer_ids or [],exposure_equipment_ids=exposure_equipment_ids or []))
 @app.post("/trends/query",response_model=TrendResponse)
 def query_trends(q:TrendQueryRequest,s=Depends(dep)):return s.trends(q)
+@app.post("/overlay/trends/query",response_model=OverlayResponse)
+def overlay_trends(q:OverlayQueryRequest,s=Depends(dep)):
+ try:return s.overlay_trends(q)
+ except FoundationServiceError as exc:raise HTTPException(503,str(exc)) from exc
 @app.post("/trends/distribution",response_model=DistributionStats)
 def distribution(q:TrendQueryRequest,s=Depends(dep)):return s.distribution(q)
 @app.post("/workspaces",response_model=WorkspaceResponse,status_code=201)

@@ -48,6 +48,31 @@ header {
   font-size: 12.5px;
 }
 
+.app-navigation {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.app-navigation label {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.app-navigation select {
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 6px;
+  padding: 8px;
+  max-width: 100%;
+}
+
+@media (max-width: 1000px) {
+  header { flex-wrap: wrap; gap: 12px; }
+}
+
 .thread {
   display: flex;
   align-items: center;

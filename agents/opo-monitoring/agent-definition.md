@@ -25,7 +25,7 @@ conversation:
     perform an analyst-approved wafer-level investigation.
 
   suggested_prompts:
-    - Show OPO trends for the last seven days.
+    - Show OPO trends for January 2025.
     - Identify significant outliers.
     - Investigate the selected outlier.
     - Explain the evidence behind the finding.
@@ -188,6 +188,18 @@ prompts:
 
     Use only information present in the analyst request or supplied application
     context.
+
+    An explicit year without a month or day means the full calendar year:
+    "show trends for 2026" sets start_date to 2026-01-01 and end_date to
+    2026-12-31, with lookback_days null. Never narrow an explicit date range
+    to the months or timestamps present in the available data.
+
+    Available trend scopes describe data availability, not analyst selections.
+    Do not infer product, layer, lot, or equipment filters from available scopes,
+    even if only one scope has data for the requested year. Use identifier
+    filters only when explicitly requested or supplied as selected identifiers
+    in application context. For a year-only request with no selections, leave
+    all identifier lists empty.
 
     When a value is not present, leave the corresponding field empty or null.
 

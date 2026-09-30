@@ -29,6 +29,7 @@ from runtime_service_langgraph import LangGraphRuntimeService
 from .langgraph_checkpointer_bootstrap import create_langgraph_checkpointer
 from .langgraph_dependencies import McpToolInvoker, NormalizedAgentCompiler
 from .markdown_agent_registration import (
+    register_application_packages_from_environment,
     register_markdown_agents_from_environment,
 )
 from .model_gateway_adapter import create_async_model_gateway
@@ -57,6 +58,7 @@ def create_langgraph_conversation_service(
         application_id=application_id,
         environment=env,
     )
+    register_application_packages_from_environment(environment=env, catalog=catalog)
 
     client = mcp_client or HttpMcpClient()
     servers = registrations_from_environment(fixed_server_ids(), env)

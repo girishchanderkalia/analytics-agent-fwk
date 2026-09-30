@@ -6,6 +6,7 @@ metadata:
 data:
   AGENT_APPLICATION_ID: opo-monitoring
   AGENT_MARKDOWN_PACKAGES: /app/agents/opo-monitoring
+  AGENT_APPLICATION_PACKAGES: '{"overlay-data-analysis":["/app/agents/overlay-analysis"]}'
   AGENT_RUNTIME_DATABASE_PATH: /app/runtime-data/conversations.sqlite
   AGENT_RUNTIME_CHECKPOINTER_BACKEND: memory
   SSL_CERT_FILE: /etc/ssl/asml/combined-ca-bundle.pem

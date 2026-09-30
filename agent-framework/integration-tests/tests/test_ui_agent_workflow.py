@@ -8,6 +8,7 @@ browser -> BFF -> Agent Runtime (model-backed, gated on RUN_AGENT_E2E).
 from __future__ import annotations
 
 import re
+import csv
 
 import pytest
 
@@ -69,6 +70,143 @@ def test_ui_loads_and_renders_deterministic_trend_data(page: Page, settings):
     expect(page.locator("#trend-plot .plotly")).to_be_visible()
     expect(page.locator("#interaction-panel")).to_be_hidden()
     expect(page.locator("#findings-panel")).to_be_hidden()
+
+
+@pytest.mark.parametrize("width,height", [(1440, 1000), (390, 844)])
+def test_overlay_layout_chart_and_export(page: Page, settings, tmp_path, width, height):
+    errors = []
+    page.on("pageerror", lambda error: errors.append(str(error)))
+    page.set_viewport_size({"width": width, "height": height})
+    with page.expect_response("**/api/trends/overlay/query") as pending:
+        page.goto(settings.bff_url + "/overlay")
+    response = pending.value.json()
+    expect(page.locator("#overlay-status")).to_contain_text("measurements | MEAN")
+    expect(page.locator("#overlay-plot .point").first).to_be_visible()
+    assert response["points"]
+    expect(page.locator("#overlay-rows tr")).to_have_count(len(response["points"]))
+    assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
+    plot = page.locator("#overlay-plot").bounding_box()
+    results = page.locator(".overlay-results").bounding_box()
+    assert plot["y"] + plot["height"] <= results["y"] + 1
+    workspace = page.locator(".overlay-workspace").bounding_box()
+    chat = page.get_by_role("complementary", name="Chat and evidence").bounding_box()
+    if width > 760:
+        assert chat["x"] >= workspace["x"] + workspace["width"] - 1
+        assert abs(chat["y"] - workspace["y"]) <= 1
+        composer = page.locator("#composer").bounding_box()
+        assert composer["y"] + composer["height"] <= height
+    else:
+        assert chat["y"] >= workspace["y"] + workspace["height"] - 1
+    page.screenshot(path=str(tmp_path / f"overlay-{width}.png"), full_page=True)
+    with page.expect_download() as pending_download:
+        page.get_by_role("button", name="Export CSV").click()
+    destination = tmp_path / "overlay.csv"
+    pending_download.value.save_as(destination)
+    with destination.open(newline="", encoding="utf-8") as exported:
+        rows = list(csv.DictReader(exported))
+    assert len(rows) == len(response["points"])
+    assert float(rows[0]["kpi_x"]) == response["points"][0]["kpi_x"]
+    page.locator("#horizontal-axis").select_option("lot")
+    page.wait_for_function("document.querySelector('#overlay-plot').layout.xaxis.type === 'category'")
+    assert page.evaluate("document.querySelector('#overlay-plot').data[0].y.length") == len(rows)
+    assert errors == []
+
+
+def test_overlay_metrics_filters_errors_and_navigation(page: Page, settings):
+    page.goto(settings.bff_url + "/overlay")
+    expect(page.locator("#overlay-status")).to_contain_text("measurements | MEAN")
+    for metric in ("MAX", "MIN", "MEAN", "M3S", "MAX_997"):
+        page.locator("#metric").select_option(metric)
+        with page.expect_response("**/api/trends/overlay/query") as pending:
+            page.get_by_role("button", name="Apply", exact=True).click()
+        response = pending.value.json()
+        assert response["metric"] == metric and response["points"]
+        expect(page.locator("#overlay-status")).to_contain_text(f"measurements | {metric}")
+        expect(page.locator("#overlay-rows tr").first.locator("td").nth(9)).to_have_text(f'{response["points"][0]["kpi_x"]:.4f}')
+    product = page.locator("#product option").nth(1).get_attribute("value")
+    page.locator("#product").select_option(product)
+    with page.expect_response("**/api/trends/overlay/query") as pending:
+        page.get_by_role("button", name="Apply", exact=True).click()
+    filtered = pending.value.json()["points"]
+    assert filtered and all(point["product_id"] == product for point in filtered)
+    page.locator("#start-date").fill("2099-01-01")
+    page.get_by_role("button", name="Apply", exact=True).click()
+    expect(page.locator("#overlay-status")).to_contain_text("0 measurements")
+    expect(page.get_by_role("button", name="Export CSV")).to_be_disabled()
+    page.get_by_role("button", name="Reset", exact=True).click()
+    expect(page.locator("#overlay-status")).to_have_text(re.compile(r"[1-9]\d* measurements \| MEAN.*"))
+    page.route("**/api/trends/overlay/query", lambda route: route.fulfill(status=503, body="Dataset unavailable"))
+    page.get_by_role("button", name="Apply", exact=True).click()
+    expect(page.locator("#overlay-error")).to_contain_text("Dataset unavailable")
+    expect(page.locator("#overlay-rows tr")).to_have_count(0)
+    expect(page.get_by_role("button", name="Export CSV")).to_be_disabled()
+    page.unroute("**/api/trends/overlay/query")
+    page.get_by_role("button", name="Apply", exact=True).click()
+    expect(page.locator("#overlay-error")).to_be_hidden()
+    expect(page.locator("#overlay-status")).to_contain_text("measurements | MEAN")
+    page.locator("#application-page").select_option("/")
+    expect(page.locator("header h1")).to_have_text("OPO Monitoring UI")
+    page.locator("#application-page").select_option("/overlay")
+    expect(page.locator("header h1")).to_have_text("Overlay data analysis")
+    expect(page.locator("#overlay-status")).to_contain_text("measurements | MEAN")
+
+
+def test_overlay_chat_runs_with_the_registered_model(page: Page, settings):
+    require_model_backed_run(settings)
+    page.goto(settings.bff_url + "/overlay")
+    expect(page.locator("#overlay-status")).to_contain_text("measurements | MEAN")
+    expect(page.locator("#agent-select")).to_be_enabled()
+    expect(page.locator("#agent-select")).to_contain_text("Overlay analysis")
+    page.locator("#message-input").fill("For the first displayed lot measurement, report its lot ID and X/Y values for the selected metric.")
+    with page.expect_response("**/api/investigations/chat", timeout=AGENT_TURN_TIMEOUT_MS) as pending:
+        page.locator("#send-btn").click()
+    response = pending.value.json()
+    assert response["status"] == "completed", response
+    assert response["agentId"] == "overlay-analysis-agent"
+    assert response["result"]["overlay_analysis"]["answer"]
+    expect(page.locator("#timeline .msg.agent")).to_contain_text(response["result"]["overlay_analysis"]["answer"].splitlines()[0].replace("**", ""))
+    expect(page.locator("#overlay-plot .point").first).to_be_visible()
+
+
+def test_overlay_chat_uses_its_application_and_displayed_measurements(page: Page, settings):
+    requests = []
+    page.route("**/api/applications/overlay-data-analysis/agents", lambda route: route.fulfill(json={
+        "applicationId": "overlay-data-analysis",
+        "agents": [{"agentId": "overlay-analysis-agent", "version": "1.0", "displayName": "Overlay analysis"}],
+    }))
+    response = {
+        "conversationId": "overlay-conversation", "agentId": "overlay-analysis-agent",
+        "version": 1, "status": "completed",
+        "result": {"overlay_analysis": {"answer": "The selected metric has separate X and Y measurements.", "limitations": ["Units are unspecified."]}},
+    }
+
+    def chat(route):
+        requests.append(route.request.post_data_json)
+        route.fulfill(json=response)
+
+    page.route("**/api/investigations/chat", chat)
+    page.route("**/api/investigations/overlay-conversation", lambda route: route.fulfill(json=response))
+    page.goto(settings.bff_url + "/overlay")
+    expect(page.locator("#agent-select")).to_be_enabled()
+    expect(page.locator("#overlay-status")).to_contain_text("measurements | MEAN")
+    page.locator("#metric").select_option("MAX_997")
+    page.get_by_role("button", name="Apply", exact=True).click()
+    expect(page.locator("#overlay-status")).to_contain_text("measurements | MAX_997")
+    points = page.locator("#overlay-plot .point").count()
+    page.locator("#message-input").fill("Compare the displayed X and Y measurements")
+    page.locator("#send-btn").click()
+    expect(page.locator("#timeline")).to_contain_text("separate X and Y measurements")
+    expect(page.locator("#timeline")).to_contain_text("Units are unspecified")
+    expect(page.locator("#timeline")).not_to_contain_text("No outliers")
+    assert requests[0]["applicationId"] == "overlay-data-analysis"
+    assert requests[0]["agentId"] == "overlay-analysis-agent"
+    overlay = requests[0]["applicationContext"]["overlay"]
+    assert overlay["metric"] == "MAX_997" and overlay["points"]
+    assert "kpi_x" in overlay["points"][0] and "kpi_y" in overlay["points"][0]
+    assert page.locator("#overlay-plot .point").count() == points
+    page.locator("#reopen-btn").click()
+    expect(page.locator("#timeline")).to_contain_text("Reopened conversation")
+    expect(page.locator("#timeline")).to_contain_text("separate X and Y measurements")
 
 
 @pytest.mark.ui

@@ -10,6 +10,7 @@ const mainLayout = document.querySelector("main");
 const toggleRightPanel = document.getElementById("toggle-right-panel");
 const agentSelect = document.getElementById("agent-select");
 const tdbbPanel = document.getElementById("tdbb-panel");
+const hasOpoCharts = !!document.getElementById("trend-plot");
 
 let conversationId = null;
 let conversationVersion = null;
@@ -78,7 +79,7 @@ function v2StarterPrompt() {
 }
 
 function drawPlot(scope, selectedMachine) {
-  if (!trendSeries) return;
+  if (!hasOpoCharts || !trendSeries) return;
   if (!trendSeries.length) {
     Plotly.purge(document.getElementById("trend-plot"));
     return;
@@ -154,6 +155,7 @@ function drawPlot(scope, selectedMachine) {
 }
 
 async function loadTrends() {
+  if (!hasOpoCharts) return;
   try {
     trendSeries = await window.OpoBff.loadTrends();
     availableTrendSeries = trendSeries;
@@ -495,7 +497,7 @@ function ruleLabel(scope) {
 }
 
 function renderTrendChart(evidence) {
-  if (!evidence) return;
+  if (!hasOpoCharts || !evidence) return;
   const note = document.getElementById("chart-note");
   const selected = evidence.selected_outlier?.machine || null;
   const scope = effectiveScope(evidence);
@@ -732,10 +734,12 @@ function handleResponse(runtime) {
   const evidence = runtime.result || {};
   const isV2 = runtime.agentId === "opo-monitoring-v2" ||
     (!runtime.agentId && registeredAgents[agentSelect.selectedIndex]?.agentId === "opo-monitoring-v2");
-  document.getElementById("trend-title").textContent = isV2 ? "OPO performance trend" : "Daily overlay trend";
-  document.querySelector(".wafer-panel").hidden = isV2;
-  tdbbPanel.hidden = !isV2 || !evidence.comparison_scope;
-  if (isV2 && evidence.comparison_scope) {
+  if (hasOpoCharts) {
+    document.getElementById("trend-title").textContent = isV2 ? "OPO performance trend" : "Daily overlay trend";
+    document.querySelector(".wafer-panel").hidden = isV2;
+    tdbbPanel.hidden = !isV2 || !evidence.comparison_scope;
+  }
+  if (hasOpoCharts && isV2 && evidence.comparison_scope) {
     document.getElementById("tdbb-period").textContent = evidence.comparison_scope.change_date
       ? `Before / after ${evidence.comparison_scope.change_date}`
       : "Change date unavailable";
@@ -743,7 +747,7 @@ function handleResponse(runtime) {
   if (evidence.trend_series) trendSeries = evidence.trend_series;
   else if (isV2) trendSeries = [];
   renderTrendChart(evidence);
-  if (isV2) {
+  if (isV2 && hasOpoCharts) {
     const filters = evidence.trend_filters || {};
     const points = (trendSeries || []).reduce((total, series) => total + (series.points || []).length, 0);
     document.getElementById("chart-note").textContent = filters.start_date
@@ -752,6 +756,15 @@ function handleResponse(runtime) {
   }
   renderWaferMap(evidence);
   renderEvidence(evidence);
+
+  if (evidence.overlay_analysis && runtime.status === "completed") {
+    interactionPanel.hidden = true;
+    const { answer, limitations = [] } = evidence.overlay_analysis;
+    addNode("msg agent", `<div class="findings">${renderMarkdown(answer)}</div>${limitations.length
+      ? `<ul>${limitations.map((limitation) => `<li>${escapeHtml(limitation)}</li>`).join("")}</ul>`
+      : ""}`);
+    return;
+  }
 
   if (isV2) {
     if (runtime.approvalRequest) {
@@ -847,24 +860,25 @@ document.getElementById("composer").onsubmit = (event) => {
   interactionPanel.innerHTML = "";
   findingsPanel.hidden = true;
   findingsContent.innerHTML = "";
-  tdbbPanel.hidden = true;
+  if (tdbbPanel) tdbbPanel.hidden = true;
   const isV2 = registeredAgents[agentSelect.selectedIndex]?.agentId === "opo-monitoring-v2";
-  document.querySelector(".wafer-panel").hidden = isV2;
+  if (hasOpoCharts) document.querySelector(".wafer-panel").hidden = isV2;
   messageInput.disabled = false;
   evidencePane.innerHTML = '<div class="empty-state small"><p>No evidence yet.</p></div>';
-  if (isV2) Plotly.purge(document.getElementById("trend-plot"));
+  if (isV2 && hasOpoCharts) Plotly.purge(document.getElementById("trend-plot"));
   else drawPlot(null, null);
   addNode("msg user", escapeHtml(message));
   send(() => window.OpoBff.startChat(
-    message, registeredAgents[agentSelect.selectedIndex], availableTrendScopes()
+    message, registeredAgents[agentSelect.selectedIndex], availableTrendScopes(),
+    window.OverlayAnalysis?.getContext() || {}
   ), "Analysing trends\u2026");
 };
 
 toggleRightPanel.onclick = () => {
   setRightPanelCollapsed(!mainLayout.classList.contains("right-panel-collapsed"));
-  ["trend-plot", "wafer-plot"].forEach((id) => {
+  ["trend-plot", "wafer-plot", "overlay-plot"].forEach((id) => {
     const el = document.getElementById(id);
-    if (el.data) Plotly.Plots.resize(el);
+    if (el?.data) Plotly.Plots.resize(el);
   });
 };
 
@@ -904,6 +918,7 @@ async function loadAgents() {
 }
 
 agentSelect.addEventListener("change", () => {
+  if (!hasOpoCharts) return;
   const isV2 = registeredAgents[agentSelect.selectedIndex]?.agentId === "opo-monitoring-v2";
   messageInput.value = isV2
     ? v2StarterPrompt()

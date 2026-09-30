@@ -75,6 +75,16 @@ def test_prompt_provider_appends_package_knowledge(definition) -> None:
     assert "Application knowledge:" in rendered
 
 
+def test_trend_prompt_preserves_full_year_without_inferred_selections(definition) -> None:
+    rendered = PackagePromptProvider(definition).render("trend_filters", {})
+
+    assert "2026-01-01" in rendered
+    assert "2026-12-31" in rendered
+    assert "Never narrow an explicit date range" in rendered
+    assert "Available trend scopes describe data availability, not analyst selections." in rendered
+    assert "all identifier lists empty" in rendered
+
+
 def test_unknown_prompt_is_rejected(definition) -> None:
     with pytest.raises(ExpressionError, match="no prompt"):
         PackagePromptProvider(definition).render("missing", {})

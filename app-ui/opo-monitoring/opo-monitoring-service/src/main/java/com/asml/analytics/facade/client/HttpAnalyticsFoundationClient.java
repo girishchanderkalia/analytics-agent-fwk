@@ -42,6 +42,17 @@ public final class HttpAnalyticsFoundationClient
     }
 
     @Override
+        public Map<String, Object> queryOverlayTrends(Map<String, Object> request) {
+                return call(() -> client.post()
+                                .uri("/overlay/trends/query")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .accept(MediaType.APPLICATION_JSON)
+                                .body(request)
+                                .retrieve()
+                                .body(MAP_RESPONSE));
+        }
+
+        @Override
     public TrendResponse queryTrends(
             TrendQuery request) {
 

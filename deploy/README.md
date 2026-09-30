@@ -13,6 +13,11 @@ Kubernetes manifests for the `agents` namespace.
   `GET /v1/conversations/{conversation_id}`.
 - The image registers `agents/opo-monitoring` for application `opo-monitoring`;
   override `AGENT_APPLICATION_ID` and `AGENT_MARKDOWN_PACKAGES` for other packages.
+- `AGENT_APPLICATION_PACKAGES` optionally registers additional applications in
+  the same runtime as a JSON object of application IDs to package-path lists.
+  The local startup script and Kubernetes ConfigMap include
+  `{"overlay-data-analysis":["/app/agents/overlay-analysis"]}` (local paths are
+  resolved by the script). Discovery and chat remain scoped by application ID.
 - The CA bundle ConfigMap must already exist as
   `application-agent-runtime-ca-bundle` with key `combined-ca-bundle.pem`.
 - Replace all `REPLACE_WITH_...` values before applying manifests.

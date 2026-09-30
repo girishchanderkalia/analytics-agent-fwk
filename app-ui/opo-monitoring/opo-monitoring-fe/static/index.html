@@ -5,7 +5,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>OPO Monitoring UI</title>
-  <link rel="stylesheet" href="/static/styles.css" />
+  <link rel="stylesheet" href="/static/styles.css?v=2" />
 </head>
 
 <body>
@@ -13,6 +13,13 @@
     <div class="brand">
       <h1>OPO Monitoring UI</h1>
       <span class="subtitle">Overlay investigation &middot; human-in-the-loop</span>
+    </div>
+    <div class="app-navigation">
+      <label for="application-page">Application</label>
+      <select id="application-page" disabled>
+        <option value="/" selected>OPO monitoring</option>
+        <option value="/overlay">Overlay data analysis</option>
+      </select>
     </div>
     <div class="thread">
       <label for="conversation-input">Conversation</label>
@@ -94,15 +101,16 @@
       <form id="composer" class="composer">
         <div id="interaction-panel" class="interaction-panel" hidden></div>
         <input id="message-input" type="text" value="Show me trends and outliers"
-          placeholder="e.g. outliers above 3 for NXE3600 in the last 7 days" autocomplete="off" />
+          placeholder="e.g. show OPO trends for January 2025" autocomplete="off" />
         <button id="send-btn" type="submit">Start</button>
       </form>
     </aside>
   </main>
 
+  <script src="/static/page-navigation.js?v=2"></script>
   <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
-  <script src="/static/bff-client.js?v=4"></script>
-  <script src="/static/app.js?v=12"></script>
+  <script src="/static/bff-client.js?v=6"></script>
+  <script src="/static/app.js?v=14"></script>
 </body>
 
 </html>

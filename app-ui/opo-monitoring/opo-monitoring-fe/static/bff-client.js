@@ -6,8 +6,8 @@
 // envelope reaches the renderer unchanged; the only shaping here is building
 // the request DTOs the API declares.
 
-const AGENT_ID = window.OPO_AGENT_ID || "opo-monitoring-agent";
-const APPLICATION_ID = window.OPO_APPLICATION_ID || "opo-monitoring";
+const AGENT_ID = document.body.dataset.agentId || window.OPO_AGENT_ID || "opo-monitoring-agent";
+const APPLICATION_ID = document.body.dataset.applicationId || window.OPO_APPLICATION_ID || "opo-monitoring";
 
 async function requestJson(path, options) {
   const response = await fetch(path, options);
@@ -39,6 +39,10 @@ function toResumeRequest(decision, expectedVersion) {
 }
 
 window.OpoBff = {
+  queryOverlayTrends(query) {
+    return postJson("/api/trends/overlay/query", query);
+  },
+
   async loadTrends() {
     // No lookback: a relative window silently hides everything older than it.
     const response = await postJson("/api/trends/query", { filters: {}, groupBy: [] });
@@ -52,13 +56,13 @@ window.OpoBff = {
     return response.agents || [];
   },
 
-  startChat(message, agent, availableTrendScopes = []) {
+  startChat(message, agent, availableTrendScopes = [], pageContext = {}) {
     return postJson("/api/investigations/chat", {
       applicationId: APPLICATION_ID,
       agentId: agent?.agentId || AGENT_ID,
       agentVersion: agent?.version ?? null,
       message,
-      applicationContext: { source: "opo-monitoring-fe", available_trend_scopes: availableTrendScopes },
+      applicationContext: { source: "opo-monitoring-fe", available_trend_scopes: availableTrendScopes, ...pageContext },
     });
   },
 

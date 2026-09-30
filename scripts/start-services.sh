@@ -78,6 +78,7 @@ export SERVER_PORT="$BFF_PORT"
 export AGENT_RUNTIME_REPOSITORY_ROOT="${AGENT_RUNTIME_REPOSITORY_ROOT:-$(cygpath -w "$ROOT_DIR")}"
 export AGENT_APPLICATION_ID="${AGENT_APPLICATION_ID:-opo-monitoring}"
 export AGENT_MARKDOWN_PACKAGES="${AGENT_MARKDOWN_PACKAGES:-$(cygpath -w "$ROOT_DIR/agents/opo-monitoring");$(cygpath -w "$ROOT_DIR/agents/opo-monitoring-v2")}"
+export AGENT_APPLICATION_PACKAGES="${AGENT_APPLICATION_PACKAGES:-$("$PYTHON_BIN" -c 'import json,sys; print(json.dumps({"overlay-data-analysis": [sys.argv[1]]}))' "$(cygpath -w "$ROOT_DIR/agents/overlay-analysis")")}"
 
 # Windows Python uses semicolon-separated PYTHONPATH entries.
 export PYTHONPATH="$(cygpath -w "$ROOT_DIR");$(cygpath -w "$ROOT_DIR/analytics-foundation/analytics-foundation-api");$(cygpath -w "$ROOT_DIR/analytics-foundation/analytics-foundation-mcp/src");$(cygpath -w "$ROOT_DIR/app-ui/opo-monitoring/opo-monitoring-service/opo-capability-service/src");$(cygpath -w "$ROOT_DIR/app-ui/opo-monitoring/opo-monitoring-service/opo-deterministic-logic/src");$(cygpath -w "$ROOT_DIR/analytics-foundation/analytics-foundation-client/src");$(cygpath -w "$ROOT_DIR/agent-framework/agent-runtime")${PYTHONPATH:+;$PYTHONPATH}"

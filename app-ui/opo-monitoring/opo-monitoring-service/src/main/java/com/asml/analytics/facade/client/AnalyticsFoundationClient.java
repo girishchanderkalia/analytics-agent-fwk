@@ -3,6 +3,7 @@ package com.asml.analytics.facade.client;
 import com.asml.analytics.facade.dto.foundation.*;
 
 public interface AnalyticsFoundationClient {
+    java.util.Map<String, Object> queryOverlayTrends(java.util.Map<String, Object> request);
     TrendResponse queryTrends(TrendQuery request);
     DistributionResponse getDistribution(DistributionQuery request);
     WorkspaceResponse createWorkspace(CreateWorkspaceRequest request);

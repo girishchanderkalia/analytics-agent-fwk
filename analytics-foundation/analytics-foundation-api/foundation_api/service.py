@@ -6,11 +6,13 @@ from typing import Any
 from uuid import uuid4
 from .errors import WorkspaceNotFoundError,RegistrationNotFoundError
 from .models import *
+from .overlay import OverlayQueryRequest,OverlayResponse,query_overlay
 class FoundationService:
  def __init__(self,repository,trend_table:str,wafer_table:str):
   self.repo=repository;self.trend_table=trend_table;self.wafer_table=wafer_table;self.workspaces={};self.registrations={}
  def ready(self):self.repo.trend_rows();self.repo.wafer_rows()
  def metadata(self):return DatasetMetadata(trend_table=self.trend_table,wafer_table=self.wafer_table)
+ def overlay_trends(self,q:OverlayQueryRequest)->OverlayResponse:return query_overlay(self.repo,q)
  def trends(self,q:TrendQueryRequest)->TrendResponse:
   start=date.fromisoformat(q.start_date) if q.start_date else (date.today()-timedelta(days=q.days-1) if q.days else date.min)
   end=date.fromisoformat(q.end_date) if q.end_date else date.max

@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Overlay data analysis</title>
+  <link rel="stylesheet" href="/static/styles.css?v=2" />
+  <link rel="stylesheet" href="/static/overlay.css?v=2" />
+</head>
+<body class="overlay-page" data-application-id="overlay-data-analysis" data-agent-id="overlay-analysis-agent">
+  <header>
+    <div class="brand">
+      <h1>Overlay data analysis</h1>
+      <span class="subtitle">Measured overlay &middot; Lot level</span>
+    </div>
+    <div class="app-navigation">
+      <label for="application-page">Application</label>
+      <select id="application-page" disabled>
+        <option value="/">OPO monitoring</option>
+        <option value="/overlay" selected>Overlay data analysis</option>
+      </select>
+    </div>
+    <div class="thread">
+      <label for="conversation-input">Conversation</label>
+      <input id="conversation-input" type="text" placeholder="paste a conversation id to reopen" spellcheck="false" />
+      <button id="reopen-btn" class="ghost">Reopen</button>
+    </div>
+  </header>
+  <main class="overlay-main">
+    <div class="overlay-workspace">
+    <form id="overlay-filters" class="overlay-filters">
+      <label>Metric<select id="metric" name="metric">
+        <option value="MEAN">Mean</option><option value="MAX">Max</option>
+        <option value="MIN">Min</option><option value="M3S">M3S</option>
+        <option value="MAX_997">Max 99.7%</option>
+      </select></label>
+      <label>Product<select id="product" name="product"><option value="">All products</option></select></label>
+      <label>Layer<select id="layer" name="layer"><option value="">All layers</option></select></label>
+      <label>Exposure equipment<select id="equipment" name="equipment"><option value="">All equipment</option></select></label>
+      <label>Lot<select id="lot" name="lot"><option value="">All lots</option></select></label>
+      <label>Start date<input id="start-date" name="start_date" type="date" /></label>
+      <label>End date<input id="end-date" name="end_date" type="date" /></label>
+      <div class="filter-actions"><button id="apply-filters" type="submit">Apply</button><button type="reset" class="ghost">Reset</button></div>
+    </form>
+    <section class="overlay-chart" aria-labelledby="overlay-chart-title">
+      <div class="overlay-section-head">
+        <div><h2 id="overlay-chart-title">Measured overlay X / Y</h2><span id="overlay-status" class="chart-note" role="status" aria-live="polite">Loading...</span></div>
+        <label class="axis-picker">Horizontal axis<select id="horizontal-axis"><option value="time">Exposure time</option><option value="lot">Lot step</option></select></label>
+      </div>
+      <div id="overlay-error" role="alert" hidden></div>
+      <div id="overlay-plot" aria-label="Measured overlay X and Y chart"></div>
+    </section>
+    <section class="overlay-results" aria-labelledby="overlay-results-title">
+      <div class="overlay-section-head"><h2 id="overlay-results-title">Lot measurements</h2><button id="export-csv" type="button" class="ghost" disabled>Export CSV</button></div>
+      <div class="overlay-table-scroll" tabindex="0" role="region" aria-label="Lot measurements">
+        <table>
+          <thead><tr><th>Lot step</th><th>Lot</th><th>Product</th><th>Layer</th><th>Exposure equipment</th><th>Metrology equipment</th><th>Metrology step</th><th>Exposure start (UTC)</th><th>Exposure end (UTC)</th><th class="number">KPI X</th><th class="number">KPI Y</th></tr></thead>
+          <tbody id="overlay-rows"></tbody>
+        </table>
+      </div>
+    </section>
+    </div>
+    <aside class="evidence-pane" aria-label="Chat and evidence">
+      <div class="evidence-head">
+        <div><h2>Chat &amp; evidence</h2></div>
+        <div class="evidence-head-actions">
+          <div class="agent-picker">
+            <label for="agent-select">Agent</label>
+            <select id="agent-select" disabled><option>Loading...</option></select>
+          </div>
+          <button id="toggle-right-panel" class="ghost panel-toggle" type="button"
+            aria-label="Minimize interaction and evidence panel" title="Minimize panel">&rarr;</button>
+        </div>
+      </div>
+      <div class="right-content">
+        <div id="timeline" class="timeline"><div class="empty-state"><p>No messages yet.</p></div></div>
+        <div id="evidence" class="evidence"><div class="empty-state small"><p>No evidence yet.</p></div></div>
+        <section id="findings-panel" class="findings-panel" hidden>
+          <h3>Investigation result</h3><div id="findings-content"></div>
+        </section>
+      </div>
+      <form id="composer" class="composer">
+        <div id="interaction-panel" class="interaction-panel" hidden></div>
+        <input id="message-input" type="text" value="Analyze the displayed overlay measurements"
+          placeholder="Ask about overlay data" autocomplete="off" aria-label="Chat message" />
+        <button id="send-btn" type="submit">Start</button>
+      </form>
+    </aside>
+  </main>
+  <script src="/static/page-navigation.js?v=2"></script>
+  <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+  <script src="/static/bff-client.js?v=6"></script>
+  <script src="/static/overlay.js?v=2"></script>
+  <script src="/static/app.js?v=14"></script>
+</body>
+</html>

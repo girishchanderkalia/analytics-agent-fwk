@@ -7,6 +7,7 @@ framework owns validation, fingerprinting, and the catalog.
 from __future__ import annotations
 
 import os
+import json
 from collections.abc import Iterable, Mapping
 from pathlib import Path
 
@@ -25,6 +26,35 @@ from execution.definition_loader import (
 )
 
 PACKAGES_VARIABLE = "AGENT_MARKDOWN_PACKAGES"
+APPLICATION_PACKAGES_VARIABLE = "AGENT_APPLICATION_PACKAGES"
+
+
+def register_application_packages_from_environment(
+    *,
+    environment: Mapping[str, str],
+    catalog: InMemoryAgentRegistrationCatalog,
+) -> InMemoryAgentRegistrationCatalog:
+    raw = environment.get(APPLICATION_PACKAGES_VARIABLE, "").strip()
+    if not raw:
+        return catalog
+    try:
+        applications = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise AgentRegistrationValidationError(
+            f"{APPLICATION_PACKAGES_VARIABLE} must be a JSON object of application IDs to package-path lists"
+        ) from exc
+    if not isinstance(applications, dict) or any(
+        not isinstance(identity, str) or not identity.strip()
+        or not isinstance(roots, list) or not roots
+        or any(not isinstance(root, str) or not root.strip() for root in roots)
+        for identity, roots in applications.items()
+    ):
+        raise AgentRegistrationValidationError(
+            f"{APPLICATION_PACKAGES_VARIABLE} must be a JSON object of application IDs to nonempty package-path lists"
+        )
+    for identity, roots in applications.items():
+        register_markdown_agents(application_id=identity, package_roots=roots, catalog=catalog)
+    return catalog
 
 
 def register_markdown_agents(

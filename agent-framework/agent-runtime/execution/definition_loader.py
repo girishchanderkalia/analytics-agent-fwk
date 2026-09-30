@@ -460,7 +460,7 @@ def validate_capability_definition(
 
     capabilities = definition.metadata.get("capabilities")
 
-    if not isinstance(capabilities, list) or not capabilities:
+    if not isinstance(capabilities, list):
         raise AgentDefinitionError(
             f"{definition.path} must declare capabilities"
         )

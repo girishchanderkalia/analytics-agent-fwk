@@ -1,0 +1,52 @@
+[
+  {
+    "id": "MMM1",
+    "type": "NXE3600D",
+    "customername": null
+  },
+  {
+    "id": "MMM2",
+    "type": "NXE3600D",
+    "customername": null
+  },
+  {
+    "id": "LB99",
+    "type": "NXT:2100i",
+    "customername": null
+  },
+  {
+    "id": "5511",
+    "type": "NXT1970CI",
+    "customername": null
+  },
+  {
+    "id": "1111",
+    "type": "NXT1970CI",
+    "customername": null
+  },
+  {
+    "id": "GH42",
+    "type": "NXT2100I",
+    "customername": null
+  },
+  {
+    "id": "GW02",
+    "type": "NXE:3600D",
+    "customername": "Equipment02"
+  },
+  {
+    "id": "GF48",
+    "type": "NXE:3800E",
+    "customername": null
+  },
+  {
+    "id": "1112",
+    "type": "NXT2000I",
+    "customername": null
+  },
+  {
+    "id": "1212",
+    "type": "NXT2000I",
+    "customername": null
+  }
+]
