@@ -38,6 +38,8 @@ SUPPORTED_FIELD_TYPES: set[str] = {
     "optional_int",
     "optional_float",
     "literal",
+    "model",
+    "model_list",
 }
 
 
@@ -450,6 +452,15 @@ def validate_fields(
                     f"Literal field {field_name!r} in "
                     f"{location} must declare a non-empty "
                     "values list"
+                )
+
+        if field_type in ("model", "model_list"):
+            nested = field_definition.get("model")
+
+            if not isinstance(nested, str) or not nested.strip():
+                raise AgentDefinitionError(
+                    f"Field {field_name!r} in {location} must name "
+                    "the model it contains"
                 )
 
 

@@ -140,3 +140,31 @@ def test_invalid_agent_models_are_rejected() -> None:
         match="fields must be a mapping",
     ):
         create_contract_provider(invalid_bundle)
+
+
+def test_nested_models_are_typed() -> None:
+    provider = create_contract_provider(bundle(models={
+        "Comparison": {"fields": {
+            "rows": {"type": "model_list", "model": "Row", "default": []},
+            "largest": {"type": "model", "model": "Row", "default": None},
+        }},
+        "Row": {"fields": {
+            "budget": {"type": "string", "default": ""},
+            "delta": {"type": "optional_float", "default": None},
+        }},
+    }))
+    comparison = provider.get_contract("Comparison")
+
+    value = comparison(rows=[{"budget": "nce", "delta": 0.8}], largest={"budget": "nce", "delta": 0.8})
+
+    assert value.rows[0].delta == 0.8 and value.largest.budget == "nce"
+    assert comparison().largest is None
+    with pytest.raises(ValidationError):
+        comparison(rows=[{"budget": "nce", "delta": "large"}])
+
+
+def test_undeclared_nested_model_is_rejected() -> None:
+    with pytest.raises(InvalidContractDefinitionError, match="not declared"):
+        create_contract_provider(bundle(models={
+            "Comparison": {"fields": {"rows": {"type": "model_list", "model": "Missing", "default": []}}},
+        }))

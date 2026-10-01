@@ -61,7 +61,7 @@ else
 fi
 export PYTHON_BIN
 
-packages="$(cygpath -w "$ROOT_DIR/agents/opo-monitoring");$(cygpath -w "$ROOT_DIR/agents/opo-monitoring-v2");$(cygpath -w "$ROOT_DIR/agents/opo-monitoring-v3")"
+packages="$(cygpath -w "$ROOT_DIR/agents/opo-monitoring");$(cygpath -w "$ROOT_DIR/agents/opo-monitoring-v2");$(cygpath -w "$ROOT_DIR/agents/opo-monitoring-v3");$(cygpath -w "$ROOT_DIR/agents/opo-monitoring-v4")"
 if [[ -n "$EXTRA_AGENTS" ]]; then
   IFS=';' read -r -a extra_dirs <<< "$EXTRA_AGENTS"
   for dir in "${extra_dirs[@]}"; do

@@ -13,8 +13,9 @@ const tdbbPanel = document.getElementById("tdbb-panel");
 const ncePanel = document.getElementById("nce-panel");
 const V2_AGENT = "opo-monitoring-v2";
 const V3_AGENT = "opo-monitoring-v3";
+const V4_AGENT = "opo-monitoring-v4";
 const selectedAgentId = () => registeredAgents[agentSelect.selectedIndex]?.agentId;
-const isScopedAgent = (agentId) => agentId === V2_AGENT || agentId === V3_AGENT;
+const isScopedAgent = (agentId) => agentId === V2_AGENT || agentId === V3_AGENT || agentId === V4_AGENT;
 
 let conversationId = null;
 let conversationVersion = null;
@@ -103,7 +104,7 @@ function v3StarterPrompt() {
 
 function starterPrompt(agentId) {
   if (agentId === V2_AGENT) return v2StarterPrompt();
-  if (agentId === V3_AGENT) return v3StarterPrompt();
+  if (agentId === V3_AGENT || agentId === V4_AGENT) return v3StarterPrompt();
   return "Show me trends and outliers";
 }
 

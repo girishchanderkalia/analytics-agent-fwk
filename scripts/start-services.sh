@@ -77,7 +77,7 @@ export RUNTIME_SERVICE_BASE_URL="${RUNTIME_SERVICE_BASE_URL:-http://127.0.0.1:$R
 export SERVER_PORT="$BFF_PORT"
 export AGENT_RUNTIME_REPOSITORY_ROOT="${AGENT_RUNTIME_REPOSITORY_ROOT:-$(cygpath -w "$ROOT_DIR")}"
 export AGENT_APPLICATION_ID="${AGENT_APPLICATION_ID:-opo-monitoring}"
-export AGENT_MARKDOWN_PACKAGES="${AGENT_MARKDOWN_PACKAGES:-$(cygpath -w "$ROOT_DIR/agents/opo-monitoring");$(cygpath -w "$ROOT_DIR/agents/opo-monitoring-v2");$(cygpath -w "$ROOT_DIR/agents/opo-monitoring-v3")}"
+export AGENT_MARKDOWN_PACKAGES="${AGENT_MARKDOWN_PACKAGES:-$(cygpath -w "$ROOT_DIR/agents/opo-monitoring");$(cygpath -w "$ROOT_DIR/agents/opo-monitoring-v2");$(cygpath -w "$ROOT_DIR/agents/opo-monitoring-v3");$(cygpath -w "$ROOT_DIR/agents/opo-monitoring-v4")}" 
 
 # Windows Python uses semicolon-separated PYTHONPATH entries.
 export PYTHONPATH="$(cygpath -w "$ROOT_DIR");$(cygpath -w "$ROOT_DIR/analytics-foundation/analytics-foundation-api");$(cygpath -w "$ROOT_DIR/analytics-foundation/analytics-foundation-mcp/src");$(cygpath -w "$ROOT_DIR/app-ui/opo-monitoring/opo-monitoring-service/opo-capability-service/src");$(cygpath -w "$ROOT_DIR/app-ui/opo-monitoring/opo-monitoring-service/opo-deterministic-logic/src");$(cygpath -w "$ROOT_DIR/analytics-foundation/analytics-foundation-client/src");$(cygpath -w "$ROOT_DIR/agent-framework/agent-runtime")${PYTHONPATH:+;$PYTHONPATH}"

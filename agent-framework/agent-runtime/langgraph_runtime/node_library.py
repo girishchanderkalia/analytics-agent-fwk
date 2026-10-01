@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import inspect
+import json
 from collections.abc import Callable, Mapping
 from copy import deepcopy
 from typing import Any
 
 from definitions import NormalizedNode
+from execution.output_rules import check_output
 from mcp_tools import AgentToolReference
 
 from .node_dependencies import StandardNodeDependencies
@@ -141,7 +143,12 @@ class StandardNodeLibrary:
                 raise NodeExecutionError(
                     f"Model node {definition.node_id!r} failed"
                 ) from exc
-            return {result_key: result}
+            guardrails = definition.config.get("guardrails")
+            if not guardrails:
+                return {result_key: result}
+            return await _apply_guardrails(
+                definition.node_id, guardrails, result_key, result, request, state, model_provider
+            )
 
         return model_node
 
@@ -257,6 +264,43 @@ class StandardNodeLibrary:
             return updates
 
         return interrupt_node
+
+
+async def _apply_guardrails(
+    node_id: str,
+    guardrails: Mapping[str, Any],
+    result_key: str,
+    result: Any,
+    request: dict[str, Any],
+    state: Mapping[str, Any],
+    model_provider: Any,
+) -> dict[str, Any]:
+    """Check declared rules, re-ask the model with the violations, and report the outcome."""
+
+    first = violations = check_output(result, guardrails["rules"], state)
+    attempts = 1
+    while violations and attempts <= guardrails["retries"]:
+        correction = dict(request)
+        correction["input_text"] = (
+            f"{request['input_text']}\n\nYour previous answer was:\n{json.dumps(result, default=str)}\n"
+            "It violates these rules:\n" + "\n".join(f"- {item}" for item in violations)
+            + "\nReturn a corrected answer that satisfies every rule."
+        )
+        try:
+            result = await _maybe_await(model_provider.invoke_structured(**correction))
+            if hasattr(result, "model_dump"):
+                result = result.model_dump(mode="python")
+        except Exception as exc:
+            raise NodeExecutionError(f"Model node {node_id!r} failed on guardrail retry") from exc
+        violations = check_output(result, guardrails["rules"], state)
+        attempts += 1
+
+    status = "failed" if violations else ("corrected" if first else "passed")
+    if status == "failed" and guardrails["on_failure"] == "stop":
+        raise NodeExecutionError(f"Model node {node_id!r} violates its guardrails: {violations}")
+    report = dict(state.get(guardrails["report_to"]) or {})
+    report[node_id] = {"status": status, "attempts": attempts, "violations": violations, "corrected": first if status == "corrected" else []}
+    return {result_key: result, guardrails["report_to"]: report}
 
 
 def _model_input(config: Mapping[str, Any], state: Mapping[str, Any]) -> str:

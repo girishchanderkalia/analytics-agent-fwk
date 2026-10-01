@@ -67,6 +67,13 @@ def translate_bundle(bundle: Any) -> NormalizedAgentDefinition:
     bindings = _tool_bindings(capabilities)
     nodes, extra_edges = _nodes(workflow, bindings)
     node_ids = {node.node_id for node in nodes}
+    state_schema = _state_schema(bundle.state.metadata, _tool_result_keys(nodes))
+    for node in nodes:
+        report_to = node.config.get("guardrails", {}).get("report_to")
+        if report_to and report_to not in state_schema["properties"]:
+            raise DefinitionNormalizationError(
+                f"Node {node.node_id!r} guardrails report_to {report_to!r} is not a declared state field"
+            )
 
     return NormalizedAgentDefinition(
         agent_id=bundle.agent_id,
@@ -76,9 +83,7 @@ def translate_bundle(bundle: Any) -> NormalizedAgentDefinition:
             nodes=nodes,
             edges=_edges(workflow, node_ids, extra_edges),
         ),
-        state=NormalizedState(
-            schema=_state_schema(bundle.state.metadata, _tool_result_keys(nodes))
-        ),
+        state=NormalizedState(schema=state_schema),
         prompts=_prompts(agent),
         tools=_tools(bindings),
         knowledge=(bundle.knowledge.markdown,),
@@ -230,7 +235,39 @@ def _model_config(
             raise DefinitionNormalizationError(
                 f"Node {node_id!r} grounded_outputs must list evidence fields"
             )
+    guardrails = node.get("guardrails")
+    if guardrails is not None:
+        config["guardrails"] = _guardrails(guardrails, node_id)
     return config
+
+
+def _guardrails(guardrails: Any, node_id: str) -> dict[str, Any]:
+    from execution.output_rules import OutputRuleError, validate_rule
+
+    if not isinstance(guardrails, Mapping):
+        raise DefinitionNormalizationError(f"Node {node_id!r} guardrails must be a mapping")
+    rules = guardrails.get("rules")
+    if not isinstance(rules, list) or not rules:
+        raise DefinitionNormalizationError(f"Node {node_id!r} guardrails must declare rules")
+    for rule in rules:
+        if not isinstance(rule, Mapping):
+            raise DefinitionNormalizationError(f"Node {node_id!r} guardrail rules must be mappings")
+        try:
+            validate_rule(rule, f"Node {node_id!r}")
+        except OutputRuleError as exc:
+            raise DefinitionNormalizationError(str(exc)) from exc
+    retries = guardrails.get("retries", 1)
+    if not isinstance(retries, int) or isinstance(retries, bool) or retries < 0:
+        raise DefinitionNormalizationError(f"Node {node_id!r} guardrails retries must be a non-negative integer")
+    on_failure = guardrails.get("on_failure", "warn")
+    if on_failure not in ("warn", "stop"):
+        raise DefinitionNormalizationError(f"Node {node_id!r} guardrails on_failure must be warn or stop")
+    return {
+        "rules": [_references(dict(rule)) for rule in rules],
+        "retries": retries,
+        "on_failure": on_failure,
+        "report_to": _text(guardrails.get("report_to"), f"node {node_id} guardrails report_to"),
+    }
 
 
 def _interrupt_config(node: Mapping[str, Any], node_id: str) -> dict[str, Any]:

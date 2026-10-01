@@ -148,12 +148,28 @@ def _build_contracts(bundle: Any) -> dict[str, type[Any]]:
         )
 
     contracts: dict[str, type[Any]] = {}
+    building: set[str] = set()
 
-    for contract_name, definition in models.items():
+    def build(contract_name: Any) -> type[Any]:
         if not isinstance(contract_name, str) or not contract_name.strip():
             raise InvalidContractDefinitionError(
                 "Contract names must be non-empty strings"
             )
+
+        if contract_name in contracts:
+            return contracts[contract_name]
+
+        if contract_name not in models:
+            raise InvalidContractDefinitionError(
+                f"Contract {contract_name!r} is referenced but not declared"
+            )
+
+        if contract_name in building:
+            raise InvalidContractDefinitionError(
+                f"Contract {contract_name!r} references itself"
+            )
+
+        definition = models[contract_name]
 
         if not isinstance(definition, dict):
             raise InvalidContractDefinitionError(
@@ -167,6 +183,7 @@ def _build_contracts(bundle: Any) -> dict[str, type[Any]]:
                 f"Contract {contract_name!r} fields must be a mapping"
             )
 
+        building.add(contract_name)
         fields: dict[str, tuple[Any, Any]] = {}
 
         for field_name, field_definition in declared_fields.items():
@@ -174,12 +191,18 @@ def _build_contracts(bundle: Any) -> dict[str, type[Any]]:
                 contract_name,
                 field_name,
                 field_definition,
+                build,
             )
 
+        building.discard(contract_name)
         contracts[contract_name] = create_model(
             contract_name,
             **fields,
         )
+        return contracts[contract_name]
+
+    for contract_name in models:
+        build(contract_name)
 
     return contracts
 
@@ -188,6 +211,7 @@ def _build_field(
     contract_name: str,
     field_name: str,
     definition: Any,
+    resolve: Any,
 ) -> tuple[Any, Any]:
     if not isinstance(field_name, str) or not field_name.strip():
         raise InvalidContractDefinitionError(
@@ -203,6 +227,7 @@ def _build_field(
         contract_name,
         field_name,
         definition,
+        resolve,
     )
 
     default = definition.get("default", ...)
@@ -223,8 +248,15 @@ def _field_annotation(
     contract_name: str,
     field_name: str,
     definition: dict[str, Any],
+    resolve: Any,
 ) -> Any:
     field_type = definition.get("type")
+
+    if field_type in ("model", "model_list"):
+        nested = resolve(definition.get("model"))
+        if field_type == "model_list":
+            return list[nested]
+        return nested | None if definition.get("default", ...) is None else nested
 
     simple_types: dict[str, Any] = {
         "string": str,
