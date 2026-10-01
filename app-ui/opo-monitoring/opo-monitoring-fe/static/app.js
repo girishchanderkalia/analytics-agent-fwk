@@ -993,7 +993,7 @@ function handleResponse(runtime) {
 
   const evidence = runtime.result || {};
   const agentId = runtime.agentId || selectedAgentId();
-  const isV3 = agentId === V3_AGENT;
+  const isV3 = agentId === V3_AGENT || agentId === V4_AGENT;
   const isV2 = isScopedAgent(agentId);
   document.getElementById("trend-title").textContent = isV2 ? "OPO performance trend" : "Daily overlay trend";
   document.querySelector(".wafer-panel").hidden = isV2;
