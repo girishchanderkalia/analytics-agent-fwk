@@ -55,7 +55,18 @@ The model gets a prompt and selected state as text, and must reply with JSON
 matching a declared schema. Example responses from the mock data run:
 
 **Call 1: read filters** (prompt `trend_filters`, schema `TrendFilters`)
-Given: the analyst's question.
+Example payload sent to the model:
+
+```json
+{
+  "question": "Show OPO performance of product AAA2, layer OV_NO_ID2 on scanner GW021 since 17 Aug.",
+  "conversation_context": {
+    "available_trend_scopes": []
+  }
+}
+```
+
+Expected model response:
 
 ```json
 {
@@ -73,7 +84,22 @@ Given: the analyst's question.
 ```
 
 **Call 2: read change date** (prompt `comparison_scope`, schema `ComparisonScope`)
-Given: the analyst's follow-up question and the filters from call 1.
+Example payload sent to the model:
+
+```json
+{
+  "comparison_request": "I observe a jump from 1 Sep 2026 to 16 Sep 2026. I want to know what changed in OPO.",
+  "trend_filters": {
+    "start_date": "2026-08-17",
+    "end_date": "2026-09-16",
+    "product_ids": ["AAA2"],
+    "layer_ids": ["OV_NO_ID2"],
+    "exposure_equipment_ids": ["GW021"]
+  }
+}
+```
+
+Expected model response:
 
 ```json
 {
@@ -83,7 +109,27 @@ Given: the analyst's follow-up question and the filters from call 1.
 ```
 
 **Call 3: write summary** (prompt `tdbb_summary`, schema `TdbbSummary`)
-Given: the application's before/after budget comparison (numbers only).
+Example payload sent to the model:
+
+```json
+{
+  "comparison_scope": {
+    "change_date": "2026-09-01"
+  },
+  "tdbb_comparison": {
+    "headline": "NCE - Wafer average X increased from 0.75 to 1.52 nm.",
+    "largest_increase": {
+      "budget": "nce_wafer.average",
+      "axis": "x",
+      "before": 0.75,
+      "after": 1.52,
+      "relative_change_pct": 103.0
+    }
+  }
+}
+```
+
+Expected model response:
 
 ```json
 {
