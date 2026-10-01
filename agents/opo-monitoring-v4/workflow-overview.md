@@ -24,11 +24,9 @@ sequenceDiagram
   actor Analyst
   participant App as Application UI + BFF
   participant Runtime as Agent Framework
-  participant Model as Model
-  participant Gateway as Model gateway
   participant MCP as Agent Framework MCP
   participant Foundation as Analytics Foundation
-  participant External as External model provider
+  participant External as External model
 
   Analyst->>App: Request deterministic chart data
   App->>Foundation: Query Foundation REST API
@@ -37,45 +35,37 @@ sequenceDiagram
 
   Analyst->>App: Enter OPO investigation question
   App->>Runtime: Start conversation
-  Runtime->>Model: Ask for TrendFilters JSON
-  Model->>Gateway: Invoke external model
-  Gateway->>External: Send model request
-  External-->>Gateway: Return structured response
-  Gateway-->>Model: Return structured response
-  Model-->>Runtime: Return TrendFilters
-  Runtime->>MCP: Query governed trend data
+  Runtime->>External: Request TrendFilters JSON
+  External-->>Runtime: Return TrendFilters
+  Runtime->>External: Ask model whether trend evidence is needed
+  External-->>Runtime: Request query_trends through MCP
+  Runtime->>MCP: Execute model-requested query_trends
   MCP->>Foundation: Query trend data
   Foundation-->>MCP: Return trend series
-  MCP-->>Runtime: Return trend evidence
+  MCP-->>Runtime: Return model-requested trend evidence
+  Runtime->>External: Provide trend evidence
+  External-->>Runtime: Return interpretation and answer data
   Runtime-->>App: Return conversation state and change suggestion
   App-->>Analyst: Render response and approval prompt
 
   Analyst->>App: Confirm or edit the change question
   App->>Runtime: Resume conversation
-  Runtime->>Model: Ask for ComparisonScope JSON
-  Model->>Gateway: Invoke external model
-  Gateway->>External: Send model request
-  External-->>Gateway: Return structured response
-  Gateway-->>Model: Return structured response
-  Model-->>Runtime: Return change date
-  Runtime->>Model: Request before TDBB run
-  Model-->>Runtime: Request before period
+  Runtime->>External: Request ComparisonScope JSON
+  External-->>Runtime: Return change date
+  Runtime->>External: Request before-period analysis
+  External-->>Runtime: Request before period
   Runtime->>MCP: Call run_tdbb for before period
   MCP->>Foundation: run_tdbb(before period)
   Foundation-->>MCP: Return before TDBB result
   MCP-->>Runtime: Return before TDBB result
-  Runtime->>Model: Request after TDBB run
-  Model-->>Runtime: Request after period
+  Runtime->>External: Request after-period analysis
+  External-->>Runtime: Request after period
   Runtime->>MCP: Call run_tdbb for after period
   MCP->>Foundation: run_tdbb(after period)
   Foundation-->>MCP: Return after TDBB result
   MCP-->>Runtime: Return after TDBB result
-  Runtime->>Model: Provide both TDBB results for analysis
-  Model->>Gateway: Invoke external model
-  Gateway->>External: Send TDBB evidence and prompt
-  External-->>Gateway: Return structured response
-  Gateway-->>Model: Return structured response
-  Model-->>Runtime: Return TdbbModelAnalysis JSON
+  Runtime->>External: Provide both TDBB results for analysis
+  External-->>Runtime: Return TdbbModelAnalysis JSON
   Runtime-->>App: Return TDBB state and model analysis
   App-->>Analyst: Render TDBB overview, maps, and analysis
 ```
@@ -98,9 +88,10 @@ analyzes the two returned results.
 
 The Application supplies the analyst question through the BFF. The Agent
 Framework executes the v4 agent definition, builds model prompts, invokes the
-model, and mediates its read-only MCP calls. The model receives selected
-workflow state and governed Foundation evidence, then must reply with JSON
-matching a declared schema. Foundation owns TDBB processing and returns the
+model, and mediates its read-only MCP calls. The model decides when it needs
+Foundation evidence and requests that evidence through MCP. The model receives
+selected workflow state and governed Foundation evidence, then must reply with
+JSON matching a declared schema. Foundation owns TDBB processing and returns the
 numeric results for each requested run; the model interprets the two results
 and analyzes their difference. Example exchanges from the mock data run:
 
@@ -157,6 +148,25 @@ Expected model response:
   "interpretation": "The analyst observed a jump from 1 Sep 2026 and asks what changed in OPO."
 }
 ```
+
+**Call 1b: request trend evidence** (tool `query_trends`)
+
+After receiving the parsed filters, the model requests trend evidence through
+MCP. The Agent Framework validates and mediates the request; it does not issue
+an unsolicited trend query.
+
+```json
+{
+  "start_date": "2026-08-17",
+  "end_date": "2026-09-16",
+  "product_ids": ["AAA2"],
+  "layer_ids": ["OV_NO_ID2"],
+  "exposure_equipment_ids": ["GW021"]
+}
+```
+
+Foundation returns the trend series requested by the model, and the model
+interprets those results before continuing the workflow.
 
 **Call 3: create before/after TDBB runs for model analysis** (tool `run_tdbb`)
 
@@ -231,7 +241,7 @@ the Foundation comparison headline alongside the model's `largest_change`.
 
 ## 5. What the model does not do
 
-- No data access: all data comes from Analytics Foundation.
+- No data access outside governed MCP tools: all model evidence comes from Analytics Foundation.
 - No calculations: OPO window and change-date rules are declared by the agent definition and executed by generic framework constructs; the model analyzes the difference between the two Foundation TDBB results.
 - No rendering: every chart, table and message is drawn by the application UI.
 - No final decisions: the application checks every date, and the analyst approves before TDBB runs.
