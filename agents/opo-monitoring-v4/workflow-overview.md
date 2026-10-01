@@ -20,46 +20,63 @@
 ## 3. Flow and separation
 
 ```mermaid
-flowchart LR
-  subgraph APP[Application scope]
-        U1[Analyst question]
-        U2[Trend chart + prefilled question]
-        U3[TDBB overview + maps]
-        U4[Summary message]
-    BFF[Application BFF]
-    SVC[Application services]
-    end
-  subgraph FRAMEWORK[Agent Framework]
-    R[Agent runtime]
-    MCP[Governed MCP tools]
-  end
-  subgraph MODEL[Model]
-        M1[TrendFilters JSON]
-        M2[ComparisonScope JSON]
-        M3[TdbbModelAnalysis JSON]
-    end
-  subgraph FOUNDATION[Analytics Foundation]
-    F1[Read X/Y trend]
-    F2[Run TDBB before / after]
-    F3[Compare runs by IDs]
-    end
-  U1 --> BFF --> R
-  R --> M1 --> R
-  R --> SVC --> F1 --> R --> U2
-  U2 -- analyst confirms --> BFF --> R
-  R --> M2 --> R
-  R --> SVC --> F2 --> R
-  R --> MCP --> F3 --> R
-  R --> SVC --> U3
-  U3 -- Explain changes --> BFF --> R --> M3 --> R --> U4
+sequenceDiagram
+  actor Analyst
+  participant UI as Application UI
+  participant BFF as Application BFF
+  participant SVC as Application services
+  participant Runtime as Agent Framework runtime
+  participant Model as Model
+  participant MCP as Agent Framework MCP
+  participant Foundation as Analytics Foundation
+
+  Analyst->>UI: Enter OPO trend question
+  UI->>BFF: Send investigation request
+  BFF->>Runtime: Start conversation
+  Runtime->>Model: Ask for TrendFilters JSON
+  Model-->>Runtime: Return TrendFilters
+  Runtime->>SVC: Normalize and validate trend window
+  SVC-->>Runtime: Return normalized filters
+  Runtime->>MCP: Query governed trend data
+  MCP->>Foundation: Query trend data
+  Foundation-->>MCP: Return trend series
+  MCP-->>Runtime: Return trend evidence
+  Runtime-->>BFF: Return trend state and change suggestion
+  BFF-->>UI: Render trend chart and approval prompt
+
+  Analyst->>UI: Confirm or edit the change question
+  UI->>BFF: Submit approval decision
+  BFF->>Runtime: Resume conversation
+  Runtime->>Model: Ask for ComparisonScope JSON
+  Model-->>Runtime: Return change date
+  Runtime->>SVC: Validate change date
+  SVC-->>Runtime: Return approved before/after periods
+  Runtime->>Model: Request before TDBB run
+  Model-->>Runtime: Request before period
+  Runtime->>MCP: Call run_tdbb for before period
+  MCP->>Foundation: run_tdbb(before period)
+  Foundation-->>MCP: Return before TDBB result
+  MCP-->>Runtime: Return before TDBB result
+  Runtime->>Model: Request after TDBB run
+  Model-->>Runtime: Request after period
+  Runtime->>MCP: Call run_tdbb for after period
+  MCP->>Foundation: run_tdbb(after period)
+  Foundation-->>MCP: Return after TDBB result
+  MCP-->>Runtime: Return after TDBB result
+  Runtime->>Model: Provide both TDBB results for analysis
+  Model-->>Runtime: Return TdbbModelAnalysis JSON
+  Runtime-->>BFF: Return TDBB state and model analysis
+  BFF-->>UI: Render TDBB overview, maps, and analysis
 ```
 
 The Application scope includes the browser UI, BFF, and application services.
 The Agent Framework includes the runtime and its governed MCP interface. The
-framework drives the workflow and mediates model-to-MCP calls; MCP is not a
-separate application data store. The model only interprets supplied state and
-Foundation evidence as structured JSON. The UI renders the resulting workflow
-state and does not call the model, MCP, or Foundation directly.
+framework drives the workflow and mediates every model-to-MCP call; MCP is not
+a separate application data store. For TDBB, Analytics Foundation provides
+`run_tdbb` for one requested period at a time. The model requests the before
+and after runs through MCP and analyzes the two returned results. The UI
+renders the resulting workflow state and does not call the model, MCP, or
+Foundation directly.
 
 ## 4. What is asked from the model and what it returns
 
@@ -125,17 +142,41 @@ Expected model response:
 }
 ```
 
-**Call 3: compare runs for model analysis** (tool `compare_tdbb_runs`)
+**Call 3: create before/after TDBB runs for model analysis** (tool `run_tdbb`)
 
-The Agent Framework asks MCP to provide the run IDs returned by `run_tdbb`.
-Foundation returns canonical before/after summaries plus each budget's X/Y
-delta and percentage, the largest increase, and a headline. The model does
-not receive raw TDBB rows or calculate deltas; it interprets the governed
-evidence and writes its structured analysis to `tdbb_model_analysis`.
+The Agent Framework mediates two model-to-MCP requests. The model asks MCP to
+create one run for the before period and one run for the after period. Each
+Foundation response contains the TDBB result for that requested period. The
+model receives both governed results and analyzes the difference; Foundation
+does not perform a separate comparison call.
+
+Before-period request:
 
 ```json
-{"before_run_ids":["run-LotOV1001","run-LotOV1002"],"after_run_ids":["run-LotOV1003","run-LotOV1004"]}
+{
+  "start_date": "2026-08-17",
+  "end_date": "2026-08-31",
+  "change_date": "2026-08-31",
+  "product_ids": ["AAA2"],
+  "layer_ids": ["OV_NO_ID2"],
+  "exposure_equipment_ids": ["GW021"]
+}
 ```
+
+After-period request:
+
+```json
+{
+  "start_date": "2026-09-01",
+  "end_date": "2026-09-16",
+  "change_date": "2026-09-16",
+  "product_ids": ["AAA2"],
+  "layer_ids": ["OV_NO_ID2"],
+  "exposure_equipment_ids": ["GW021"]
+}
+```
+
+The model then returns `TdbbModelAnalysis` JSON in `tdbb_model_analysis`.
 
 **Call 4: write summary** (prompt `tdbb_summary`, schema `TdbbSummary`)
 Example payload sent to the model:
