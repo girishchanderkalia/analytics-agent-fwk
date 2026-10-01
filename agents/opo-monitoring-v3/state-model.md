@@ -32,7 +32,7 @@ fields:
   trend_series:
     type: object_list
     default: []
-    description: Trend rows returned by the trend-query capability.
+    description: Trend rows returned by the model-mediated Foundation query.
 
   change_suggestion:
     type: object
@@ -58,6 +58,31 @@ fields:
     type: object
     default: null
     description: TDBB run result with run IDs, budgets and wafer/field maps per period.
+
+  tdbb_before_run:
+    type: object
+    default: null
+    description: Foundation TDBB result for the before period.
+
+  tdbb_after_run:
+    type: object
+    default: null
+    description: Foundation TDBB result for the after period.
+
+  tdbb_before_analysis:
+    type: object
+    default: null
+    description: Intermediate model output from the before-period evidence request.
+
+  tdbb_after_analysis:
+    type: object
+    default: null
+    description: Intermediate model output from the after-period evidence request.
+
+  tdbb_model_analysis:
+    type: object
+    default: null
+    description: Model interpretation grounded in the two Foundation TDBB results.
 
   tdbb_comparison:
     type: object

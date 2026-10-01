@@ -43,8 +43,8 @@ def test_authored_node_types_map_to_framework_kinds(definition) -> None:
     kinds = {item.node_id: item.kind for item in definition.graph.nodes}
 
     assert kinds["parse_trend_request"] == "model"
-    assert kinds["read_trends"] == "tool"
-    assert kinds["analyse_trends"] == "tool"
+    assert kinds["request_trend_evidence"] == "model"
+    assert kinds["analyse_trends"] == "model"
     assert kinds["approve_investigation"] == "interrupt"
 
 
@@ -56,53 +56,22 @@ def test_model_nodes_carry_prompt_contract_and_result(definition) -> None:
     assert config["result_key"] == "trend_filters"
 
 
-def test_capability_nodes_bind_to_declared_mcp_tools(definition) -> None:
-    config = node(definition, "read_trends").config
+def test_trend_model_binds_to_declared_foundation_tool(definition) -> None:
+    config = node(definition, "request_trend_evidence").config
 
-    assert (config["server"], config["tool"]) == (
+    assert (config["tools"][0]["server"], config["tools"][0]["name"]) == (
         "analytics-foundation",
         "query_trends",
     )
-    assert config["arguments"]["days"] == "$.trend_filters.lookback_days"
-    assert config["arguments"]["lot_ids"] == "$.trend_filters.lot_ids"
-
-
-def test_operation_nodes_bind_to_the_application_capability_server(
-    definition,
-) -> None:
-    config = node(definition, "analyse_trends").config
-
-    assert (config["server"], config["tool"]) == (
-        "opo-capability",
-        "analyze_trends",
-    )
-    assert config["arguments"]["series"] == "$.trend_series"
-
-
-def test_scattered_results_become_a_transform_node(definition) -> None:
-    assignments = node(definition, "read_trends__map").config["assignments"]
-
-    assert assignments == {
-        "trend_series": "$.read_trends__result.series",
-        "read_trends__result": None,
-    }
-    assert any(
-        edge.source == "read_trends" and edge.target == "read_trends__map"
-        for edge in definition.graph.edges
-    )
-
-
-def test_tool_results_are_declared_state(definition) -> None:
-    properties = definition.state.schema["properties"]
-
-    assert "read_trends__result" in properties
+    assert config["tool_results_to"] == "trend_series"
+    assert config["require_tool_call"] is True
 
 
 def test_downstream_edges_start_from_the_mapping_node(definition) -> None:
     targets = {
         edge.target
         for edge in definition.graph.edges
-        if edge.source == "read_trends__map"
+        if edge.source == "request_trend_evidence"
     }
 
     assert targets == {"review_trends", "interpret_detection_scope"}
@@ -117,7 +86,7 @@ def test_approval_nodes_declare_their_payload(definition) -> None:
         "question": "Investigate the selected outlier?",
         "approve_label": "Investigate",
         "reject_label": "Reject",
-        "detected_outliers": "$.outliers",
+        "detected_outliers": "$.outlier_analysis.outliers",
         "selected_outlier": "$.selected_outlier",
     }
 
@@ -153,7 +122,7 @@ def test_routing_conditions_become_conditional_edges(definition) -> None:
         edge for edge in definition.graph.edges if edge.condition is not None
     ]
 
-    assert ("analyse_trends__map", "summarize_findings", "outliers == []") in {
+    assert ("analyse_trends", "summarize_findings", "outlier_analysis.outliers == []") in {
         (edge.source, edge.target, edge.condition) for edge in conditioned
     }
 
@@ -178,9 +147,9 @@ def test_state_model_becomes_a_json_schema(definition) -> None:
 
 def test_prompts_and_knowledge_are_carried_through(definition) -> None:
     assert {prompt.prompt_id for prompt in definition.prompts} == {
-        "trend_filters",
-        "detection_scope",
-        "findings_summary",
+        "trend_filters", "trend_evidence", "detection_scope",
+        "outlier_analysis", "foundation_metadata", "wafer_evidence",
+        "workspace_request", "spatial_pattern", "findings_summary",
     }
     assert "Application-owned knowledge" in definition.knowledge[0]
 
@@ -190,16 +159,15 @@ def test_declared_tools_are_deduplicated(definition) -> None:
         (tool.server, tool.name) for tool in definition.tools
     }
 
-    assert ("opo-capability", "analyze_trends") in identities
     assert ("analytics-foundation", "query_wafers") in identities
+    assert all(server == "analytics-foundation" for server, _ in identities)
     assert len(identities) == len(definition.tools)
 
 
 def test_contracts_stay_available_for_the_contract_provider(definition) -> None:
     assert set(definition.metadata["models"]) == {
-        "TrendFilters",
-        "DetectionScope",
-        "FindingsSummary",
+        "EvidenceResponse", "OutlierAnalysis", "SpatialPattern",
+        "TrendFilters", "DetectionScope", "FindingsSummary",
     }
 
 
@@ -211,8 +179,8 @@ def test_undeclared_capability_reference_is_rejected(tmp_path) -> None:
     workflow = target / "workflow-definition.md"
     workflow.write_text(
         workflow.read_text(encoding="utf-8").replace(
-            "capability: data_query.read_trends",
-            "capability: data_query.missing",
+            "data_query.read_trends",
+            "data_query.missing",
         ),
         encoding="utf-8",
     )

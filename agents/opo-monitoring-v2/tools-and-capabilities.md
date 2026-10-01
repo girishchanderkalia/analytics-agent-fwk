@@ -3,23 +3,9 @@ id: opo-monitoring-capabilities-v2
 version: "2.0"
 kind: tools-and-capabilities
 
-operations:
-  - id: normalize_trend_window
-    server: opo-capability
-    tool: normalize_trend_window
-    version: "1"
-    owner: OPO Monitoring application
-    description: Apply the inclusive one-calendar-month window from the parsed start date.
-    request:
-      filters: ${state.trend_filters}
-      question: ${state.question}
-      available_scopes: ${state.conversation_context.available_trend_scopes}
-    result:
-      trend_filters: ${result.trend_filters}
-
 capabilities:
   - id: data_query.read_trends
-    operation: read_trends
+    operation: query_trends
     server: analytics-foundation
     tool: query_trends
     owner: Analytics Foundation
@@ -42,6 +28,7 @@ capabilities:
 
 # V2 data boundaries
 
-The OPO capability normalizes the model's trend window before the governed
-Foundation query. No TDBB capability exists yet. Before/after budget bars and
-wafer/field plots remain unavailable until Foundation publishes real data.
+The model extracts the one-month trend window and requests the read-only
+Foundation `query_trends` tool. No TDBB capability exists yet. Before/after
+budget bars and wafer/field plots remain unavailable until Foundation publishes
+real data.

@@ -36,7 +36,7 @@ def test_opo_agent_bundle_loads() -> None:
     assert isinstance(bundle, AgentDefinitionBundle)
     assert bundle.agent_id == "opo-monitoring-agent"
     assert bundle.version == "1.0"
-    assert bundle.display_name == "OPO Monitoring Agent"
+    assert bundle.display_name == "OPO-monitoring-v1"
 
 
 def test_all_required_definition_files_are_loaded() -> None:
@@ -109,9 +109,7 @@ def test_repository_loads_all_agents_by_agent_id() -> None:
     agents = repository.load_all()
 
     assert "opo-monitoring-agent" in agents
-    assert agents["opo-monitoring-agent"].display_name == (
-        "OPO Monitoring Agent"
-    )
+    assert agents["opo-monitoring-agent"].display_name == "OPO-monitoring-v1"
 
 
 def test_workflow_uses_supported_node_types() -> None:
@@ -123,8 +121,7 @@ def test_workflow_uses_supported_node_types() -> None:
 
     assert actual_types <= SUPPORTED_NODE_TYPES
     assert "model" in actual_types
-    assert "operation" in actual_types
-    assert "capability" in actual_types
+    assert actual_types == {"model", "approval"}
     assert "approval" in actual_types
 
 

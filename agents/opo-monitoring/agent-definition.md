@@ -41,6 +41,35 @@ context:
     - workspace_id
 
 models:
+  EvidenceResponse:
+    fields:
+      message:
+        type: string
+        default: ""
+        description: Short evidence-grounded response.
+
+  OutlierAnalysis:
+    fields:
+      analysis:
+        type: object_list
+        default: []
+        description: Evidence-based analysis rows.
+      outliers:
+        type: object_list
+        default: []
+        description: Candidate outliers identified from the trend evidence.
+
+  SpatialPattern:
+    fields:
+      classification:
+        type: string
+        default: ""
+        description: Evidence-based spatial pattern classification.
+      limitations:
+        type: string_list
+        default: []
+        description: Limitations of the spatial classification.
+
   TrendFilters:
     fields:
       lookback_days:
@@ -180,6 +209,32 @@ models:
         description: Plausible explanations not ruled out by the evidence.
 
 prompts:
+  trend_evidence: |
+    Request query_trends exactly once using the established trend_filters.
+    Treat the returned Foundation series as the only trend evidence and do
+    not invent KPI values or identifiers.
+
+  outlier_analysis: |
+    Identify candidate outliers only from the supplied trend_series and the
+    approved detection scope. Do not claim a root cause or invent rows.
+
+  foundation_metadata: |
+    Request the Foundation metadata tool exactly once and use only its result
+    to identify the wafer dataset needed for the approved investigation.
+
+  wafer_evidence: |
+    Request the supplied Foundation wafer query exactly once. Summarize only
+    returned rows and preserve the distinction between observed evidence and
+    inferred explanations.
+
+  workspace_request: |
+    Request the supplied approved Foundation workspace operation exactly once.
+    Do not access application services or invent workspace identifiers.
+
+  spatial_pattern: |
+    Classify the supplied wafer evidence only when it supports a pattern.
+    State limitations and do not infer a process cause.
+
   trend_filters: |
     Extract trend filters from the analyst request.
 
@@ -250,11 +305,11 @@ evidence_labels:
 
 guardrails:
   - Do not access Analytics Foundation data stores directly.
-  - Use declared capabilities for Analytics Foundation interactions.
+  - Use declared Foundation tools for Analytics Foundation interactions.
   - Do not invent KPI definitions, datasets, identifiers, or measurements.
   - Do not present a plausible explanation as a confirmed cause.
   - Restrict findings to evidence available in workflow state.
-  - Require approval before operations marked as approval-required.
+  - Require approval before Foundation tools marked as approval-required.
 ---
 
 # OPO Monitoring Agent
@@ -262,6 +317,5 @@ guardrails:
 The OPO Monitoring Agent interprets analyst requests, coordinates governed
 Analytics Foundation capabilities, and produces evidence-based findings.
 
-Model calls are limited to interpretation and summarization. Deterministic
-analysis is executed by application operations. Platform operations and side
-effects are performed through declared runtime capabilities.
+Model calls interpret supplied evidence and request governed Foundation tools.
+No application-owned capability service is part of this package.

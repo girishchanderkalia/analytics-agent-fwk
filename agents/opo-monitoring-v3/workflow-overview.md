@@ -7,7 +7,7 @@
 | **Application UI** | OPO Monitoring browser app + BFF | Takes analyst input, renders all charts, tables and messages from workflow state | Call the model or compute budgets |
 | **Agent runtime** | LangGraph workflow engine | Runs the steps in order, pauses for analyst decisions, keeps state | Render anything |
 | **Model** | Language model | Turns text into **JSON** matching a fixed schema | Read data, calculate, draw, decide |
-| **Application services** | OPO capability service | Deterministic rules: window, change-date suggestion and check, budget comparison | Interpret free text |
+| **Analytics Foundation** | Foundation tools | Trend queries and TDBB processing | Interpret or summarize |
 | **Analytics Foundation** | Data platform | Trend queries and TDBB processing | Interpret or summarize |
 
 ## 2. Analyst interaction (what the UI renders)
@@ -33,21 +33,18 @@ flowchart LR
         M2[ComparisonScope JSON]
         M3[TdbbSummary JSON]
     end
-    subgraph APP[Application services + Foundation]
-        A1[Year and one-month window]
-        F1[Read X/Y trend]
-        A2[Suggest change date]
-        A3[Check date in window]
-        F2[Run TDBB before / after]
-        A4[Compare budgets]
+    subgraph APP[Foundation tools]
+      F1[Read trend evidence]
+      F2[Run TDBB before / after]
     end
-    U1 --> M1 --> A1 --> F1 --> A2 --> U2
-    U2 -- analyst confirms --> M2 --> A3 --> F2 --> A4 --> U3
+    U1 --> M1 --> F1 --> U2
+    U2 -- analyst confirms --> M2 --> F2 --> M3 --> U3
     U3 -- Explain changes --> M3 --> U4
 ```
 
 The agent runtime drives every arrow. The UI only renders what is in the
-workflow state; the model only returns JSON into that state.
+workflow state; the model requests governed Foundation evidence and returns
+JSON into that state.
 
 ## 4. What is asked from the model and what it returns
 
@@ -82,7 +79,7 @@ Given: the analyst's follow-up question and the filters from call 1.
 }
 ```
 
-**Call 3: write summary** (prompt `tdbb_summary`, schema `TdbbSummary`)
+**Call 3: write summary** (prompt `tdbb_model_analysis`, schema `TdbbModelAnalysis`)
 Given: the application's before/after budget comparison (numbers only).
 
 ```json

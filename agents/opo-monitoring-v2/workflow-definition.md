@@ -9,21 +9,26 @@ nodes:
   - id: parse_trend_request
     type: model
     prompt: trend_filters
-    output: TrendFilters
-    output_to: trend_filters
+    output: TrendEvidence
+    output_to: trend_evidence
     inputs:
       - question
       - conversation_context
     activity: Interpreting the requested OPO performance window
 
-  - id: read_trends
-    type: capability
-    capability: data_query.read_trends
-    activity: Reading OPO performance trends
-
-  - id: normalize_trend_window
-    type: operation
-    operation: normalize_trend_window
+  - id: request_trend_evidence
+    type: model
+    prompt: trend_evidence
+    output: TrendFilters
+    output_to: trend_filters
+    inputs:
+      - question
+      - trend_filters
+    tools:
+      - data_query.read_trends
+    tool_results_to: trend_series
+    max_tool_calls: 1
+    require_tool_call: true
     activity: Applying the one-month OPO window
 
   - id: request_comparison
@@ -59,10 +64,8 @@ nodes:
 
 edges:
   - from: parse_trend_request
-    to: normalize_trend_window
-  - from: normalize_trend_window
-    to: read_trends
-  - from: read_trends
+    to: request_trend_evidence
+  - from: request_trend_evidence
     to: request_comparison
   - from: request_comparison
     to: interpret_comparison
@@ -71,14 +74,11 @@ edges:
 
 routing:
   defaults:
-    read_trends: request_comparison
+    request_trend_evidence: request_comparison
     request_comparison: interpret_comparison
     interpret_comparison: END
   conditions:
     - from: parse_trend_request
-      when: "trend_filters.start_date == null"
-      to: END
-    - from: normalize_trend_window
       when: "trend_filters.start_date == null"
       to: END
     - from: request_comparison

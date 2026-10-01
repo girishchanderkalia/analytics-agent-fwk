@@ -32,7 +32,47 @@ fields:
   trend_series:
     type: object_list
     default: []
-    description: Trend rows returned by the trend-query capability.
+    description: Trend rows returned by the model-mediated Foundation query.
+
+  trend_evidence:
+    type: object
+    default: null
+    description: Model response grounded in Foundation trend evidence.
+
+  outlier_analysis:
+    type: object
+    default: null
+    description: Model-generated outlier candidates grounded in trend evidence.
+
+  metadata_evidence:
+    type: object
+    default: null
+    description: Model response grounded in Foundation metadata.
+
+  preview_evidence:
+    type: object
+    default: null
+    description: Model response grounded in Foundation wafer preview evidence.
+
+  wafer_evidence:
+    type: object
+    default: null
+    description: Model response grounded in Foundation wafer evidence.
+
+  workspace_request:
+    type: object
+    default: null
+    description: Model request record for the Foundation workspace operation.
+
+  filter_request:
+    type: object
+    default: null
+    description: Model request record for applying Foundation workspace filters.
+
+  registration_request:
+    type: object
+    default: null
+    description: Model request record for registering the Foundation dataset.
 
   detection_scope:
     type: object

@@ -101,6 +101,13 @@ models:
         default: ""
         description: Restatement of the analyst's before/after question.
 
+  TrendEvidence:
+    fields:
+      message:
+        type: string
+        default: ""
+        description: Evidence-grounded interpretation of the returned trend series.
+
   DetectionScope:
     fields:
       mode:
@@ -223,6 +230,12 @@ prompts:
     the date remains ambiguous, leave change_date null. Do not claim to know
     what caused the change. TDBB budgets and wafer/field measurements are
     unavailable; do not invent them or substitute OPO KPI values for TDBB data.
+
+  trend_evidence: |
+    Request the read-only query_trends tool exactly once using the established
+    trend_filters. Treat the returned series as the only trend evidence. Do not
+    invent measurements or label the scalar KPI as X or Y. Return a brief
+    interpretation grounded in the tool result.
 
   detection_scope: |
     Interpret the analyst's outlier request within the established trend filters.

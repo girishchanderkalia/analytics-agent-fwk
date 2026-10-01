@@ -8,67 +8,9 @@ approvals:
   required_for:
     - workspace.register_dataset
 
-operations:
-  - id: analyse_trends
-    server: opo-capability
-    tool: analyze_trends
-    version: "1"
-    owner: OPO Monitoring application
-    description: >
-      Application-owned threshold and outlier rules, reached through the
-      framework's MCP tool boundary.
-
-    request:
-      series: ${state.trend_series}
-      mode: ${state.detection_scope.mode}
-      limit_value: ${state.detection_scope.limit_value}
-      direction: ${state.detection_scope.direction}
-      baseline_deviation_pct: ${state.detection_scope.baseline_deviation_pct}
-      limit_unit: ${state.detection_scope.threshold_unit}
-
-    result:
-      analysis: ${result.analysis}
-      outliers: ${result.outliers}
-
-  - id: analyse_trends_with_confirmed_threshold
-    server: opo-capability
-    tool: analyze_trends
-    version: "1"
-    owner: OPO Monitoring application
-    description: >
-      The same outlier rules, applied with the absolute threshold the analyst
-      confirmed or entered instead of the model's suggestion.
-
-    request:
-      series: ${state.trend_series}
-      mode: absolute
-      limit_value: ${state.confirmed_threshold}
-      direction: above
-      limit_unit: absolute
-
-    result:
-      analysis: ${result.analysis}
-      outliers: ${result.outliers}
-
-  - id: classify_spatial_pattern
-    server: opo-capability
-    tool: classify_spatial_pattern
-    version: "1"
-    owner: OPO Monitoring application
-    description: >
-      Application-owned radial classification of anomalous wafer points as
-      edge- or center-concentrated.
-
-    request:
-      rows: ${state.wafer_rows}
-      anomalous_wafer_ids: ${state.anomalous_wafers}
-
-    result:
-      spatial_pattern: ${result}
-
 capabilities:
   - id: data_query.read_trends
-    operation: read_trends
+    operation: query_trends
     server: analytics-foundation
     tool: query_trends
     owner: Analytics Foundation
@@ -169,7 +111,7 @@ capabilities:
       - workspace:create
 
     side_effect: true
-    approval_required: false
+    approval_required: true
 
     request: {}
 
@@ -187,7 +129,7 @@ capabilities:
       - workspace:write
 
     side_effect: true
-    approval_required: false
+    approval_required: true
 
     request:
       workspace_id: ${state.workspace.workspace_id}

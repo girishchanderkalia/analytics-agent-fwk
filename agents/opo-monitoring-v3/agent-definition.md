@@ -108,6 +108,32 @@ models:
         default: ""
         description: Restatement of the analyst's before/after question.
 
+  ChangeSuggestion:
+    fields:
+      change_date:
+        type: optional_string
+        default: null
+        description: Date where the supplied trend evidence changes.
+      question:
+        type: string
+        default: ""
+        description: Prefilled analyst follow-up question.
+
+  TdbbModelAnalysis:
+    fields:
+      message:
+        type: string
+        default: ""
+        description: Evidence-based interpretation of Foundation TDBB results.
+      largest_change:
+        type: string
+        default: ""
+        description: Largest Foundation-reported budget increase.
+      limitations:
+        type: string_list
+        default: []
+        description: Limitations supported by the returned TDBB evidence.
+
   TdbbSummary:
     fields:
       message:
@@ -251,6 +277,29 @@ prompts:
     trend_filters.end_date. Leave change_date null only when the analyst names
     no date at all, and explain that in interpretation. Do not claim to know
     what caused the change.
+
+  trend_evidence: |
+    Request the read-only query_trends tool exactly once using the established
+    trend_filters. Use only the returned trend series as evidence and do not
+    invent KPI values.
+
+  change_suggestion: |
+    Inspect the supplied Foundation trend series for a clear step in the daily
+    overlay X/Y means. Return the date only when the evidence supports one;
+    otherwise leave change_date null. Do not claim a cause.
+
+  tdbb_before_request: |
+    Request the Foundation run_tdbb tool exactly once for the period before the
+    approved change date. Use the supplied filters and return an evidence-based note.
+
+  tdbb_after_request: |
+    Request the Foundation run_tdbb tool exactly once for the period after the
+    approved change date. Use the supplied filters and return an evidence-based note.
+
+  tdbb_model_analysis: |
+    Compare only the supplied before and after Foundation TDBB results. Do not
+    recalculate missing values or infer a root cause. Identify the largest
+    reported budget change and state relevant limitations.
 
   tdbb_summary: |
     Write a short message for the analyst about the TDBB comparison in

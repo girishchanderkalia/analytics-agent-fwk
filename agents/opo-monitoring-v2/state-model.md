@@ -32,7 +32,12 @@ fields:
   trend_series:
     type: object_list
     default: []
-    description: Trend rows returned by the trend-query capability.
+    description: Trend rows returned by the model-mediated Foundation query.
+
+  trend_evidence:
+    type: object
+    default: null
+    description: Model response grounded in Foundation trend evidence.
 
   comparison_requested:
     type: boolean
