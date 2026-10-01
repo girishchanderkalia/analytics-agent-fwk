@@ -6,7 +6,7 @@
 |---|---|---|---|
 | **Application UI** | OPO Monitoring browser app + BFF | Takes analyst input, renders all charts, tables and messages from workflow state | Call the model or compute budgets |
 | **Agent runtime** | LangGraph workflow engine | Runs the steps in order, pauses for analyst decisions, keeps state | Render anything |
-| **Model** | Language model | Turns text into **JSON** matching a fixed schema | Read data, calculate, draw, decide |
+| **Model** | Language model | Turns text and supplied Foundation evidence into **JSON** matching a fixed schema | Read data independently, calculate raw deltas, draw, decide |
 | **Application services** | OPO capability service | Deterministic rules: window, change-date suggestion and check, budget comparison | Interpret free text |
 | **Analytics Foundation** | Data platform | Trend queries and TDBB processing | Interpret or summarize |
 
@@ -31,7 +31,7 @@ flowchart LR
     subgraph MODEL[Model - JSON only]
         M1[TrendFilters JSON]
         M2[ComparisonScope JSON]
-        M3[TdbbSummary JSON]
+        M3[TdbbModelAnalysis JSON]
     end
     subgraph APP[Application services + Foundation]
         A1[Year and one-month window]
@@ -39,10 +39,11 @@ flowchart LR
         A2[Suggest change date]
         A3[Check date in window]
         F2[Run TDBB before / after]
-        A4[Compare budgets]
+        F3[Foundation compare by run IDs]
+        A4[UI compatibility comparison]
     end
     U1 --> M1 --> A1 --> F1 --> A2 --> U2
-    U2 -- analyst confirms --> M2 --> A3 --> F2 --> A4 --> U3
+    U2 -- analyst confirms --> M2 --> A3 --> F2 --> F3 --> A4 --> U3
     U3 -- Explain changes --> M3 --> U4
 ```
 
@@ -108,7 +109,19 @@ Expected model response:
 }
 ```
 
-**Call 3: write summary** (prompt `tdbb_summary`, schema `TdbbSummary`)
+**Call 3: compare runs for model analysis** (tool `compare_tdbb_runs`)
+
+The model receives the run IDs returned by `run_tdbb`; it does not receive raw
+TDBB rows and does not calculate deltas. Foundation returns canonical
+before/after summaries plus each budget's X/Y delta and percentage, the
+largest increase and a headline. The model writes its structured analysis to
+`tdbb_model_analysis`.
+
+```json
+{"before_run_ids":["run-LotOV1001","run-LotOV1002"],"after_run_ids":["run-LotOV1003","run-LotOV1004"]}
+```
+
+**Call 4: write summary** (prompt `tdbb_summary`, schema `TdbbSummary`)
 Example payload sent to the model:
 
 ```json
@@ -141,12 +154,12 @@ Expected model response:
 
 The application checks or completes each JSON before it is used: dates from
 calls 1 and 2 go through the year and window checks, and the UI shows the
-application's own headline rather than the model's `largest_change`.
+Foundation comparison headline alongside the model's `largest_change`.
 
 ## 5. What the model does not do
 
 - No data access: all data comes from Analytics Foundation.
-- No calculations: windows, change detection and budget deltas are application code.
+- No calculations: windows and change-date validation are application code; Foundation computes the TDBB budget deltas.
 - No rendering: every chart, table and message is drawn by the application UI.
 - No final decisions: the application checks every date, and the analyst approves before TDBB runs.
 - No root causes: the summary says where the change sits, not why.

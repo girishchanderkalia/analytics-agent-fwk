@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import inspect
 import json
+import re
 from collections.abc import Callable, Mapping
 from copy import deepcopy
 from typing import Any
@@ -344,6 +345,17 @@ def _read_path(state: Mapping[str, Any], path: str) -> Any:
     for segment in path.split("."):
         if not segment:
             raise NodeExecutionError(f"Invalid state reference: $.{path}")
+        indexed = re.fullmatch(r"([A-Za-z_][A-Za-z0-9_]*)\[(\d+)\]", segment)
+        if indexed:
+            key, index_text = indexed.groups()
+            if not isinstance(current, Mapping) or key not in current:
+                raise NodeExecutionError(f"State reference does not exist: $.{path}")
+            current = current[key]
+            index = int(index_text)
+            if not isinstance(current, list) or index >= len(current):
+                raise NodeExecutionError(f"State reference does not exist: $.{path}")
+            current = current[index]
+            continue
         if not isinstance(current, Mapping) or segment not in current:
             raise NodeExecutionError(f"State reference does not exist: $.{path}")
         current = current[segment]

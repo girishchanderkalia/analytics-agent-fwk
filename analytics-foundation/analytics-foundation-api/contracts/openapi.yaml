@@ -221,6 +221,23 @@ paths:
           description: Unknown run.
         '422':
           description: Unknown table.
+  /tdbb/compare:
+    post:
+      operationId: compareTdbbRuns
+      description: Compare completed TDBB runs by their run IDs using Foundation TDBB semantics.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/TdbbCompareRequest'}
+      responses:
+        '200':
+          description: Canonical before/after summaries and Foundation-computed budget deltas.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/TdbbCompareResult'}
+        '404':
+          description: One or more supplied run IDs are unknown.
 components:
   parameters:
     RunId:
@@ -433,6 +450,79 @@ components:
           type: array
           items: {type: string, enum: [AVG, W2W]}
           default: [AVG, W2W]
+      additionalProperties: false
+    TdbbCompareRequest:
+      type: object
+      required: [before_run_ids, after_run_ids]
+      properties:
+        before_run_ids: {type: array, items: {type: string}}
+        after_run_ids: {type: array, items: {type: string}}
+      additionalProperties: false
+    TdbbCompareResult:
+      type: object
+      required: [before, after, budgets, headline]
+      properties:
+        before: {$ref: '#/components/schemas/TdbbPeriodSummary'}
+        after: {$ref: '#/components/schemas/TdbbPeriodSummary'}
+        budgets:
+          type: array
+          items: {$ref: '#/components/schemas/TdbbBudgetDelta'}
+        largest_increase:
+          allOf: [{$ref: '#/components/schemas/TdbbLargestIncrease'}]
+          nullable: true
+        headline: {type: string}
+      additionalProperties: false
+    TdbbPeriodSummary:
+      type: object
+      required: [period, run_ids, lot_count, wafer_count, budgets]
+      properties:
+        period: {type: string, enum: [before, after]}
+        run_ids: {type: array, items: {type: string}}
+        lot_count: {type: integer, minimum: 0}
+        wafer_count: {type: integer, minimum: 0}
+        budgets: {type: array, items: {$ref: '#/components/schemas/TdbbBudget'}}
+      additionalProperties: false
+    TdbbBudget:
+      type: object
+      required: [budget, label, metric, metric_label, context, context_label]
+      properties:
+        budget: {type: string}
+        label: {type: string}
+        metric: {type: string}
+        metric_label: {type: string}
+        context: {type: string}
+        context_label: {type: string}
+        x_m3s: {type: number, nullable: true}
+        y_m3s: {type: number, nullable: true}
+      additionalProperties: false
+    TdbbBudgetDelta:
+      type: object
+      required: [budget, label, metric, metric_label, context, context_label]
+      properties:
+        budget: {type: string}
+        label: {type: string}
+        metric: {type: string}
+        metric_label: {type: string}
+        context: {type: string}
+        context_label: {type: string}
+        before_x: {type: number, nullable: true}
+        after_x: {type: number, nullable: true}
+        delta_x: {type: number, nullable: true}
+        delta_x_pct: {type: number, nullable: true}
+        before_y: {type: number, nullable: true}
+        after_y: {type: number, nullable: true}
+        delta_y: {type: number, nullable: true}
+        delta_y_pct: {type: number, nullable: true}
+      additionalProperties: false
+    TdbbLargestIncrease:
+      type: object
+      required: [budget, label, axis, delta, delta_pct]
+      properties:
+        budget: {type: string}
+        label: {type: string}
+        axis: {type: string, enum: [X, Y]}
+        delta: {type: number}
+        delta_pct: {type: number}
       additionalProperties: false
     TdbbRunResult:
       type: object

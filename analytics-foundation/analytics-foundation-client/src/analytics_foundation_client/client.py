@@ -22,6 +22,8 @@ from .models import (
     RegistrationRequest,
     RegistrationStatus,
     TdbbRunData,
+    TdbbCompareRequest,
+    TdbbCompareResult,
     TdbbRunInfo,
     TdbbRunRequest,
     TdbbRunResult,
@@ -183,6 +185,14 @@ class AnalyticsFoundationClient:
             "POST",
             "/tdbb/runs",
             TdbbRunResult,
+            json_body=request.model_dump(mode="json"),
+        )
+
+    async def compare_tdbb_runs(self, request: TdbbCompareRequest) -> TdbbCompareResult:
+        return await self._request(
+            "POST",
+            "/tdbb/compare",
+            TdbbCompareResult,
             json_body=request.model_dump(mode="json"),
         )
 

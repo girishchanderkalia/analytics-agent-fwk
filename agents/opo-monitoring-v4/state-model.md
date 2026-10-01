@@ -59,6 +59,11 @@ fields:
     default: null
     description: TDBB run result with run IDs, budgets and wafer/field maps per period.
 
+  tdbb_model_analysis:
+    type: object
+    default: null
+    description: Model interpretation grounded in the Foundation TDBB compare response.
+
   tdbb_comparison:
     type: object
     default: null

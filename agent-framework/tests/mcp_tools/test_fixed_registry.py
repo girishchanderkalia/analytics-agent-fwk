@@ -50,6 +50,7 @@ def test_foundation_operations_are_all_exposed() -> None:
         "get_registration_status",
         "query_wafers",
         "run_tdbb",
+        "compare_tdbb_runs",
         "get_tdbb_run",
         "get_tdbb_data",
     }

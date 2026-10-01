@@ -121,6 +121,11 @@ class TdbbRunRequest(TrendQueryRequest):
     context_levels: list[Literal["AVG", "W2W"]] = Field(default_factory=lambda: ["AVG", "W2W"])
 
 
+class TdbbCompareRequest(StrictModel):
+    before_run_ids: list[str] = Field(default_factory=list)
+    after_run_ids: list[str] = Field(default_factory=list)
+
+
 class TdbbSettings(StrictModel):
     model_step: str
     context_levels: list[str]
@@ -136,6 +141,47 @@ class TdbbBudget(StrictModel):
     context_label: str
     x_m3s: float | None = None
     y_m3s: float | None = None
+
+
+class TdbbPeriodSummary(StrictModel):
+    period: Literal["before", "after"]
+    run_ids: list[str]
+    lot_count: int = Field(ge=0)
+    wafer_count: int = Field(ge=0)
+    budgets: list[TdbbBudget]
+
+
+class TdbbBudgetDelta(StrictModel):
+    budget: str
+    label: str
+    metric: str
+    metric_label: str
+    context: str
+    context_label: str
+    before_x: float | None = None
+    after_x: float | None = None
+    delta_x: float | None = None
+    delta_x_pct: float | None = None
+    before_y: float | None = None
+    after_y: float | None = None
+    delta_y: float | None = None
+    delta_y_pct: float | None = None
+
+
+class TdbbLargestIncrease(StrictModel):
+    budget: str
+    label: str
+    axis: Literal["X", "Y"]
+    delta: float
+    delta_pct: float
+
+
+class TdbbCompareResult(StrictModel):
+    before: TdbbPeriodSummary
+    after: TdbbPeriodSummary
+    budgets: list[TdbbBudgetDelta]
+    largest_increase: TdbbLargestIncrease | None = None
+    headline: str
 
 
 class TdbbPeriod(StrictModel):

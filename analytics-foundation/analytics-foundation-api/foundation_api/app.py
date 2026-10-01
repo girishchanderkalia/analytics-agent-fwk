@@ -50,6 +50,10 @@ def wafers(r:WaferQueryRequest,s=Depends(dep)):
 def run_tdbb(r:TdbbRunRequest,s=Depends(dep)):
  try:return s.run_tdbb(r)
  except ValueError as exc:raise HTTPException(422,str(exc)) from exc
+@app.post("/tdbb/compare",response_model=TdbbCompareResult)
+def compare_tdbb(r:TdbbCompareRequest,s=Depends(dep)):
+ try:return s.compare_tdbb_runs(r)
+ except TdbbRunNotFoundError as exc:raise HTTPException(404,str(exc)) from exc
 @app.get("/tdbb/runs/{run_id}",response_model=TdbbRunInfo)
 def tdbb_run(run_id:str,s=Depends(dep)):
  try:return s.tdbb_run(run_id)

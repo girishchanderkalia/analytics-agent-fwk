@@ -20,6 +20,8 @@ from analytics_foundation_client import (
     WorkspaceConnectionInfo,
     WorkspaceFiltersResponse,
     WorkspaceResponse,
+    TdbbCompareResult,
+    TdbbPeriodSummary,
 )
 from analytics_foundation_mcp import (
     AnalyticsFoundationMcpToolProvider,
@@ -65,6 +67,14 @@ class FakeFoundationClient:
     async def query_wafers(self, request):
         return WaferQueryResponse(workspace_id=request.workspace_id, table=request.table, rows=[], anomalous_wafers=[])
 
+    async def compare_tdbb_runs(self, request):
+        self.calls.append(("compare_tdbb_runs", request.model_dump()))
+        return TdbbCompareResult(
+            before=TdbbPeriodSummary(period="before", run_ids=request.before_run_ids, lot_count=0, wafer_count=0, budgets=[]),
+            after=TdbbPeriodSummary(period="after", run_ids=request.after_run_ids, lot_count=0, wafer_count=0, budgets=[]),
+            budgets=[], headline="No TDBB budget increased after the change date.",
+        )
+
 
 def run(awaitable):
     return asyncio.run(awaitable)
@@ -73,10 +83,10 @@ def run(awaitable):
 def test_discovery_registers_with_existing_registry() -> None:
     provider = AnalyticsFoundationMcpToolProvider(FakeFoundationClient())
     tools = run(provider.discover_tools())
-    assert len(tools) == 12
+    assert len(tools) == 13
     registry = McpToolRegistry()
     registry.register_many(to_registry_descriptors(tools))
-    assert len(registry.snapshot()) == 12
+    assert len(registry.snapshot()) == 13
     assert all(item.key.server == "analytics-foundation" for item in registry.snapshot())
 
 
@@ -107,6 +117,12 @@ def test_registration_and_wafer_tools_delegate() -> None:
     assert status.structured_content["registration_id"] == "r-1"
     wafers = run(provider.call_tool("query_wafers", {"workspace_id": "w-1", "table": "wafer", "filters": {}}))
     assert wafers.structured_content["rows"] == []
+
+def test_compare_tool_delegates_run_ids() -> None:
+    client = FakeFoundationClient()
+    result = run(AnalyticsFoundationMcpToolProvider(client).call_tool("compare_tdbb_runs", {"before_run_ids": ["b"], "after_run_ids": ["a"]}))
+    assert result.structured_content["before"]["run_ids"] == ["b"]
+    assert client.calls[-1] == ("compare_tdbb_runs", {"before_run_ids": ["b"], "after_run_ids": ["a"]})
 
 
 def test_unknown_tool_is_rejected() -> None:

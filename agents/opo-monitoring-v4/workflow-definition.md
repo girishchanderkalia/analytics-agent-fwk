@@ -74,6 +74,19 @@ nodes:
     capability: processing.run_tdbb
     activity: Running TDBB before and after the change
 
+  - id: analyze_tdbb_with_foundation
+    type: model
+    prompt: tdbb_model_analysis
+    output: TdbbModelAnalysis
+    output_to: tdbb_model_analysis
+    inputs:
+      - comparison_scope
+      - tdbb_run
+    tools:
+      - analysis.compare_tdbb_runs
+    max_tool_calls: 1
+    activity: Asking Foundation for the computed TDBB deltas
+
   - id: compare_tdbb
     type: operation
     operation: compare_tdbb_budgets
@@ -120,6 +133,8 @@ edges:
   - from: resolve_change
     to: run_tdbb
   - from: run_tdbb
+    to: analyze_tdbb_with_foundation
+  - from: analyze_tdbb_with_foundation
     to: compare_tdbb
   - from: compare_tdbb
     to: review_tdbb

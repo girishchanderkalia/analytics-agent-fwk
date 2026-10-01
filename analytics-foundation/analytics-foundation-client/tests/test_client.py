@@ -21,6 +21,7 @@ from analytics_foundation_client import (
     TrendQueryRequest,
     WaferQueryRequest,
     WorkspaceFiltersRequest,
+    TdbbCompareRequest,
 )
 
 
@@ -92,6 +93,24 @@ def test_tdbb_data_requests_one_run_and_table_subset() -> None:
         assert result.tables["nce_wafer"][0]["nce_wafer_x"] == 0.1
         assert captured["path"] == "/tdbb/runs/run%201/data"
         assert captured["query"] == "tables=nce_wafer"
+    finally:
+        run(http_client.aclose())
+
+def test_compare_tdbb_runs_posts_run_id_arrays_and_validates_response() -> None:
+    captured = {}
+    def handler(request):
+        captured["path"] = request.url.path
+        captured["body"] = json.loads(request.content)
+        return httpx.Response(200, json={
+            "before": {"period": "before", "run_ids": ["b"], "lot_count": 1, "wafer_count": 2, "budgets": []},
+            "after": {"period": "after", "run_ids": ["a"], "lot_count": 1, "wafer_count": 2, "budgets": []},
+            "budgets": [], "largest_increase": None, "headline": "No TDBB budget increased after the change date.",
+        })
+    value, http_client = client(handler)
+    try:
+        result = run(value.compare_tdbb_runs(TdbbCompareRequest(before_run_ids=["b"], after_run_ids=["a"])))
+        assert result.before.run_ids == ["b"]
+        assert captured == {"path": "/tdbb/compare", "body": {"before_run_ids": ["b"], "after_run_ids": ["a"]}}
     finally:
         run(http_client.aclose())
 

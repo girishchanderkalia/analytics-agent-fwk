@@ -107,6 +107,22 @@ capabilities:
       chuck_ids: ${state.trend_filters.chuck_ids}
     result:
       tdbb_run: ${result}
+
+  - id: analysis.compare_tdbb_runs
+    operation: compare_tdbb_runs
+    server: analytics-foundation
+    tool: compare_tdbb_runs
+    owner: Analytics Foundation
+    version: "1"
+    permissions:
+      - query:tdbb:read
+    side_effect: false
+    approval_required: false
+    request:
+      before_run_ids: ${state.tdbb_run.periods[0].run_ids}
+      after_run_ids: ${state.tdbb_run.periods[1].run_ids}
+    result:
+      tdbb_model_evidence: ${result}
 ---
 
 # V4 data boundaries
@@ -116,4 +132,19 @@ Foundation query. TDBB runs through Analytics Foundation with its default
 settings (10par, AVG and W2W); in the mock Foundation the request resolves to
 existing per-lot TDBB runs, whose rows are available through `get_tdbb_data`.
 The before/after budget comparison is application-owned logic in the OPO
-capability service.
+capability service. The v4 model analysis also receives a read-only Foundation
+comparison by the before and after run IDs returned by `run_tdbb`; Foundation
+computes the canonical summaries, X/Y deltas, percentages, largest increase
+and headline.
+
+Example request:
+
+```json
+{"before_run_ids":["run-LotOV1001"],"after_run_ids":["run-LotOV1003"]}
+```
+
+Example response shape:
+
+```json
+{"before":{"period":"before","run_ids":["run-LotOV1001"],"lot_count":1,"wafer_count":2,"budgets":[...]},"after":{"period":"after","run_ids":["run-LotOV1003"],"lot_count":1,"wafer_count":2,"budgets":[...]},"budgets":[{"budget":"nce_wafer.average","before_x":0.75,"after_x":1.52,"delta_x":0.77,"delta_x_pct":102.7,"before_y":0.62,"after_y":0.81,"delta_y":0.19,"delta_y_pct":30.6}],"largest_increase":{"budget":"nce_wafer.average","axis":"X","delta":0.77,"delta_pct":102.7},"headline":"Largest increase: NCE - Wafer · Average X +102.7%"}
+```

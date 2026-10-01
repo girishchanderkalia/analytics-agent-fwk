@@ -7,6 +7,7 @@ from typing import Any, Awaitable, Callable
 
 from analytics_foundation_client import (
     AnalyticsFoundationClient,
+    TdbbCompareRequest,
     RegistrationRequest,
     TdbbRunRequest,
     TrendQueryRequest,
@@ -38,6 +39,7 @@ class AnalyticsFoundationMcpToolProvider:
             "get_registration_status": self._get_registration_status,
             "query_wafers": self._query_wafers,
             "run_tdbb": self._run_tdbb,
+            "compare_tdbb_runs": self._compare_tdbb_runs,
             "get_tdbb_run": self._get_tdbb_run,
             "get_tdbb_data": self._get_tdbb_data,
         }
@@ -115,6 +117,11 @@ class AnalyticsFoundationMcpToolProvider:
         result = await self._client.run_tdbb(TdbbRunRequest.model_validate(values))
         return result.model_dump(mode="json")
 
+    async def _compare_tdbb_runs(self, values: Mapping[str, Any]) -> Mapping[str, Any]:
+        _reject_extra(values, {"before_run_ids", "after_run_ids"})
+        result = await self._client.compare_tdbb_runs(TdbbCompareRequest.model_validate(values))
+        return result.model_dump(mode="json")
+
     async def _get_tdbb_run(self, values: Mapping[str, Any]) -> Mapping[str, Any]:
         run_id = _required_text(values, "run_id")
         _reject_extra(values, {"run_id"})
@@ -184,6 +191,13 @@ def _tdbb_schema() -> dict[str, Any]:
     return _object_schema(properties, ["start_date", "end_date", "change_date"])
 
 
+def _tdbb_compare_schema() -> dict[str, Any]:
+    return _object_schema({
+        "before_run_ids": {"type": "array", "items": {"type": "string"}},
+        "after_run_ids": {"type": "array", "items": {"type": "string"}},
+    }, ["before_run_ids", "after_run_ids"])
+
+
 def _tool_catalog() -> tuple[FoundationMcpTool, ...]:
     any_object = {"type": "object", "additionalProperties": True}
     empty = _object_schema({})
@@ -198,6 +212,7 @@ def _tool_catalog() -> tuple[FoundationMcpTool, ...]:
         FoundationMcpTool("get_registration_status", "1", "Get dataset registration status.", _object_schema({"workspace_id": {"type": "string"}, "registration_id": {"type": "string"}}, ["workspace_id", "registration_id"]), any_object, {"readOnlyHint": True}),
         FoundationMcpTool("query_wafers", "1", "Query wafer rows.", _object_schema({"workspace_id": {"type": "string"}, "table": {"type": "string"}, "filters": any_object}, ["workspace_id", "table"]), any_object, {"readOnlyHint": True}),
         FoundationMcpTool("run_tdbb", "1", "Request TDBB processing before and after a change date; returns completed run IDs, budgets and maps.", _tdbb_schema(), any_object, {"destructiveHint": False}),
+        FoundationMcpTool("compare_tdbb_runs", "1", "Compare completed TDBB runs by ID and return Foundation-computed budget deltas.", _tdbb_compare_schema(), any_object, {"readOnlyHint": True}),
         FoundationMcpTool("get_tdbb_run", "1", "Get TDBB run metadata.", _object_schema({"run_id": {"type": "string"}}, ["run_id"]), any_object, {"readOnlyHint": True}),
         FoundationMcpTool("get_tdbb_data", "1", "Get TDBB output rows of one run.", _object_schema({"run_id": {"type": "string"}, "tables": {"type": "array", "items": {"type": "string", "enum": ["ce_wafer", "ce_field", "nce_wafer", "nce_field"]}}}, ["run_id"]), any_object, {"readOnlyHint": True}),
     )

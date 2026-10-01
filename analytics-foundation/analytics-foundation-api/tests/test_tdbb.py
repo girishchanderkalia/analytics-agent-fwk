@@ -1,7 +1,7 @@
 import json
 from fastapi.testclient import TestClient
 from foundation_api.app import app,dep
-from foundation_api.models import TdbbRunRequest,TrendQueryRequest
+from foundation_api.models import TdbbCompareRequest,TdbbRunRequest,TrendQueryRequest
 from foundation_api.repositories.json_repository import JsonFoundationRepository
 from foundation_api.service import FoundationService
 
@@ -48,6 +48,13 @@ def test_run_data_follows_real_tdbb_schema(tmp_path):
  w2w=[r["nce_wafer_x"] for r in nce if r["context_level"]=="W2W" and r["field_center_x"]==nce[0]["field_center_x"] and r["field_center_y"]==nce[0]["field_center_y"] and r["intrafield_position_x"]==nce[0]["intrafield_position_x"] and r["intrafield_position_y"]==nce[0]["intrafield_position_y"]]
  assert abs(sum(w2w))<1e-5
 
+def test_compare_runs_computes_foundation_owned_deltas(tmp_path):
+ result=_service(tmp_path).compare_tdbb_runs(TdbbCompareRequest(before_run_ids=["run-LotOV1001"],after_run_ids=["run-LotOV1003"]))
+ budget=next(item for item in result.budgets if item.budget=="nce_wafer.average")
+ assert result.before.run_ids==["run-LotOV1001"] and result.after.run_ids==["run-LotOV1003"]
+ assert budget.delta_x is not None and budget.delta_x_pct is not None
+ assert result.largest_increase is not None and result.headline.startswith("Largest increase:")
+
 def test_tdbb_routes(tmp_path):
  s=_service(tmp_path);app.dependency_overrides[dep]=lambda:s
  try:
@@ -60,4 +67,7 @@ def test_tdbb_routes(tmp_path):
   assert list(data["tables"])==["nce_wafer"]
   assert client.get(f"/tdbb/runs/{run_id}/data",params={"tables":["bogus"]}).status_code==422
   assert client.get("/tdbb/runs/missing/data").status_code==404
+  compared=client.post("/tdbb/compare",json={"before_run_ids":["run-LotOV1001"],"after_run_ids":["run-LotOV1003"]})
+  assert compared.status_code==200 and compared.json()["budgets"]
+  assert client.post("/tdbb/compare",json={"before_run_ids":["missing"],"after_run_ids":[]}).status_code==404
  finally:app.dependency_overrides.clear()

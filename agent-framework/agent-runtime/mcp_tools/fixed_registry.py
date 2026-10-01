@@ -31,6 +31,7 @@ FOUNDATION_TOOLS: tuple[tuple[str, str], ...] = (
     ("get_registration_status", "Read dataset registration status."),
     ("query_wafers", "Read wafer-level evidence."),
     ("run_tdbb", "Run TDBB processing before and after a change date."),
+    ("compare_tdbb_runs", "Compare completed TDBB runs by ID."),
     ("get_tdbb_run", "Read TDBB run metadata."),
     ("get_tdbb_data", "Read TDBB output rows of one run."),
 )

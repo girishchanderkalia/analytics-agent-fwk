@@ -123,6 +123,21 @@ models:
         default: []
         description: Limitations of the TDBB comparison.
 
+  TdbbModelAnalysis:
+    fields:
+      message:
+        type: string
+        default: ""
+        description: Evidence-based interpretation of the Foundation TDBB comparison.
+      largest_change:
+        type: string
+        default: ""
+        description: Largest Foundation-reported budget increase.
+      limitations:
+        type: string_list
+        default: []
+        description: Limitations supported by the returned TDBB evidence.
+
   DetectionScope:
     fields:
       mode:
@@ -273,6 +288,14 @@ prompts:
     A larger budget shows where the overlay change sits (e.g. non-correctable
     versus correctable, wafer-to-wafer, chuck-to-chuck or lot-to-lot); it does
     not establish the cause. Do not name root causes, tools or process steps.
+
+  tdbb_model_analysis: |
+    Analyze the Foundation-computed TDBB comparison returned by the
+    compare_tdbb_runs tool. Use only the returned before/after summaries,
+    budget deltas, percentages, largest_increase and headline. Explain where
+    the observed change is concentrated, without recalculating any values.
+    Do not name a root cause or claim that TDBB establishes causation. Return
+    a concise JSON object matching TdbbModelAnalysis.
 
   detection_scope: |
     Interpret the analyst's outlier request within the established trend filters.

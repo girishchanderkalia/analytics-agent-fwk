@@ -65,6 +65,27 @@ class FoundationService:
    periods.append(TdbbPeriod(period=name,start_date=bounds[name][0].isoformat(),end_date=bounds[name][1].isoformat(),run_ids=[run["run_id"] for run in runs],lot_count=processed["lot_count"],wafer_count=processed["wafer_count"],budgets=[TdbbBudget(**b) for b in processed["budgets"]]))
    maps.extend(TdbbMap(budget=budget,period=name,level=level,points=[TdbbMapPoint(**p) for p in points]) for budget,levels in processed["maps"].items() for level,points in levels.items())
   return TdbbRunResult(status="COMPLETED",change_date=q.change_date,settings=TdbbSettings(model_step=q.model_step,context_levels=list(q.context_levels),budgets=list(BUDGETS)),periods=periods,maps=maps)
+ def compare_tdbb_runs(self,q:TdbbCompareRequest)->TdbbCompareResult:
+  runs=self._tdbb_runs()
+  try:
+   before_runs=[runs[run_id] for run_id in q.before_run_ids];after_runs=[runs[run_id] for run_id in q.after_run_ids]
+  except KeyError as exc:raise TdbbRunNotFoundError(str(exc.args[0])) from exc
+  summaries=[]
+  for period,selected in (("before",before_runs),("after",after_runs)):
+   processed=process_period(selected)
+   summaries.append(TdbbPeriodSummary(period=period,run_ids=[run["run_id"] for run in selected],lot_count=processed["lot_count"],wafer_count=processed["wafer_count"],budgets=[TdbbBudget(**budget) for budget in processed["budgets"]]))
+  before,after=summaries;before_budgets={budget.budget:budget for budget in before.budgets};deltas=[];increases=[]
+  for budget in after.budgets:
+   previous=before_budgets.get(budget.budget);delta_values={}
+   for axis in ("x","y"):
+    old=getattr(previous,f"{axis}_m3s",None) if previous else None;new=getattr(budget,f"{axis}_m3s")
+    delta=None if old is None or new is None else round(new-old,3);percentage=None if old in (None,0) or new is None else round((new-old)/old*100,1)
+    delta_values.update({f"before_{axis}":old,f"after_{axis}":new,f"delta_{axis}":delta,f"delta_{axis}_pct":percentage})
+    if delta is not None and percentage is not None and delta>0:increases.append((percentage,TdbbLargestIncrease(budget=budget.budget,label=budget.label,axis=axis.upper(),delta=delta,delta_pct=percentage)))
+   deltas.append(TdbbBudgetDelta(budget=budget.budget,label=budget.label,metric=budget.metric,metric_label=budget.metric_label,context=budget.context,context_label=budget.context_label,**delta_values))
+  largest=max(increases,key=lambda item:item[0],default=(None,None))[1]
+  headline="No TDBB budget increased after the change date." if largest is None else f"Largest increase: {largest.label} {largest.axis} +{largest.delta_pct}% ({largest.delta} nm delta)"
+  return TdbbCompareResult(before=before,after=after,budgets=deltas,largest_increase=largest,headline=headline)
  def _tdbb_run(self,run_id):
   try:return self._tdbb_runs()[run_id]
   except KeyError as exc:raise TdbbRunNotFoundError(run_id) from exc
