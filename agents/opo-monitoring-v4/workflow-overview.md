@@ -4,8 +4,8 @@
 
 | Component | What it is | What it does | Never does |
 |---|---|---|---|
-| **Application scope** | OPO Monitoring browser UI, BFF, and application services | Accepts analyst input, applies workflow-facing rules, and renders charts, tables, and messages from workflow state | Call the model or MCP directly from the UI; own Foundation TDBB calculations |
-| **Agent Framework** | LangGraph runtime and governed MCP interface | Runs workflow steps, pauses for analyst decisions, persists state, and mediates model-to-MCP calls | Render UI or replace Foundation data ownership |
+| **Application** | OPO Monitoring browser UI + BFF | Transports chat requests, queries Foundation directly for deterministic chart data, and renders charts, tables, and messages | Call the model or MCP directly; execute agent workflows; own Foundation TDBB calculations |
+| **Agent Framework** | Domain-neutral LangGraph runtime, model gateway, and governed MCP interface | Executes generic agent-definition nodes, pauses for decisions, persists state, calls external models through the gateway, and mediates model-to-MCP calls | Contain OPO rules, application logic, or Foundation data semantics |
 | **Model** | Language model | Turns text and supplied Foundation evidence into **JSON** matching a fixed schema | Read data independently, calculate raw deltas, draw, decide |
 | **Analytics Foundation** | Data platform | Trend queries and TDBB processing | Interpret or summarize |
 
@@ -22,35 +22,42 @@
 ```mermaid
 sequenceDiagram
   actor Analyst
-  participant UI as Application UI
-  participant BFF as Application BFF
-  participant SVC as Application services
-  participant Runtime as Agent Framework runtime
+  participant App as Application UI + BFF
+  participant Runtime as Agent Framework
   participant Model as Model
+  participant Gateway as Model gateway
   participant MCP as Agent Framework MCP
   participant Foundation as Analytics Foundation
+  participant External as External model provider
 
-  Analyst->>UI: Enter OPO trend question
-  UI->>BFF: Send investigation request
-  BFF->>Runtime: Start conversation
+  Analyst->>App: Request deterministic chart data
+  App->>Foundation: Query Foundation REST API
+  Foundation-->>App: Return chart data
+  App-->>Analyst: Render deterministic chart
+
+  Analyst->>App: Enter OPO investigation question
+  App->>Runtime: Start conversation
   Runtime->>Model: Ask for TrendFilters JSON
+  Model->>Gateway: Invoke external model
+  Gateway->>External: Send model request
+  External-->>Gateway: Return structured response
+  Gateway-->>Model: Return structured response
   Model-->>Runtime: Return TrendFilters
-  Runtime->>SVC: Normalize and validate trend window
-  SVC-->>Runtime: Return normalized filters
   Runtime->>MCP: Query governed trend data
   MCP->>Foundation: Query trend data
   Foundation-->>MCP: Return trend series
   MCP-->>Runtime: Return trend evidence
-  Runtime-->>BFF: Return trend state and change suggestion
-  BFF-->>UI: Render trend chart and approval prompt
+  Runtime-->>App: Return conversation state and change suggestion
+  App-->>Analyst: Render response and approval prompt
 
-  Analyst->>UI: Confirm or edit the change question
-  UI->>BFF: Submit approval decision
-  BFF->>Runtime: Resume conversation
+  Analyst->>App: Confirm or edit the change question
+  App->>Runtime: Resume conversation
   Runtime->>Model: Ask for ComparisonScope JSON
+  Model->>Gateway: Invoke external model
+  Gateway->>External: Send model request
+  External-->>Gateway: Return structured response
+  Gateway-->>Model: Return structured response
   Model-->>Runtime: Return change date
-  Runtime->>SVC: Validate change date
-  SVC-->>Runtime: Return approved before/after periods
   Runtime->>Model: Request before TDBB run
   Model-->>Runtime: Request before period
   Runtime->>MCP: Call run_tdbb for before period
@@ -64,29 +71,38 @@ sequenceDiagram
   Foundation-->>MCP: Return after TDBB result
   MCP-->>Runtime: Return after TDBB result
   Runtime->>Model: Provide both TDBB results for analysis
+  Model->>Gateway: Invoke external model
+  Gateway->>External: Send TDBB evidence and prompt
+  External-->>Gateway: Return structured response
+  Gateway-->>Model: Return structured response
   Model-->>Runtime: Return TdbbModelAnalysis JSON
-  Runtime-->>BFF: Return TDBB state and model analysis
-  BFF-->>UI: Render TDBB overview, maps, and analysis
+  Runtime-->>App: Return TDBB state and model analysis
+  App-->>Analyst: Render TDBB overview, maps, and analysis
 ```
 
-The Application scope includes the browser UI, BFF, and application services.
-The Agent Framework includes the runtime and its governed MCP interface. The
-framework drives the workflow and mediates every model-to-MCP call; MCP is not
-a separate application data store. For TDBB, Analytics Foundation provides
-`run_tdbb` for one requested period at a time. The model requests the before
-and after runs through MCP and analyzes the two returned results. The UI
-renders the resulting workflow state and does not call the model, MCP, or
-Foundation directly.
+There are three deployable entities: the Application (browser UI and BFF), the
+domain-neutral Agent Framework (runtime, model gateway, and governed MCP), and
+Analytics Foundation. External model providers are called through the Agent
+Framework model gateway and are not part of the application deployment. The
+agent definition owns OPO-specific prompts, schemas, routing, approvals, and
+guardrails; the framework only executes those generic definition constructs.
+The BFF calls the Agent Framework chat interface and nothing in the Agent
+Framework calls back into the BFF. For deterministic chart rendering, the BFF
+calls the Analytics Foundation REST API directly. For agent workflows, the
+framework mediates model-to-MCP calls; MCP is not a separate application data
+store. For TDBB, Analytics Foundation provides `run_tdbb` for one requested
+period at a time. The model requests the before and after runs through MCP and
+analyzes the two returned results.
 
 ## 4. What is asked from the model and what it returns
 
-The Application scope supplies the analyst question and workflow context. The
-Agent Framework builds the model prompt, invokes the model, and mediates its
-read-only MCP calls. The model receives selected workflow state and governed
-Foundation evidence, then must reply with JSON matching a declared schema.
-Foundation owns TDBB processing and numeric comparison; the model interprets
-that evidence rather than calculating raw deltas. Example exchanges from the
-mock data run:
+The Application supplies the analyst question through the BFF. The Agent
+Framework executes the v4 agent definition, builds model prompts, invokes the
+model, and mediates its read-only MCP calls. The model receives selected
+workflow state and governed Foundation evidence, then must reply with JSON
+matching a declared schema. Foundation owns TDBB processing and returns the
+numeric results for each requested run; the model interprets the two results
+and analyzes their difference. Example exchanges from the mock data run:
 
 **Call 1: read filters** (prompt `trend_filters`, schema `TrendFilters`)
 Example payload sent to the model:
@@ -216,7 +232,7 @@ the Foundation comparison headline alongside the model's `largest_change`.
 ## 5. What the model does not do
 
 - No data access: all data comes from Analytics Foundation.
-- No calculations: windows and change-date validation are application code; Foundation computes the TDBB budget deltas.
+- No calculations: OPO window and change-date rules are declared by the agent definition and executed by generic framework constructs; the model analyzes the difference between the two Foundation TDBB results.
 - No rendering: every chart, table and message is drawn by the application UI.
 - No final decisions: the application checks every date, and the analyst approves before TDBB runs.
 - No root causes: the summary says where the change sits, not why.
