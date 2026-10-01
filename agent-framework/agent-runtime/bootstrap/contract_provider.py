@@ -266,6 +266,7 @@ def _field_annotation(
         "boolean": bool,
         "mapping": dict[str, Any],
         "any_list": list[Any],
+        "object_list": list[dict[str, Any]],
         "optional_float": float | None,
         "optional_int": int | None,
         "optional_string": str | None,

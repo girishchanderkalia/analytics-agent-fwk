@@ -9,26 +9,20 @@ nodes:
   - id: parse_trend_request
     type: model
     prompt: trend_filters
-    output: TrendEvidence
-    output_to: trend_evidence
+    output: TrendFilters
+    output_to: trend_filters
+    cacheable: true
     inputs:
       - question
       - conversation_context
     activity: Interpreting the requested OPO performance window
 
   - id: request_trend_evidence
-    type: model
-    prompt: trend_evidence
-    output: TrendFilters
-    output_to: trend_filters
+    type: capability
+    capability: data_query.read_trends
+    output_to: trend_series
     inputs:
-      - question
       - trend_filters
-    tools:
-      - data_query.read_trends
-    tool_results_to: trend_series
-    max_tool_calls: 1
-    require_tool_call: true
     activity: Applying the one-month OPO window
 
   - id: request_comparison
@@ -59,7 +53,6 @@ nodes:
     inputs:
       - comparison_request
       - trend_filters
-      - trend_series
     activity: Identifying the before and after periods
 
 edges:

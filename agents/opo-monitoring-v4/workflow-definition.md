@@ -11,56 +11,36 @@ nodes:
     prompt: trend_filters
     output: TrendFilters
     output_to: trend_filters
+    cacheable: true
     inputs:
       - question
       - conversation_context
     activity: Interpreting the requested OPO performance window
 
   - id: request_trend_evidence
-    type: model
-    prompt: trend_evidence
-    output: TrendFilters
-    output_to: trend_filters
+    type: capability
+    capability: data_query.read_trends
+    output_to: trend_series
     inputs:
-      - question
       - trend_filters
-    tools:
-      - data_query.read_trends
-    tool_results_to: trend_series
-    max_tool_calls: 1
     activity: Reading OPO performance trends
 
   - id: request_tdbb_before
-    type: model
-    prompt: tdbb_before_request
-    output: TdbbModelAnalysis
-    output_to: tdbb_before_analysis
+    type: capability
+    capability: processing.run_tdbb_before
+    output_to: tdbb_before_run
     inputs:
       - comparison_scope
       - trend_filters
-    tools:
-      - processing.run_tdbb_before
-    approval_state: comparison_requested
-    tool_results_to: tdbb_before_run
-    max_tool_calls: 1
-    require_tool_call: true
     activity: Asking Foundation for the before-period TDBB result
 
   - id: request_tdbb_after
-    type: model
-    prompt: tdbb_after_request
-    output: TdbbModelAnalysis
-    output_to: tdbb_after_analysis
+    type: capability
+    capability: processing.run_tdbb_after
+    output_to: tdbb_after_run
     inputs:
       - comparison_scope
       - trend_filters
-      - tdbb_before_run
-    tools:
-      - processing.run_tdbb_after
-    approval_state: comparison_requested
-    tool_results_to: tdbb_after_run
-    max_tool_calls: 1
-    require_tool_call: true
     activity: Asking Foundation for the after-period TDBB result
 
   - id: analyze_tdbb
@@ -68,10 +48,14 @@ nodes:
     prompt: tdbb_model_analysis
     output: TdbbModelAnalysis
     output_to: tdbb_model_analysis
-    inputs:
-      - comparison_scope
-      - tdbb_before_run
-      - tdbb_after_run
+    input_projection:
+      comparison_scope: $.comparison_scope
+      before:
+        change_date: $.tdbb_before_run.change_date
+        periods: $.tdbb_before_run.periods
+      after:
+        change_date: $.tdbb_after_run.change_date
+        periods: $.tdbb_after_run.periods
     activity: Analyzing the two Foundation TDBB results
   - id: suggest_change
     type: model
@@ -114,6 +98,7 @@ nodes:
     inputs:
       - comparison_request
       - trend_filters
+      - change_suggestion
     activity: Identifying the before and after periods
 
   # Returns the TDBB overview to the analyst before the model summary runs.

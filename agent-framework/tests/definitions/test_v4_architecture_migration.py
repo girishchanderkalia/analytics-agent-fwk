@@ -58,7 +58,7 @@ def test_all_opo_packages_register_as_distinct_versions():
     assert len(catalog.list_for_application("opo-monitoring")) == 4
 
 
-def test_v4_uses_model_mediated_foundation_tools_only():
+def test_v4_uses_governed_foundation_tools_only():
     definition = translate_markdown_agent(V4)
     nodes = {node.node_id: node for node in definition.graph.nodes}
 
@@ -66,13 +66,22 @@ def test_v4_uses_model_mediated_foundation_tools_only():
     assert {tool.name for tool in definition.tools} == {"query_trends", "run_tdbb"}
     assert "read_trends" not in nodes
     assert "compare_tdbb" not in nodes
-    assert nodes["request_trend_evidence"].config["tool_results_to"] == "trend_series"
-    assert nodes["request_tdbb_before"].config["tool_results_to"] == "tdbb_before_run"
-    assert nodes["request_tdbb_before"].config["require_tool_call"] is True
-    assert nodes["request_tdbb_after"].config["tool_results_to"] == "tdbb_after_run"
-    assert nodes["request_tdbb_after"].config["require_tool_call"] is True
-    assert nodes["request_tdbb_before"].config["approval_state"] == "comparison_requested"
-    assert nodes["request_tdbb_after"].config["approval_state"] == "comparison_requested"
+    assert nodes["request_trend_evidence"].kind == "tool"
+    assert nodes["request_trend_evidence"].config["tool"] == "query_trends"
+    assert nodes["request_trend_evidence__map"].config["assignments"] == {
+        "trend_series": "$.request_trend_evidence__result.series",
+        "request_trend_evidence__result": None,
+    }
+    assert nodes["request_tdbb_before"].kind == "tool"
+    assert nodes["request_tdbb_after"].kind == "tool"
+    assert nodes["request_tdbb_before__map"].config["assignments"] == {
+        "tdbb_before_run": "$.request_tdbb_before__result",
+        "request_tdbb_before__result": None,
+    }
+    assert nodes["request_tdbb_after__map"].config["assignments"] == {
+        "tdbb_after_run": "$.request_tdbb_after__result",
+        "request_tdbb_after__result": None,
+    }
 
 
 def test_default_startup_has_three_deployables_and_v4_only():

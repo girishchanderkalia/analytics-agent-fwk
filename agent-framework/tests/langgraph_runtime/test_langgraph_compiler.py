@@ -183,12 +183,17 @@ def test_conditional_edges_require_one_default() -> None:
         )
 
 
-def test_multiple_fixed_edges_are_rejected() -> None:
-    with pytest.raises(GraphCompilerError, match="exactly one"):
-        compiler().compile(
-            definition([
-                NormalizedEdge("first", "second"),
-                NormalizedEdge("first", "END"),
-                NormalizedEdge("second", "END"),
-            ])
-        )
+def test_multiple_fixed_edges_create_a_fan_out() -> None:
+    result = compiler().compile(
+        definition([
+            NormalizedEdge("first", "second"),
+            NormalizedEdge("first", "END"),
+            NormalizedEdge("second", "END"),
+        ])
+    )
+
+    assert result.edges == [
+        ("first", "second"),
+        ("first", "__END__"),
+        ("second", "__END__"),
+    ]

@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import inspect
 import json
+import logging
 import re
+from time import perf_counter
 from collections.abc import Callable, Mapping
 from copy import deepcopy
 from typing import Any
@@ -22,6 +24,7 @@ from .node_errors import (
 
 
 NodeCallable = Callable[[dict[str, Any]], Any]
+logger = logging.getLogger(__name__)
 
 
 class StandardNodeLibrary:
@@ -70,6 +73,7 @@ class StandardNodeLibrary:
         prompt_provider = self.dependencies.require("prompt_provider")
         contract_provider = self.dependencies.require("contract_provider")
         model_provider = self.dependencies.require("model_provider")
+        model_cache: dict[str, tuple[float, Any]] = {}
         configured_tools = definition.config.get("tools", [])
         tools = []
         if configured_tools:
@@ -82,6 +86,8 @@ class StandardNodeLibrary:
                 tools.append((descriptor, tool["arguments"]))
 
         async def model_node(state: dict[str, Any]) -> dict[str, Any]:
+            started = perf_counter()
+            conversation_id = state.get("conversation_id", "unknown")
             try:
                 prompt = await _maybe_await(
                     prompt_provider.render(prompt_id, state)
@@ -94,6 +100,29 @@ class StandardNodeLibrary:
                     "input_text": _model_input(definition.config, state),
                     "output_contract": contract,
                 }
+                cache_key = None
+                if definition.config.get("cacheable") and not tools:
+                    cache_key = json.dumps(
+                        [
+                            request["system_prompt"],
+                            request["input_text"],
+                            output_contract,
+                        ],
+                        sort_keys=True,
+                        default=str,
+                    )
+                    cached = model_cache.get(cache_key)
+                    if cached is not None:
+                        cached_at, cached_result = cached
+                        ttl = definition.config["cache_ttl_seconds"]
+                        if perf_counter() - cached_at <= ttl:
+                            logger.info(
+                                "chat_model_cache_hit conversation_id=%s node_id=%s",
+                                conversation_id,
+                                definition.node_id,
+                            )
+                            return {result_key: deepcopy(cached_result)}
+                        model_cache.pop(cache_key, None)
                 if tools:
                     call_count = 0
                     model_tools = []
@@ -105,6 +134,7 @@ class StandardNodeLibrary:
                             _descriptor=descriptor, _expected=expected, **kwargs: Any
                         ) -> Any:
                             nonlocal call_count
+                            tool_started = perf_counter()
                             call_count += 1
                             if call_count > definition.config["max_tool_calls"]:
                                 return {"error": "Model tool call limit exceeded"}
@@ -118,8 +148,22 @@ class StandardNodeLibrary:
                                     descriptor=_descriptor, arguments=_expected
                                 ))
                                 tool_evidence.append(evidence)
+                                logger.warning(
+                                    "chat_tool_complete conversation_id=%s node_id=%s tool=%s elapsed_ms=%d",
+                                    conversation_id,
+                                    definition.node_id,
+                                    _descriptor.key.name,
+                                    (perf_counter() - tool_started) * 1000,
+                                )
                                 return evidence
                             except Exception:
+                                logger.exception(
+                                    "chat_tool_failed conversation_id=%s node_id=%s tool=%s elapsed_ms=%d",
+                                    conversation_id,
+                                    definition.node_id,
+                                    _descriptor.key.name,
+                                    (perf_counter() - tool_started) * 1000,
+                                )
                                 return {"error": "Model tool unavailable"}
 
                         model_tools.append({
@@ -129,13 +173,33 @@ class StandardNodeLibrary:
                             "function": call_tool,
                         })
                     request["tools"] = model_tools
+                model_started = perf_counter()
                 result = await _maybe_await(model_provider.invoke_structured(**request))
+                logger.warning(
+                    "chat_model_provider_complete conversation_id=%s node_id=%s elapsed_ms=%d",
+                    conversation_id,
+                    definition.node_id,
+                    (perf_counter() - model_started) * 1000,
+                )
+                logger.info(
+                    "chat_model_complete conversation_id=%s node_id=%s elapsed_ms=%d",
+                    conversation_id,
+                    definition.node_id,
+                    (perf_counter() - started) * 1000,
+                )
                 if tools and definition.config.get("require_tool_call") and not tool_evidence:
                     raise NodeExecutionError(
                         f"Model node {definition.node_id!r} returned without calling its required tool"
                     )
                 if hasattr(result, "model_dump"):
                     result = result.model_dump(mode="python")
+                if cache_key is not None:
+                    model_cache[cache_key] = (perf_counter(), deepcopy(result))
+                    logger.warning(
+                        "chat_model_cache_store conversation_id=%s node_id=%s",
+                        conversation_id,
+                        definition.node_id,
+                    )
                 for field, sources in definition.config.get("grounded_outputs", {}).items():
                     value = result.get(field)
                     if value is not None and not any(
@@ -148,6 +212,12 @@ class StandardNodeLibrary:
                             f"Model output {field!r} is not grounded in tool evidence"
                         )
             except Exception as exc:
+                logger.exception(
+                    "chat_model_failed conversation_id=%s node_id=%s elapsed_ms=%d",
+                    conversation_id,
+                    definition.node_id,
+                    (perf_counter() - started) * 1000,
+                )
                 raise NodeExecutionError(
                     f"Model node {definition.node_id!r} failed"
                 ) from exc
@@ -272,9 +342,12 @@ class StandardNodeLibrary:
                         )
                         value = next(
                             (
-                                item for item in candidates
+                                item for index, item in enumerate(candidates)
                                 if isinstance(item, Mapping)
-                                and item.get("id") == value
+                                and (
+                                    item.get("id") == value
+                                    or str(index) == value
+                                )
                             ),
                             None,
                         )
@@ -324,6 +397,9 @@ async def _apply_guardrails(
 def _model_input(config: Mapping[str, Any], state: Mapping[str, Any]) -> str:
     # A node may declare the state it needs: evidence collections can be far
     # larger than a model context window.
+    projection = config.get("input_projection")
+    if isinstance(projection, Mapping) and projection:
+        return str(_resolve_input_projection(projection, state))
     fields = config.get("inputs")
     if isinstance(fields, list) and fields:
         return str(
@@ -338,6 +414,46 @@ def _model_input(config: Mapping[str, Any], state: Mapping[str, Any]) -> str:
         return str(state.get("messages", state))
     value = _resolve_value(input_path, state)
     return value if isinstance(value, str) else str(value)
+
+
+def _resolve_input_projection(
+    projection: Mapping[str, Any],
+    state: Mapping[str, Any],
+) -> dict[str, Any]:
+    result: dict[str, Any] = {}
+    for key, value in projection.items():
+        if isinstance(value, Mapping) and "compact_list" in value:
+            source = _resolve_value(value["compact_list"], state)
+            if not isinstance(source, list):
+                result[key] = []
+                continue
+            fields = value.get("fields", [])
+            point_fields = value.get("point_fields", [])
+            point_format = value.get("point_format", "object")
+            result[key] = [
+                {
+                    field: (
+                        [
+                            [point.get(point_field) for point_field in point_fields]
+                            if point_format == "list"
+                            else {
+                                point_field: point.get(point_field)
+                                for point_field in point_fields
+                            }
+                            for point in item.get(field, [])
+                            if isinstance(point, Mapping)
+                        ]
+                        if field == "points"
+                        else item.get(field)
+                    )
+                    for field in fields
+                    if isinstance(item, Mapping)
+                }
+                for item in source
+            ]
+            continue
+        result[key] = _resolve_value(value, state)
+    return result
 
 
 def _resolve_value(value: Any, state: Mapping[str, Any]) -> Any:

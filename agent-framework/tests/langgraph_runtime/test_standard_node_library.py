@@ -75,6 +75,123 @@ def test_model_node_uses_generic_providers() -> None:
     assert result["interpretation"]["system_prompt"] == "interpret-request:Explain"
 
 
+def test_cacheable_model_node_reuses_result_for_same_input() -> None:
+    class CountingModel:
+        def __init__(self):
+            self.calls = 0
+
+        def invoke_structured(self, **kwargs):
+            self.calls += 1
+            return {"call": self.calls, "input": kwargs["input_text"]}
+
+    model = CountingModel()
+    node = StandardNodeLibrary(dependencies(model_provider=model)).create(
+        NormalizedNode(
+            "interpret",
+            "model",
+            {
+                "prompt": "interpret-request",
+                "output_contract": "Interpretation",
+                "result_key": "interpretation",
+                "input": "$.question",
+                "cacheable": True,
+                "cache_ttl_seconds": 60,
+            },
+        )
+    )
+
+    first = run(node, {"question": "Explain", "conversation_id": "one"})
+    second = run(node, {"question": "Explain", "conversation_id": "two"})
+
+    assert model.calls == 1
+    assert first == second
+
+
+def test_model_input_projection_omits_large_evidence_fields() -> None:
+    class CapturingModel:
+        def invoke_structured(self, **kwargs):
+            return {"input": kwargs["input_text"]}
+
+    node = StandardNodeLibrary(
+        dependencies(model_provider=CapturingModel())
+    ).create(
+        NormalizedNode(
+            "analyze",
+            "model",
+            {
+                "prompt": "analysis",
+                "output_contract": "Analysis",
+                "result_key": "analysis",
+                "input_projection": {
+                    "before": {
+                        "period": "$.before.period",
+                        "budgets": "$.before.budgets",
+                    }
+                },
+            },
+        )
+    )
+
+    result = run(
+        node,
+        {
+            "question": "Explain",
+            "before": {
+                "period": "before",
+                "budgets": [{"name": "nce"}],
+                "wafer_map": [{"row": "large"}],
+            }
+        },
+    )
+
+    assert "wafer_map" not in result["analysis"]["input"]
+    assert "nce" in result["analysis"]["input"]
+
+
+def test_model_input_projection_compacts_nested_points() -> None:
+    class CapturingModel:
+        def invoke_structured(self, **kwargs):
+            return {"input": kwargs["input_text"]}
+
+    node = StandardNodeLibrary(
+        dependencies(model_provider=CapturingModel())
+    ).create(
+        NormalizedNode(
+            "analyze",
+            "model",
+            {
+                "prompt": "analysis",
+                "output_contract": "Analysis",
+                "result_key": "analysis",
+                "input_projection": {
+                    "series": {
+                        "compact_list": "$.series",
+                        "fields": ["machine", "points"],
+                        "point_fields": ["date", "kpi_value"],
+                        "point_format": "list",
+                    }
+                },
+            },
+        )
+    )
+
+    result = run(
+        node,
+        {
+            "question": "Explain",
+            "series": [{
+                "machine": "GW021",
+                "points": [{"date": "2026-01-01", "kpi_value": 1.2, "raw": "omit"}],
+                "maps": [{"large": "omit"}],
+            }],
+        },
+    )
+
+    assert "raw" not in result["analysis"]["input"]
+    assert "large" not in result["analysis"]["input"]
+    assert "2026-01-01" in result["analysis"]["input"]
+
+
 def test_model_tool_uses_established_filters_and_call_limit() -> None:
     deps = dependencies()
     deps.tool_registry.register_many([

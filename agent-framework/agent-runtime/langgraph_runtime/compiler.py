@@ -74,15 +74,11 @@ class LangGraphCompiler:
                 )
                 continue
 
-            if len(edges) != 1:
-                raise GraphCompilerError(
-                    f"Node {source!r} must have exactly one fixed edge"
+            for edge in edges:
+                builder.add_edge(
+                    source,
+                    end_marker if edge.target == "END" else edge.target,
                 )
-            target = edges[0].target
-            builder.add_edge(
-                source,
-                end_marker if target == "END" else target,
-            )
 
         compile_arguments = {}
         if checkpointer is not None:

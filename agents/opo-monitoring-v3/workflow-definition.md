@@ -11,24 +11,18 @@ nodes:
     prompt: trend_filters
     output: TrendFilters
     output_to: trend_filters
+    cacheable: true
     inputs:
       - question
       - conversation_context
     activity: Interpreting the requested OPO performance window
 
   - id: request_trend_evidence
-    type: model
-    prompt: trend_evidence
-    output: TrendFilters
-    output_to: trend_filters
+    type: capability
+    capability: data_query.read_trends
+    output_to: trend_series
     inputs:
-      - question
       - trend_filters
-    tools:
-      - data_query.read_trends
-    tool_results_to: trend_series
-    max_tool_calls: 1
-    require_tool_call: true
     activity: Reading OPO performance trends
 
   - id: suggest_change
@@ -82,6 +76,7 @@ nodes:
     inputs:
       - comparison_scope
       - trend_filters
+      - tdbb_before_run
     tools:
       - processing.run_tdbb_before
     approval_state: comparison_requested
@@ -98,7 +93,6 @@ nodes:
     inputs:
       - comparison_scope
       - trend_filters
-      - tdbb_before_run
     tools:
       - processing.run_tdbb_after
     approval_state: comparison_requested

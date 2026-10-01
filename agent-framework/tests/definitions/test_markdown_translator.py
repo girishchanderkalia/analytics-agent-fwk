@@ -43,7 +43,7 @@ def test_authored_node_types_map_to_framework_kinds(definition) -> None:
     kinds = {item.node_id: item.kind for item in definition.graph.nodes}
 
     assert kinds["parse_trend_request"] == "model"
-    assert kinds["request_trend_evidence"] == "model"
+    assert kinds["request_trend_evidence"] == "tool"
     assert kinds["analyse_trends"] == "model"
     assert kinds["approve_investigation"] == "interrupt"
 
@@ -57,21 +57,19 @@ def test_model_nodes_carry_prompt_contract_and_result(definition) -> None:
 
 
 def test_trend_model_binds_to_declared_foundation_tool(definition) -> None:
-    config = node(definition, "request_trend_evidence").config
+    config = node(definition, "request_trend_evidence__map").config
 
-    assert (config["tools"][0]["server"], config["tools"][0]["name"]) == (
-        "analytics-foundation",
-        "query_trends",
-    )
-    assert config["tool_results_to"] == "trend_series"
-    assert config["require_tool_call"] is True
+    assert config["assignments"] == {
+        "trend_series": "$.request_trend_evidence__result.series",
+        "request_trend_evidence__result": None,
+    }
 
 
 def test_downstream_edges_start_from_the_mapping_node(definition) -> None:
     targets = {
         edge.target
         for edge in definition.graph.edges
-        if edge.source == "request_trend_evidence"
+        if edge.source == "request_trend_evidence__map"
     }
 
     assert targets == {"review_trends", "interpret_detection_scope"}

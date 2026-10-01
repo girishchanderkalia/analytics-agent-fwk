@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import logging
+from time import perf_counter
 from collections.abc import Mapping
 from typing import Any, TypeVar
 from urllib.parse import quote
@@ -36,6 +38,9 @@ from .models import (
     WorkspaceFiltersResponse,
     WorkspaceResponse,
 )
+
+
+logger = logging.getLogger(__name__)
 from .settings import AnalyticsFoundationClientSettings
 
 ModelT = TypeVar("ModelT", bound=BaseModel)
@@ -224,6 +229,7 @@ class AnalyticsFoundationClient:
         params: list[tuple[str, str]] | None = None,
         json_body: Mapping[str, Any] | None = None,
     ) -> ModelT:
+        started = perf_counter()
         try:
             response = await self._client.request(
                 method,
@@ -232,6 +238,12 @@ class AnalyticsFoundationClient:
                 json=dict(json_body) if json_body is not None else None,
             )
         except httpx.RequestError as exc:
+            logger.exception(
+                "foundation_http_failed method=%s path=%s elapsed_ms=%d",
+                method,
+                path,
+                (perf_counter() - started) * 1000,
+            )
             raise FoundationConnectionError(
                 f"Could not reach Analytics Foundation for {method} {path}"
             ) from exc
@@ -243,6 +255,14 @@ class AnalyticsFoundationClient:
                 path=path,
                 response_body=_safe_response_body(response),
             )
+
+        logger.warning(
+            "foundation_http_complete method=%s path=%s status=%s elapsed_ms=%d",
+            method,
+            path,
+            response.status_code,
+            (perf_counter() - started) * 1000,
+        )
 
         try:
             return response_model.model_validate(response.json())

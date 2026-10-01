@@ -27,6 +27,48 @@ from runtime_service_langgraph import (
 WAITING = "waiting_for_approval"
 COMPLETED = "completed"
 
+_PUBLIC_RESULT_FIELDS = frozenset({
+    "question",
+    "trend_filters",
+    "trend_series",
+    "change_suggestion",
+    "comparison_requested",
+    "comparison_request",
+    "comparison_scope",
+    "tdbb_run",
+    "tdbb_runs",
+    "tdbb_model_analysis",
+    "tdbb_before_analysis",
+    "tdbb_after_analysis",
+    "tdbb_before_run",
+    "tdbb_after_run",
+    "tdbb_comparison",
+    "tdbb_explanation_requested",
+    "tdbb_summary",
+    "detection_scope",
+    "threshold_context",
+    "analysis",
+    "outliers",
+    "selected_outlier",
+    "pending_action",
+    "investigation_approved",
+    "workspace",
+    "applied_filters",
+    "registration",
+    "anomalous_wafers",
+    "wafer_rows",
+    "findings",
+    "selected_action",
+    "next_action_approved",
+    "artifacts",
+    "error",
+    "outlier_detection_requested",
+    "threshold_confirmed",
+    "confirmed_threshold",
+    "dataset_metadata",
+    "spatial_pattern",
+})
+
 
 class _GraphLoop:
     """One long-lived event loop shared by every request.
@@ -241,7 +283,11 @@ def _response(metadata: Any) -> RuntimeResponse:
         agent_version=metadata.agent_version,
         status=metadata.status,
         version=metadata.version,
-        result=dict(metadata.public_result),
+        result={
+            key: value
+            for key, value in metadata.public_result.items()
+            if key in _PUBLIC_RESULT_FIELDS
+        },
         approval_request=(
             dict(metadata.pending_approval)
             if metadata.pending_approval is not None

@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import inspect
+import logging
+from time import perf_counter
 from collections.abc import Mapping
 from copy import deepcopy
 from typing import Any
@@ -19,6 +21,9 @@ from .runtime_errors import (
     RegisteredAgentIdentityError,
     RegisteredAgentNotFoundError,
 )
+
+
+logger = logging.getLogger(__name__)
 from .runtime_models import (
     AgentRuntimeResult,
     AgentRuntimeResumeRequest,
@@ -146,6 +151,7 @@ class LangGraphAgentRuntime:
         *,
         operation: str,
     ) -> Mapping[str, Any]:
+        started = perf_counter()
         try:
             output = await _invoke(
                 graph,
@@ -153,6 +159,12 @@ class LangGraphAgentRuntime:
                 _thread_config(request.thread_id),
             )
         except Exception as exc:
+            logger.exception(
+                "chat_graph_failed conversation_id=%s operation=%s elapsed_ms=%d",
+                request.thread_id,
+                operation,
+                (perf_counter() - started) * 1000,
+            )
             if isinstance(exc, GraphInvocationError):
                 raise
             raise GraphInvocationError(
@@ -163,6 +175,12 @@ class LangGraphAgentRuntime:
             raise GraphInvocationError(
                 f"LangGraph {operation} must return a mapping"
             )
+        logger.warning(
+            "chat_graph_complete conversation_id=%s operation=%s elapsed_ms=%d",
+            request.thread_id,
+            operation,
+            (perf_counter() - started) * 1000,
+        )
         return output
 
     def _resolve_registration(self, application_id, agent_id, version):

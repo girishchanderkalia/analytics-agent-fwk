@@ -184,6 +184,14 @@ def _model_config(
             f"node {node_id} output_to",
         ),
     }
+    if node.get("cacheable", False):
+        config["cacheable"] = True
+        ttl = node.get("cache_ttl_seconds", 300)
+        if not isinstance(ttl, (int, float)) or isinstance(ttl, bool) or ttl <= 0:
+            raise DefinitionNormalizationError(
+                f"Node {node_id!r} cache_ttl_seconds must be positive"
+            )
+        config["cache_ttl_seconds"] = float(ttl)
     inputs = node.get("inputs")
     if inputs is not None:
         if not isinstance(inputs, list):
@@ -191,6 +199,13 @@ def _model_config(
                 f"Node {node_id!r} inputs must be a list"
             )
         config["inputs"] = [str(item) for item in inputs]
+    projection = node.get("input_projection")
+    if projection is not None:
+        if not isinstance(projection, Mapping) or not projection:
+            raise DefinitionNormalizationError(
+                f"Node {node_id!r} input_projection must be a non-empty mapping"
+            )
+        config["input_projection"] = dict(projection)
     tools = node.get("tools", [])
     if not isinstance(tools, list):
         raise DefinitionNormalizationError(f"Node {node_id!r} tools must be a list")
@@ -341,10 +356,15 @@ def _tool_nodes(
         },
     )
 
-    assignments = {
-        target: _reference(expression, f"{identifier} result", raw_key)
-        for target, expression in (binding.get("result") or {}).items()
-    }
+    output_target = node.get("output_to")
+    assignments = {}
+    for target, expression in (binding.get("result") or {}).items():
+        mapped_target = output_target if output_target and expression == "${result}" else target
+        assignments[mapped_target] = _reference(
+            expression,
+            f"{identifier} result",
+            raw_key,
+        )
     if not assignments:
         return tool_node, None
     # The raw result is only an input to this mapping; keeping it would duplicate it in every state snapshot.

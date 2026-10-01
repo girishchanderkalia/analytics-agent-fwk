@@ -268,6 +268,11 @@ prompts:
     before/after boundary, NOT 17 Sep. The later date describes the observed
     after period.
 
+    If the follow-up question contains no date but the supplied
+    change_suggestion has a change_date, use that suggested date as the
+    boundary. This is the analyst accepting the prefilled follow-up question;
+    do not return a null change_date in that case.
+
     If the analyst does not specify a year, take the current year: the year
     of trend_filters.start_date, or of trend_filters.end_date when the
     analysed month crosses a year boundary. Never leave change_date null only
@@ -311,13 +316,11 @@ prompts:
     not establish the cause. Do not name root causes, tools or process steps.
 
   tdbb_model_analysis: |
-    Analyze the Foundation TDBB results supplied in the workflow state. When
-    called for a run node, request only that node's period through its
-    run_tdbb tool. When called for final analysis, use only the returned before
-    and after results. Explain where the observed
-    change is concentrated, without inventing canonical budget deltas.
-    Do not name a root cause or claim that TDBB establishes causation. Return
-    a concise JSON object matching TdbbModelAnalysis.
+    Analyze the compact before and after TDBB budget evidence supplied in the
+    input. Explain where the observed change is concentrated using only the
+    supplied values. Do not recalculate or invent budget deltas, name a root
+    cause, or claim that TDBB establishes causation. Return only concise JSON
+    matching TdbbModelAnalysis.
 
   tdbb_before_request: |
     You must call the provided run_tdbb tool exactly once for the before period

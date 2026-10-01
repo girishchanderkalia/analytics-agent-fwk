@@ -163,6 +163,17 @@ def test_nested_models_are_typed() -> None:
         comparison(rows=[{"budget": "nce", "delta": "large"}])
 
 
+def test_object_lists_are_typed_as_json_objects() -> None:
+    provider = create_contract_provider(bundle(models={
+        "Evidence": {"fields": {
+            "rows": {"type": "object_list", "default": []},
+        }},
+    }))
+
+    evidence = provider.get_contract("Evidence")
+    assert evidence(rows=[{"id": "row-1"}]).rows == [{"id": "row-1"}]
+
+
 def test_undeclared_nested_model_is_rejected() -> None:
     with pytest.raises(InvalidContractDefinitionError, match="not declared"):
         create_contract_provider(bundle(models={

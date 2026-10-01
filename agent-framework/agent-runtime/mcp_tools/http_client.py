@@ -6,7 +6,9 @@ Only the framework talks to MCP servers; applications never do.
 from __future__ import annotations
 
 import json
+import logging
 from collections.abc import Mapping
+from time import perf_counter
 from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
@@ -14,6 +16,9 @@ from urllib.request import Request, urlopen
 from .client import MCPDiscoveredTool, MCPToolResult
 from .errors import MCPToolInvocationError
 from .models import MCPServerRegistration
+
+
+logger = logging.getLogger(__name__)
 
 
 class HttpMcpClient:
@@ -109,6 +114,7 @@ class HttpMcpClient:
             method="POST",
         )
 
+        started = perf_counter()
         try:
             with urlopen(request, timeout=timeout_seconds) as response:
                 body = json.loads(response.read().decode("utf-8"))
@@ -116,6 +122,13 @@ class HttpMcpClient:
             raise MCPToolInvocationError(
                 f"MCP call {method!r} to {server.server_id!r} failed: {exc}"
             ) from exc
+
+        logger.warning(
+            "mcp_http_complete server=%s method=%s elapsed_ms=%d",
+            server.server_id,
+            method,
+            (perf_counter() - started) * 1000,
+        )
 
         if not isinstance(body, Mapping):
             raise MCPToolInvocationError(

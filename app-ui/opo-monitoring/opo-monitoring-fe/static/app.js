@@ -105,7 +105,7 @@ function v3StarterPrompt() {
 function starterPrompt(agentId) {
   if (agentId === V2_AGENT) return v2StarterPrompt();
   if (agentId === V3_AGENT || agentId === V4_AGENT) return v3StarterPrompt();
-  return "Show me trends and outliers";
+  return "Show trends";
 }
 
 function drawPlot(scope, selectedMachine) {
@@ -529,12 +529,15 @@ function renderGate(request) {
 
   const selector = candidates.length
     ? `<select id="outlier-select" aria-label="Candidate outlier to investigate">${candidates
-        .map((candidate) => `<option value="${escapeHtml(candidate.id)}"${
-          selected && candidate.id === selected.id ? " selected" : ""
+        .map((candidate, index) => {
+          const candidateId = candidate.id ?? String(index);
+          return `<option value="${escapeHtml(candidateId)}"${
+          selected?.id && candidate.id === selected.id ? " selected" : ""
         }>
           ${escapeHtml(candidate.machine)} / ${escapeHtml(candidate.product)} —
           ${escapeHtml(candidate.extreme_kpi_value)} absolute OPO KPI
-        </option>`).join("")}</select>`
+        </option>`;
+        }).join("")}</select>`
     : "";
 
   const actionOptions = Array.isArray(payload.options) ? payload.options : null;
@@ -1211,7 +1214,9 @@ document.getElementById("reopen-btn").onclick = async () => {
 
 async function loadAgents() {
   try {
-    registeredAgents = await window.OpoBff.listAgents();
+    registeredAgents = (await window.OpoBff.listAgents()).filter(
+      (agent) => agent.agentId === "opo-monitoring-agent" || agent.agentId === V4_AGENT,
+    );
   } catch (err) {
     registeredAgents = [];
     agentSelect.title = `Could not load agents: ${err.message}`;

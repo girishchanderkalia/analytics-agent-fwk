@@ -11,21 +11,15 @@ nodes:
     prompt: trend_filters
     output: TrendFilters
     output_to: trend_filters
+    cacheable: true
     activity: Interpreting the investigation request
 
   - id: request_trend_evidence
-    type: model
-    prompt: trend_evidence
-    output: EvidenceResponse
-    output_to: trend_evidence
+    type: capability
+    capability: data_query.read_trends
+    output_to: trend_series
     inputs:
-      - question
       - trend_filters
-    tools:
-      - data_query.read_trends
-    tool_results_to: trend_series
-    max_tool_calls: 1
-    require_tool_call: true
     activity: Reading OPO KPI trends
 
   - id: review_trends
@@ -88,10 +82,14 @@ nodes:
     prompt: outlier_analysis
     output: OutlierAnalysis
     output_to: outlier_analysis
-    inputs:
-      - trend_series
-      - detection_scope
-      - confirmed_threshold
+    input_projection:
+      trend_series:
+        compact_list: $.trend_series
+        fields: [machine, product, layer_id, exposure_equipment_id, points]
+        point_fields: [date, kpi_value, kpi_value_y]
+        point_format: list
+      detection_scope: $.detection_scope
+      confirmed_threshold: $.confirmed_threshold
     activity: Identifying candidate outliers
 
   - id: analyse_trends
@@ -99,38 +97,30 @@ nodes:
     prompt: outlier_analysis
     output: OutlierAnalysis
     output_to: outlier_analysis
-    inputs:
-      - trend_series
-      - detection_scope
+    input_projection:
+      trend_series:
+        compact_list: $.trend_series
+        fields: [machine, product, layer_id, exposure_equipment_id, points]
+        point_fields: [date, kpi_value, kpi_value_y]
+        point_format: list
+      detection_scope: $.detection_scope
     activity: Identifying candidate outliers
 
   - id: read_metadata
-    type: model
-    prompt: foundation_metadata
-    output: EvidenceResponse
-    output_to: metadata_evidence
+    type: capability
+    capability: data_query.read_metadata
+    output_to: dataset_metadata
     inputs:
       - trend_filters
-    tools:
-      - data_query.read_metadata
-    tool_results_to: dataset_metadata
-    max_tool_calls: 1
-    require_tool_call: true
     activity: Resolving the wafer dataset
 
   - id: preview_wafers
-    type: model
-    prompt: wafer_evidence
-    output: EvidenceResponse
-    output_to: preview_evidence
+    type: capability
+    capability: data_query.preview_wafers
+    output_to: wafer_rows
     inputs:
       - dataset_metadata
       - outlier_analysis
-    tools:
-      - data_query.preview_wafers
-    tool_results_to: wafer_rows
-    max_tool_calls: 1
-    require_tool_call: true
     activity: Previewing wafer-level data
 
   - id: approve_investigation
@@ -197,18 +187,12 @@ nodes:
     activity: Registering wafer-level data
 
   - id: read_wafers
-    type: model
-    prompt: wafer_evidence
-    output: EvidenceResponse
-    output_to: wafer_evidence
+    type: capability
+    capability: data_query.read_wafers
+    output_to: wafer_rows
     inputs:
       - workspace
       - registration
-    tools:
-      - data_query.read_wafers
-    tool_results_to: wafer_rows
-    max_tool_calls: 1
-    require_tool_call: true
     activity: Reading wafer-level evidence
 
   - id: classify_spatial_pattern
@@ -216,9 +200,8 @@ nodes:
     prompt: spatial_pattern
     output: SpatialPattern
     output_to: spatial_pattern
-    inputs:
-      - wafer_rows
-      - anomalous_wafers
+    input_projection:
+      anomalous_wafers: $.anomalous_wafers
     activity: Classifying the anomalous wafer spatial pattern
 
   - id: summarize_findings

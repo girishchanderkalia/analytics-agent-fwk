@@ -10,7 +10,13 @@ const AGENT_ID = window.OPO_AGENT_ID || "opo-monitoring-agent";
 const APPLICATION_ID = window.OPO_APPLICATION_ID || "opo-monitoring";
 
 async function requestJson(path, options) {
+  const started = performance.now();
   const response = await fetch(path, options);
+  console.info("chat_http_complete", {
+    path,
+    status: response.status,
+    elapsed_ms: Math.round(performance.now() - started),
+  });
   if (!response.ok) {
     throw new Error(`${response.status} ${await response.text()}`);
   }
