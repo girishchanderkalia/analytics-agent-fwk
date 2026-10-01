@@ -108,6 +108,9 @@ class StandardNodeLibrary:
                             call_count += 1
                             if call_count > definition.config["max_tool_calls"]:
                                 return {"error": "Model tool call limit exceeded"}
+                            approval_state = definition.config.get("approval_state")
+                            if approval_state is not None and not state.get(approval_state):
+                                return {"error": "Approval required before this tool call"}
                             if any(key not in _expected or _expected[key] != value for key, value in kwargs.items()):
                                 return {"error": "Tool filters differ from established trend filters"}
                             try:
@@ -120,13 +123,17 @@ class StandardNodeLibrary:
                                 return {"error": "Model tool unavailable"}
 
                         model_tools.append({
-                            "name": descriptor.key.name,
+                            "name": tool.get("model_name", descriptor.key.name),
                             "description": descriptor.description,
                             "json_schema": descriptor.input_schema,
                             "function": call_tool,
                         })
                     request["tools"] = model_tools
                 result = await _maybe_await(model_provider.invoke_structured(**request))
+                if tools and definition.config.get("require_tool_call") and not tool_evidence:
+                    raise NodeExecutionError(
+                        f"Model node {definition.node_id!r} returned without calling its required tool"
+                    )
                 if hasattr(result, "model_dump"):
                     result = result.model_dump(mode="python")
                 for field, sources in definition.config.get("grounded_outputs", {}).items():
@@ -146,10 +153,20 @@ class StandardNodeLibrary:
                 ) from exc
             guardrails = definition.config.get("guardrails")
             if not guardrails:
-                return {result_key: result}
-            return await _apply_guardrails(
+                output = {result_key: result}
+                if tools and definition.config.get("tool_results_to"):
+                    output[definition.config["tool_results_to"]] = (
+                        tool_evidence[0] if len(tool_evidence) == 1 else tool_evidence
+                    )
+                return output
+            output = await _apply_guardrails(
                 definition.node_id, guardrails, result_key, result, request, state, model_provider
             )
+            if tools and definition.config.get("tool_results_to"):
+                output[definition.config["tool_results_to"]] = (
+                    tool_evidence[0] if len(tool_evidence) == 1 else tool_evidence
+                )
+            return output
 
         return model_node
 

@@ -36,18 +36,6 @@ FOUNDATION_TOOLS: tuple[tuple[str, str], ...] = (
     ("get_tdbb_data", "Read TDBB output rows of one run."),
 )
 
-# Application-owned deterministic calculations, reached over the same boundary.
-CAPABILITY_TOOLS: tuple[tuple[str, str], ...] = (
-    ("normalize_trend_window", "Apply a one-month OPO trend window."),
-    ("analyze_trends", "Apply threshold and outlier rules to trend series."),
-    ("normalize_wafer_evidence", "Normalize wafer rows and flag anomalies."),
-    ("classify_spatial_pattern", "Classify anomalous wafer points radially."),
-    ("compare_tdbb_budgets", "Compare TDBB budgets before and after a change."),
-    ("suggest_change_date", "Suggest the day the overlay KPIs stepped."),
-    ("resolve_change_date", "Resolve and validate the analyst's change date."),
-)
-
-
 def create_fixed_tool_registry() -> McpToolRegistry:
     """Return the registry every agent in this framework resolves against."""
 
@@ -58,10 +46,7 @@ def create_fixed_tool_registry() -> McpToolRegistry:
             description,
             OBJECT_SCHEMA,
         )
-        for server, tools in (
-            (FOUNDATION_SERVER, FOUNDATION_TOOLS),
-            (CAPABILITY_SERVER, CAPABILITY_TOOLS),
-        )
+        for server, tools in ((FOUNDATION_SERVER, FOUNDATION_TOOLS),)
         for name, description in tools
     )
     return registry
@@ -70,4 +55,4 @@ def create_fixed_tool_registry() -> McpToolRegistry:
 def fixed_server_ids() -> tuple[str, ...]:
     """Return the MCP servers this framework talks to."""
 
-    return (FOUNDATION_SERVER, CAPABILITY_SERVER)
+    return (FOUNDATION_SERVER,)

@@ -13,9 +13,9 @@
 
 | Step | Analyst types or clicks in the UI | UI renders (from workflow state) |
 |---|---|---|
-| 1 | "Show OPO performance of product AAA2, layer OV_NO_ID2 on scanner GW021 since 17 Aug" | X and Y trend chart (from Foundation data) and a question box prefilled with the suggested change date (from the application) |
-| 2 | Confirms or edits "I observe a jump from 1 Sep 2026 to 16 Sep 2026..." and clicks **Run TDBB** | TDBB overview grid, wafer/field maps and budget table (from Foundation and application data) |
-| 3 | Clicks **Explain changes** | The model's summary text, shown as a message next to the application-computed headline |
+| 1 | "Show OPO performance of product AAA2, layer OV_NO_ID2 on scanner GW021 since 17 Aug" | X and Y trend chart from Foundation data and a model-generated follow-up question when the evidence contains a clear step |
+| 2 | Confirms or edits "I observe a jump from 1 Sep 2026 to 16 Sep 2026..." and clicks **Run TDBB** | TDBB overview grid, wafer/field maps and budget data from the two Foundation runs |
+| 3 | Clicks **Explain changes** | The model's evidence-grounded summary of the two Foundation results |
 
 ## 3. Flow and separation
 
@@ -124,7 +124,7 @@ Expected model response:
 }
 ```
 
-**Call 2: read change date** (prompt `comparison_scope`, schema `ComparisonScope`)
+**Call 2: request trend evidence** (prompt `trend_evidence`, tool `query_trends`)
 Example payload sent to the model:
 
 ```json
@@ -149,8 +149,6 @@ Expected model response:
 }
 ```
 
-**Call 1b: request trend evidence** (tool `query_trends`)
-
 After receiving the parsed filters, the model requests trend evidence through
 MCP. The Agent Framework validates and mediates the request; it does not issue
 an unsolicited trend query.
@@ -166,9 +164,13 @@ an unsolicited trend query.
 ```
 
 Foundation returns the trend series requested by the model, and the model
-interprets those results before continuing the workflow.
+returns the extracted filters while the runtime stores the returned series in
+`trend_series`. A following model step suggests a change date from that
+evidence.
 
-**Call 3: create before/after TDBB runs for model analysis** (tool `run_tdbb`)
+**Call 3: read change date** (prompt `comparison_scope`, schema `ComparisonScope`)
+
+**Call 4: create before/after TDBB runs for model analysis** (tool `run_tdbb`)
 
 The Agent Framework mediates two model-to-MCP requests. The model asks MCP to
 create one run for the before period and one run for the after period. Each
@@ -204,7 +206,7 @@ After-period request:
 
 The model then returns `TdbbModelAnalysis` JSON in `tdbb_model_analysis`.
 
-**Call 4: write summary** (prompt `tdbb_summary`, schema `TdbbSummary`)
+**Call 5: write summary** (prompt `tdbb_summary`, schema `TdbbSummary`)
 Example payload sent to the model:
 
 ```json
@@ -212,16 +214,10 @@ Example payload sent to the model:
   "comparison_scope": {
     "change_date": "2026-09-01"
   },
-  "tdbb_comparison": {
-    "headline": "NCE - Wafer average X increased from 0.75 to 1.52 nm.",
-    "largest_increase": {
-      "budget": "nce_wafer.average",
-      "axis": "x",
-      "before": 0.75,
-      "after": 1.52,
-      "relative_change_pct": 103.0
-    }
-  }
+  "tdbb_runs": [
+    {"period": "before", "budgets": [{"budget": "nce_wafer.average", "x_m3s": 0.75}]},
+    {"period": "after", "budgets": [{"budget": "nce_wafer.average", "x_m3s": 1.52}]}
+  ]
 }
 ```
 
@@ -235,14 +231,14 @@ Expected model response:
 }
 ```
 
-The Application scope checks or completes each JSON before it is used: dates
-from calls 1 and 2 go through the year and window checks, and the UI renders
-the Foundation comparison headline alongside the model's `largest_change`.
+The agent definition supplies the date interpretation, approval, and evidence
+guardrails. The UI renders the Foundation run results and the model's
+interpretation; it does not calculate a canonical TDBB comparison.
 
 ## 5. What the model does not do
 
 - No data access outside governed MCP tools: all model evidence comes from Analytics Foundation.
-- No calculations: OPO window and change-date rules are declared by the agent definition and executed by generic framework constructs; the model analyzes the difference between the two Foundation TDBB results.
+- No independent data access or application-owned TDBB comparison: the model requests Foundation evidence through MCP and analyzes the two returned runs.
 - No rendering: every chart, table and message is drawn by the application UI.
 - No final decisions: the application checks every date, and the analyst approves before TDBB runs.
 - No root causes: the summary says where the change sits, not why.
@@ -250,8 +246,8 @@ the Foundation comparison headline alongside the model's `largest_change`.
 ## 6. Guardrails
 
 - Every model answer must be JSON that fits a fixed schema (filters, change date, summary).
-- A deterministic application step always follows a model step and corrects or rejects its dates.
-- Charts, tables and the "largest increase" headline come from data, not from model text.
+- Date interpretation, evidence references, and no-causality rules are authored in the v4 definition.
+- Charts and TDBB tables come from Foundation data; explanatory text is grounded in the two returned runs.
 - The UI shows TDBB results as soon as processing ends; the model summary is optional.
 
 ## 7. TDBB overview rendered by the application UI

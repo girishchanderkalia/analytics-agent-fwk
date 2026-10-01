@@ -348,6 +348,13 @@ public final class HttpAnalyticsFoundationClient
                         "exposure_equipment_ids",
                         "exposureEquipmentIds"));
 
+        target.put(
+                "chuck_ids",
+                stringList(
+                        source,
+                        "chuck_ids",
+                        "chuckIds"));
+
         return target;
     }
 

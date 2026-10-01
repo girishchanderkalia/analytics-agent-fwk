@@ -55,13 +55,12 @@ else
     -r "$ROOT_DIR/analytics-foundation/analytics-foundation-api/requirements.txt" \
     -e "$ROOT_DIR/analytics-foundation/analytics-foundation-client" \
     -e "$ROOT_DIR/analytics-foundation/analytics-foundation-mcp" \
-    -e "$ROOT_DIR/app-ui/opo-monitoring/opo-monitoring-service/opo-capability-service" \
-    -e "$ROOT_DIR/app-ui/opo-monitoring/opo-monitoring-service/opo-deterministic-logic"
+    -e "$ROOT_DIR/agent-framework/integration-tests"
   PYTHON_BIN="$venv_python"
 fi
 export PYTHON_BIN
 
-packages="$(cygpath -w "$ROOT_DIR/agents/opo-monitoring");$(cygpath -w "$ROOT_DIR/agents/opo-monitoring-v2");$(cygpath -w "$ROOT_DIR/agents/opo-monitoring-v3");$(cygpath -w "$ROOT_DIR/agents/opo-monitoring-v4")"
+packages="$(cygpath -w "$ROOT_DIR/agents/opo-monitoring-v4")"
 if [[ -n "$EXTRA_AGENTS" ]]; then
   IFS=';' read -r -a extra_dirs <<< "$EXTRA_AGENTS"
   for dir in "${extra_dirs[@]}"; do

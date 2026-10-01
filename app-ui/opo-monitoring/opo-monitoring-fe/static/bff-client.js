@@ -42,7 +42,7 @@ window.OpoBff = {
   async loadTrends() {
     // No lookback: a relative window silently hides everything older than it.
     const response = await postJson("/api/trends/query", { filters: {}, groupBy: [] });
-    return response.series || [];
+    return Array.isArray(response.series) ? response.series : response.series?.series || [];
   },
 
   async listAgents() {

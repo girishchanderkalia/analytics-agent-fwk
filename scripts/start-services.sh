@@ -56,13 +56,11 @@ fi
 
 FOUNDATION_PORT="${FOUNDATION_PORT:-8200}"
 FOUNDATION_MCP_PORT="${FOUNDATION_MCP_PORT:-8100}"
-OPO_CAPABILITY_PORT="${OPO_CAPABILITY_PORT:-8300}"
 RUNTIME_PORT="${RUNTIME_PORT:-8000}"
 BFF_PORT="${BFF_PORT:-8080}"
 
 FOUNDATION_START_CMD="${FOUNDATION_START_CMD:-\"$PYTHON_BIN\" -m uvicorn foundation_api.app:app --host 127.0.0.1 --port $FOUNDATION_PORT}"
 FOUNDATION_MCP_START_CMD="${FOUNDATION_MCP_START_CMD:-\"$PYTHON_BIN\" -m uvicorn analytics_foundation_mcp.app:app --host 127.0.0.1 --port $FOUNDATION_MCP_PORT}"
-OPO_CAPABILITY_START_CMD="${OPO_CAPABILITY_START_CMD:-\"$PYTHON_BIN\" -m uvicorn opo_capability_service.app:app --host 127.0.0.1 --port $OPO_CAPABILITY_PORT}"
 RUNTIME_START_CMD="${RUNTIME_START_CMD:-\"$PYTHON_BIN\" -m uvicorn runtime_api.langgraph_main:app --host 127.0.0.1 --port $RUNTIME_PORT}"
 if [[ -n "$MAVEN_SETTINGS" ]]; then
   BFF_START_CMD="${BFF_START_CMD:-\"$MAVEN_BIN\" -s \"$MAVEN_SETTINGS\" -DskipTests spring-boot:run}"
@@ -72,21 +70,20 @@ fi
 
 export ANALYTICS_FOUNDATION_BASE_URL="${ANALYTICS_FOUNDATION_BASE_URL:-http://127.0.0.1:$FOUNDATION_PORT}"
 export ANALYTICS_FOUNDATION_MCP_URL="${ANALYTICS_FOUNDATION_MCP_URL:-http://127.0.0.1:$FOUNDATION_MCP_PORT/mcp}"
-export OPO_CAPABILITY_MCP_URL="${OPO_CAPABILITY_MCP_URL:-http://127.0.0.1:$OPO_CAPABILITY_PORT/mcp}"
 export RUNTIME_SERVICE_BASE_URL="${RUNTIME_SERVICE_BASE_URL:-http://127.0.0.1:$RUNTIME_PORT}"
 export SERVER_PORT="$BFF_PORT"
 export AGENT_RUNTIME_REPOSITORY_ROOT="${AGENT_RUNTIME_REPOSITORY_ROOT:-$(cygpath -w "$ROOT_DIR")}"
 export AGENT_APPLICATION_ID="${AGENT_APPLICATION_ID:-opo-monitoring}"
-export AGENT_MARKDOWN_PACKAGES="${AGENT_MARKDOWN_PACKAGES:-$(cygpath -w "$ROOT_DIR/agents/opo-monitoring");$(cygpath -w "$ROOT_DIR/agents/opo-monitoring-v2");$(cygpath -w "$ROOT_DIR/agents/opo-monitoring-v3");$(cygpath -w "$ROOT_DIR/agents/opo-monitoring-v4")}" 
+export AGENT_MARKDOWN_PACKAGES="${AGENT_MARKDOWN_PACKAGES:-$(cygpath -w "$ROOT_DIR/agents/opo-monitoring-v4")}";
 
 # Windows Python uses semicolon-separated PYTHONPATH entries.
-export PYTHONPATH="$(cygpath -w "$ROOT_DIR");$(cygpath -w "$ROOT_DIR/analytics-foundation/analytics-foundation-api");$(cygpath -w "$ROOT_DIR/analytics-foundation/analytics-foundation-mcp/src");$(cygpath -w "$ROOT_DIR/app-ui/opo-monitoring/opo-monitoring-service/opo-capability-service/src");$(cygpath -w "$ROOT_DIR/app-ui/opo-monitoring/opo-monitoring-service/opo-deterministic-logic/src");$(cygpath -w "$ROOT_DIR/analytics-foundation/analytics-foundation-client/src");$(cygpath -w "$ROOT_DIR/agent-framework/agent-runtime")${PYTHONPATH:+;$PYTHONPATH}"
+export PYTHONPATH="$(cygpath -w "$ROOT_DIR");$(cygpath -w "$ROOT_DIR/analytics-foundation/analytics-foundation-api");$(cygpath -w "$ROOT_DIR/analytics-foundation/analytics-foundation-mcp/src");$(cygpath -w "$ROOT_DIR/analytics-foundation/analytics-foundation-client/src");$(cygpath -w "$ROOT_DIR/agent-framework/agent-runtime")${PYTHONPATH:+;$PYTHONPATH}"
 
 echo "Using Java:   $JAVA_EXE"
 echo "Using Python: $PYTHON_BIN"
 echo "Using Maven:  $MAVEN_BIN"
 
-required=(analytics-foundation/analytics-foundation-api analytics-foundation/analytics-foundation-mcp app-ui/opo-monitoring/opo-monitoring-service/opo-capability-service agent-framework/agent-runtime app-ui/opo-monitoring/opo-monitoring-service)
+required=(analytics-foundation/analytics-foundation-api analytics-foundation/analytics-foundation-mcp agent-framework/agent-runtime app-ui/opo-monitoring/opo-monitoring-service)
 for relative in "${required[@]}"; do
   if [[ ! -d "$ROOT_DIR/$relative" ]]; then
     echo "ERROR: Required directory not found: $ROOT_DIR/$relative" >&2
@@ -198,8 +195,6 @@ start_service "analytics-foundation" "$ROOT_DIR/analytics-foundation/analytics-f
 wait_for_get "Analytics Foundation API" "http://127.0.0.1:$FOUNDATION_PORT/health" "$LOG_DIR/analytics-foundation.log"
 start_service "analytics-foundation-mcp" "$ROOT_DIR/analytics-foundation/analytics-foundation-mcp" "$FOUNDATION_MCP_START_CMD"
 wait_for_mcp "Analytics Foundation MCP" "http://127.0.0.1:$FOUNDATION_MCP_PORT/mcp" "$LOG_DIR/analytics-foundation-mcp.log"
-start_service "opo-capability" "$ROOT_DIR/app-ui/opo-monitoring/opo-monitoring-service/opo-capability-service" "$OPO_CAPABILITY_START_CMD"
-wait_for_get "OPO capability service" "http://127.0.0.1:$OPO_CAPABILITY_PORT/ready" "$LOG_DIR/opo-capability.log"
 start_service "agent-runtime" "$ROOT_DIR/agent-framework/agent-runtime" "$RUNTIME_START_CMD"
 wait_for_get "Agent Runtime" "http://127.0.0.1:$RUNTIME_PORT/health" "$LOG_DIR/agent-runtime.log"
 start_service "opo-bff" "$ROOT_DIR/app-ui/opo-monitoring/opo-monitoring-service" "$BFF_START_CMD"

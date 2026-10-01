@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from pathlib import Path
+import re
 from typing import Any
 
 from mcp_tools import AgentToolReference
@@ -201,6 +202,12 @@ def _model_config(
                 f"Node {node_id!r} with tools requires a positive max_tool_calls"
             )
         config["max_tool_calls"] = limit
+        config["require_tool_call"] = bool(node.get("require_tool_call", False))
+        approval_state = node.get("approval_state")
+        if approval_state is not None:
+            config["approval_state"] = _text(
+                approval_state, f"node {node_id} approval_state"
+            )
         for identifier in tools:
             name = _text(identifier, f"node {node_id} tool")
             if name not in bindings:
@@ -208,16 +215,27 @@ def _model_config(
                     f"Node {node_id!r} references undeclared tool {name!r}"
                 )
             binding = bindings[name]
-            if binding.get("side_effect") is not False or binding.get("approval_required") is not False:
+            side_effect_allowed = (
+                binding.get("side_effect") is False
+                or binding.get("approval_required") is True
+                and approval_state is not None
+            )
+            if not side_effect_allowed:
                 raise DefinitionNormalizationError(
-                    f"Node {node_id!r} tool {name!r} must be read-only and not require approval"
+                    f"Node {node_id!r} tool {name!r} must be read-only or have an approval_state"
                 )
             config["tools"].append({
                 "name": _text(binding.get("tool"), f"{name} tool"),
+                "model_name": re.sub(r"[^A-Za-z0-9_-]", "_", name),
                 "version": str(binding.get("version", "1")),
                 "server": _text(binding.get("server"), f"{name} server"),
                 "arguments": _references(binding.get("request", {})),
             })
+        tool_results_to = node.get("tool_results_to")
+        if tool_results_to is not None:
+            config["tool_results_to"] = _text(
+                tool_results_to, f"node {node_id} tool_results_to"
+            )
     grounded = node.get("grounded_outputs")
     if grounded is not None:
         if not tools or not isinstance(grounded, Mapping):

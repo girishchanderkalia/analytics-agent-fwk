@@ -99,7 +99,7 @@ function v3StarterPrompt() {
   const first = new Date(`${observed.dates.sort()[0]}T00:00:00Z`);
   const since = new Date(Date.UTC(first.getUTCFullYear(), first.getUTCMonth(), 17))
     .toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" });
-  return `Show OPO performance of product ${observed.product}, layer ${observed.layer} on scanner ${observed.scanner} since ${since}`;
+  return `Show OPO performance of product ${observed.product}, layer ${observed.layer} on scanner ${observed.scanner} since ${since} ${first.getUTCFullYear()}`;
 }
 
 function starterPrompt(agentId) {
@@ -188,7 +188,8 @@ function drawPlot(scope, selectedMachine) {
 // v3 plots overlay X and Y of the scoped wafers in stacked panels so neither hides the other.
 function drawV3Trend(series, changeDate) {
   const plot = document.getElementById("trend-plot");
-  const points = (series || []).flatMap((item) => item.points || [])
+  const seriesList = Array.isArray(series) ? series : series?.series || [];
+  const points = seriesList.flatMap((item) => item.points || [])
     .sort((left, right) => String(left.date).localeCompare(String(right.date)));
   if (!points.length) {
     Plotly.purge(plot);
@@ -995,12 +996,36 @@ function handleResponse(runtime) {
   const agentId = runtime.agentId || selectedAgentId();
   const isV3 = agentId === V3_AGENT || agentId === V4_AGENT;
   const isV2 = isScopedAgent(agentId);
+  if (!evidence.tdbb_run) {
+    const runResults = Array.isArray(evidence.tdbb_runs) ? evidence.tdbb_runs : [];
+    const beforeRun = Array.isArray(evidence.tdbb_before_run)
+      ? evidence.tdbb_before_run[0]
+      : evidence.tdbb_before_run || runResults[0];
+    const afterRun = Array.isArray(evidence.tdbb_after_run)
+      ? evidence.tdbb_after_run[0]
+      : evidence.tdbb_after_run || runResults[1];
+    const beforePeriod = beforeRun?.periods?.find((period) => period.period === "before")
+      || beforeRun?.periods?.[0];
+    const afterPeriod = afterRun?.periods?.find((period) => period.period === "after")
+      || afterRun?.periods?.[0];
+    if (beforePeriod && afterPeriod) {
+      evidence.tdbb_run = {
+        settings: beforeRun.settings,
+        periods: [beforePeriod, afterPeriod],
+        maps: [...(beforeRun.maps || []), ...(afterRun.maps || [])],
+      };
+    }
+  }
   document.getElementById("trend-title").textContent = isV2 ? "OPO performance trend" : "Daily overlay trend";
   document.querySelector(".wafer-panel").hidden = isV2;
   tdbbPanel.hidden = !isV2 || !evidence.comparison_scope;
   document.getElementById("tdbb-views").hidden = !isV3;
   ncePanel.hidden = !isV3 || !evidence.tdbb_run;
-  if (evidence.trend_series) trendSeries = evidence.trend_series;
+  if (evidence.trend_series) {
+    trendSeries = Array.isArray(evidence.trend_series)
+      ? evidence.trend_series
+      : evidence.trend_series.series || [];
+  }
   else if (isV2) trendSeries = [];
   if (isV3) {
     const filters = evidence.trend_filters || {};
@@ -1197,6 +1222,9 @@ async function loadAgents() {
         .join("")
     : "<option>No agents registered</option>";
   agentSelect.disabled = busy || !registeredAgents.length;
+  if (availableTrendSeries && selectedAgentId()) {
+    messageInput.value = starterPrompt(selectedAgentId());
+  }
 }
 
 agentSelect.addEventListener("change", () => {

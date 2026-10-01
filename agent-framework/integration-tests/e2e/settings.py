@@ -8,7 +8,6 @@ from dataclasses import dataclass
 class Settings:
     foundation_url: str
     foundation_mcp_url: str
-    opo_capability_url: str
     runtime_url: str
     bff_url: str
     application_id: str
@@ -24,10 +23,6 @@ class Settings:
             foundation_mcp_url=_url(
                 "FOUNDATION_MCP_URL",
                 "http://localhost:8100",
-            ),
-            opo_capability_url=_url(
-                "OPO_CAPABILITY_URL",
-                "http://localhost:8300",
             ),
             runtime_url=_url("RUNTIME_URL", "http://localhost:8000"),
             bff_url=_url("BFF_URL", "http://localhost:8080"),

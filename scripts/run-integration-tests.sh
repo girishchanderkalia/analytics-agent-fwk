@@ -12,7 +12,7 @@ if compgen -G "$RUN_DIR/pids/*.pid" >/dev/null; then
   exit 1
 fi
 
-for port in "${FOUNDATION_PORT:-8200}" "${FOUNDATION_MCP_PORT:-8100}" "${OPO_CAPABILITY_PORT:-8300}" "${RUNTIME_PORT:-8000}" "${BFF_PORT:-8080}"; do
+for port in "${FOUNDATION_PORT:-8200}" "${FOUNDATION_MCP_PORT:-8100}" "${RUNTIME_PORT:-8000}" "${BFF_PORT:-8080}"; do
   if (echo > "/dev/tcp/127.0.0.1/$port") 2>/dev/null; then
     echo "ERROR: Port $port is already in use. Stop the existing service before running integration tests." >&2
     exit 1
@@ -73,8 +73,6 @@ manifests=(
   "$ROOT_DIR/analytics-foundation/analytics-foundation-api/requirements.txt"
   "$ROOT_DIR/analytics-foundation/analytics-foundation-client/pyproject.toml"
   "$ROOT_DIR/analytics-foundation/analytics-foundation-mcp/pyproject.toml"
-  "$ROOT_DIR/app-ui/opo-monitoring/opo-monitoring-service/opo-capability-service/pyproject.toml"
-  "$ROOT_DIR/app-ui/opo-monitoring/opo-monitoring-service/opo-deterministic-logic/pyproject.toml"
   "$ROOT_DIR/agent-framework/integration-tests/pyproject.toml"
 )
 dependency_hash="$(sha256sum "${manifests[@]}" | sha256sum | cut -d ' ' -f 1)"
@@ -85,8 +83,6 @@ if [[ ! -f "$stamp" || "$(<"$stamp")" != "$dependency_hash" ]] || ! "$PYTHON_BIN
     -r "${manifests[0]}" -r "${manifests[1]}" -r "${manifests[2]}" \
     -e "$ROOT_DIR/analytics-foundation/analytics-foundation-client" \
     -e "$ROOT_DIR/analytics-foundation/analytics-foundation-mcp" \
-    -e "$ROOT_DIR/app-ui/opo-monitoring/opo-monitoring-service/opo-capability-service" \
-    -e "$ROOT_DIR/app-ui/opo-monitoring/opo-monitoring-service/opo-deterministic-logic" \
     -e "$ROOT_DIR/agent-framework/integration-tests"
   "$PYTHON_BIN" -m playwright install chromium
   printf '%s\n' "$dependency_hash" > "$stamp"

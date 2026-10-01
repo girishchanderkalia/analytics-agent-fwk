@@ -59,10 +59,35 @@ fields:
     default: null
     description: TDBB run result with run IDs, budgets and wafer/field maps per period.
 
+  tdbb_runs:
+    type: object_list
+    default: []
+    description: Before and after TDBB results returned by Foundation MCP.
+
   tdbb_model_analysis:
     type: object
     default: null
     description: Model interpretation grounded in the Foundation TDBB compare response.
+
+  tdbb_before_analysis:
+    type: object
+    default: null
+    description: Intermediate model output from the before-period evidence request.
+
+  tdbb_after_analysis:
+    type: object
+    default: null
+    description: Intermediate model output from the after-period evidence request.
+
+  tdbb_before_run:
+    type: object
+    default: null
+    description: Foundation TDBB result for the before period.
+
+  tdbb_after_run:
+    type: object
+    default: null
+    description: Foundation TDBB result for the after period.
 
   tdbb_comparison:
     type: object

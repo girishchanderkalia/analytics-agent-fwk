@@ -138,6 +138,17 @@ models:
         default: []
         description: Limitations supported by the returned TDBB evidence.
 
+  ChangeSuggestion:
+    fields:
+      change_date:
+        type: optional_string
+        default: null
+        description: Date where the supplied trend evidence changes.
+      question:
+        type: string
+        default: ""
+        description: Prefilled analyst follow-up question.
+
   DetectionScope:
     fields:
       mode:
@@ -267,9 +278,19 @@ prompts:
     no date at all, and explain that in interpretation. Do not claim to know
     what caused the change.
 
+  trend_evidence: |
+    Keep the extracted trend filters unchanged and request matching trend
+    evidence through the query_trends tool. Use only those filters and return
+    the same TrendFilters JSON after the tool call.
+
+  change_suggestion: |
+    Inspect the supplied trend evidence and suggest a visible change date only
+    when a clear step is present. Do not invent a date or claim causality.
+    Return a short prefilled follow-up question when a date is suggested.
+
   tdbb_summary: |
-    Write a short message for the analyst about the TDBB comparison in
-    tdbb_comparison. TDBB was run with default settings (10par model, AVG and
+    Write a short message for the analyst about the two TDBB results in
+    tdbb_runs. TDBB was run with default settings (10par model, AVG and
     W2W context levels) on all lots before and after the change date within
     the analysed month. Each budget is one cell of the TDBB overview: a metric
     (NCE - Wafer, NCE - Field, CE - Wafer, CE - Field, CE - Translation) at a
@@ -290,12 +311,27 @@ prompts:
     not establish the cause. Do not name root causes, tools or process steps.
 
   tdbb_model_analysis: |
-    Analyze the Foundation-computed TDBB comparison returned by the
-    compare_tdbb_runs tool. Use only the returned before/after summaries,
-    budget deltas, percentages, largest_increase and headline. Explain where
-    the observed change is concentrated, without recalculating any values.
+    Analyze the Foundation TDBB results supplied in the workflow state. When
+    called for a run node, request only that node's period through its
+    run_tdbb tool. When called for final analysis, use only the returned before
+    and after results. Explain where the observed
+    change is concentrated, without inventing canonical budget deltas.
     Do not name a root cause or claim that TDBB establishes causation. Return
     a concise JSON object matching TdbbModelAnalysis.
+
+  tdbb_before_request: |
+    You must call the provided run_tdbb tool exactly once for the before period
+    before returning JSON. Use the established trend filters and change date;
+    request the period before the change. Do not answer from memory or invent
+    TDBB values. Return a concise placeholder TdbbModelAnalysis after the tool
+    call; the returned tool evidence is the source of truth.
+
+  tdbb_after_request: |
+    You must call the provided run_tdbb tool exactly once for the after period
+    before returning JSON. Use the established trend filters and change date;
+    request the period after the change. Do not answer from memory or invent
+    TDBB values. Return a concise placeholder TdbbModelAnalysis after the tool
+    call; the returned tool evidence is the source of truth.
 
   detection_scope: |
     Interpret the analyst's outlier request within the established trend filters.

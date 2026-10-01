@@ -95,16 +95,6 @@ run_python_suite() {
 }
 
 run_python_suite \
-  'OPO deterministic logic' \
-  'app-ui/opo-monitoring/opo-monitoring-service/opo-deterministic-logic' \
-  "$ROOT_DIR/app-ui/opo-monitoring/opo-monitoring-service/opo-deterministic-logic/src"
-
-run_python_suite \
-  'OPO capability service' \
-  'app-ui/opo-monitoring/opo-monitoring-service/opo-capability-service' \
-  "$ROOT_DIR/app-ui/opo-monitoring/opo-monitoring-service/opo-capability-service/src:$ROOT_DIR/app-ui/opo-monitoring/opo-monitoring-service/opo-deterministic-logic/src"
-
-run_python_suite \
   'Analytics Foundation client' \
   'analytics-foundation/analytics-foundation-client' \
   "$ROOT_DIR/analytics-foundation/analytics-foundation-client/src"

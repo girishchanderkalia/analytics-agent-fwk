@@ -16,19 +16,71 @@ nodes:
       - conversation_context
     activity: Interpreting the requested OPO performance window
 
-  - id: normalize_trend_window
-    type: operation
-    operation: normalize_trend_window
-    activity: Applying the one-month OPO window
-
-  - id: read_trends
-    type: capability
-    capability: data_query.read_trends
+  - id: request_trend_evidence
+    type: model
+    prompt: trend_evidence
+    output: TrendFilters
+    output_to: trend_filters
+    inputs:
+      - question
+      - trend_filters
+    tools:
+      - data_query.read_trends
+    tool_results_to: trend_series
+    max_tool_calls: 1
     activity: Reading OPO performance trends
 
+  - id: request_tdbb_before
+    type: model
+    prompt: tdbb_before_request
+    output: TdbbModelAnalysis
+    output_to: tdbb_before_analysis
+    inputs:
+      - comparison_scope
+      - trend_filters
+    tools:
+      - processing.run_tdbb_before
+    approval_state: comparison_requested
+    tool_results_to: tdbb_before_run
+    max_tool_calls: 1
+    require_tool_call: true
+    activity: Asking Foundation for the before-period TDBB result
+
+  - id: request_tdbb_after
+    type: model
+    prompt: tdbb_after_request
+    output: TdbbModelAnalysis
+    output_to: tdbb_after_analysis
+    inputs:
+      - comparison_scope
+      - trend_filters
+      - tdbb_before_run
+    tools:
+      - processing.run_tdbb_after
+    approval_state: comparison_requested
+    tool_results_to: tdbb_after_run
+    max_tool_calls: 1
+    require_tool_call: true
+    activity: Asking Foundation for the after-period TDBB result
+
+  - id: analyze_tdbb
+    type: model
+    prompt: tdbb_model_analysis
+    output: TdbbModelAnalysis
+    output_to: tdbb_model_analysis
+    inputs:
+      - comparison_scope
+      - tdbb_before_run
+      - tdbb_after_run
+    activity: Analyzing the two Foundation TDBB results
   - id: suggest_change
-    type: operation
-    operation: suggest_change_date
+    type: model
+    prompt: change_suggestion
+    output: ChangeSuggestion
+    output_to: change_suggestion
+    inputs:
+      - trend_filters
+      - trend_series
     activity: Suggesting when the OPO KPIs changed
 
   - id: request_comparison
@@ -64,34 +116,6 @@ nodes:
       - trend_filters
     activity: Identifying the before and after periods
 
-  - id: resolve_change
-    type: operation
-    operation: resolve_change_date
-    activity: Placing the change date in the analysed window
-
-  - id: run_tdbb
-    type: capability
-    capability: processing.run_tdbb
-    activity: Running TDBB before and after the change
-
-  - id: analyze_tdbb_with_foundation
-    type: model
-    prompt: tdbb_model_analysis
-    output: TdbbModelAnalysis
-    output_to: tdbb_model_analysis
-    inputs:
-      - comparison_scope
-      - tdbb_run
-    tools:
-      - analysis.compare_tdbb_runs
-    max_tool_calls: 1
-    activity: Asking Foundation for the computed TDBB deltas
-
-  - id: compare_tdbb
-    type: operation
-    operation: compare_tdbb_budgets
-    activity: Comparing TDBB budgets
-
   # Returns the TDBB overview to the analyst before the model summary runs.
   - id: review_tdbb
     type: approval
@@ -104,7 +128,7 @@ nodes:
       approve_label: Explain changes
       reject_label: Finish
       details:
-        Result: ${state.tdbb_comparison.headline}
+        Result: ${state.tdbb_model_analysis.message}
     activity: Waiting for the analyst to review the TDBB overview
 
   - id: summarize_tdbb
@@ -114,29 +138,27 @@ nodes:
     output_to: tdbb_summary
     inputs:
       - comparison_scope
-      - tdbb_comparison
+      - tdbb_before_run
+      - tdbb_after_run
+      - tdbb_model_analysis
     activity: Summarizing the TDBB comparison
 
 edges:
   - from: parse_trend_request
-    to: normalize_trend_window
-  - from: normalize_trend_window
-    to: read_trends
-  - from: read_trends
+    to: request_trend_evidence
+  - from: request_trend_evidence
     to: suggest_change
   - from: suggest_change
     to: request_comparison
   - from: request_comparison
     to: interpret_comparison
   - from: interpret_comparison
-    to: resolve_change
-  - from: resolve_change
-    to: run_tdbb
-  - from: run_tdbb
-    to: analyze_tdbb_with_foundation
-  - from: analyze_tdbb_with_foundation
-    to: compare_tdbb
-  - from: compare_tdbb
+    to: request_tdbb_before
+  - from: request_tdbb_before
+    to: request_tdbb_after
+  - from: request_tdbb_after
+    to: analyze_tdbb
+  - from: analyze_tdbb
     to: review_tdbb
   - from: review_tdbb
     to: summarize_tdbb
@@ -145,24 +167,20 @@ edges:
 
 routing:
   defaults:
-    read_trends: suggest_change
+    request_trend_evidence: suggest_change
     suggest_change: request_comparison
     request_comparison: interpret_comparison
-    interpret_comparison: resolve_change
-    resolve_change: run_tdbb
+    interpret_comparison: request_tdbb_before
     review_tdbb: summarize_tdbb
     summarize_tdbb: END
   conditions:
     - from: parse_trend_request
       when: "trend_filters.start_date == null"
       to: END
-    - from: normalize_trend_window
-      when: "trend_filters.start_date == null"
-      to: END
     - from: request_comparison
       when: "comparison_requested == false"
       to: END
-    - from: resolve_change
+    - from: interpret_comparison
       when: "comparison_scope.change_date == null"
       to: END
     - from: review_tdbb

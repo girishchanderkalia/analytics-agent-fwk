@@ -15,7 +15,6 @@ if str(AGENT_RUNTIME) not in sys.path:
 from definitions import translate_markdown_agent  # noqa: E402
 from mcp_tools import McpToolNotFoundError  # noqa: E402
 from mcp_tools.fixed_registry import (  # noqa: E402
-    CAPABILITY_SERVER,
     FOUNDATION_SERVER,
     create_fixed_tool_registry,
     fixed_server_ids,
@@ -56,26 +55,8 @@ def test_foundation_operations_are_all_exposed() -> None:
     }
 
 
-def test_application_calculations_are_exposed() -> None:
-    names = {
-        tool.key.name
-        for tool in create_fixed_tool_registry().snapshot()
-        if tool.key.server == CAPABILITY_SERVER
-    }
-
-    assert names == {
-        "normalize_trend_window",
-        "analyze_trends",
-        "normalize_wafer_evidence",
-        "classify_spatial_pattern",
-        "compare_tdbb_budgets",
-        "suggest_change_date",
-        "resolve_change_date",
-    }
-
-
 def test_servers_are_fixed() -> None:
-    assert fixed_server_ids() == (FOUNDATION_SERVER, CAPABILITY_SERVER)
+    assert fixed_server_ids() == (FOUNDATION_SERVER,)
 
 
 def test_a_tool_outside_the_surface_cannot_be_resolved() -> None:
@@ -89,7 +70,7 @@ def test_a_tool_outside_the_surface_cannot_be_resolved() -> None:
 
 def test_every_tool_the_agent_declares_is_in_the_fixed_surface() -> None:
     registry = create_fixed_tool_registry()
-    definition = translate_markdown_agent(AGENT)
+    definition = translate_markdown_agent(ROOT / "agents" / "opo-monitoring-v4")
 
     for tool in definition.tools:
         assert registry.resolve(tool).key.name == tool.name

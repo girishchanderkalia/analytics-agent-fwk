@@ -16,12 +16,6 @@ def test_analytics_foundation_ready(client, settings):
 
 
 @pytest.mark.smoke
-def test_opo_capability_ready(client, settings):
-    result = client.get_json(settings.opo_capability_url + "/ready")
-    assert result == {"status": "ready", "tools": 3}
-
-
-@pytest.mark.smoke
 def test_shared_runtime_health(client, settings):
     result = client.get_json(settings.runtime_url + "/health")
     assert result.get("status") in {"ok", "pass", "healthy"}
