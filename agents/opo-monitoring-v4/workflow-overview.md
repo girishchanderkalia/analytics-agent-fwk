@@ -4,10 +4,9 @@
 
 | Component | What it is | What it does | Never does |
 |---|---|---|---|
-| **Application UI** | OPO Monitoring browser app + BFF | Takes analyst input, renders all charts, tables and messages from workflow state | Call the model or compute budgets |
-| **Agent runtime** | LangGraph workflow engine | Runs the steps in order, pauses for analyst decisions, keeps state | Render anything |
+| **Application scope** | OPO Monitoring browser UI, BFF, and application services | Accepts analyst input, applies workflow-facing rules, and renders charts, tables, and messages from workflow state | Call the model or MCP directly from the UI; own Foundation TDBB calculations |
+| **Agent Framework** | LangGraph runtime and governed MCP interface | Runs workflow steps, pauses for analyst decisions, persists state, and mediates model-to-MCP calls | Render UI or replace Foundation data ownership |
 | **Model** | Language model | Turns text and supplied Foundation evidence into **JSON** matching a fixed schema | Read data independently, calculate raw deltas, draw, decide |
-| **Application services** | OPO capability service | Deterministic rules: window, change-date suggestion and check, budget comparison | Interpret free text |
 | **Analytics Foundation** | Data platform | Trend queries and TDBB processing | Interpret or summarize |
 
 ## 2. Analyst interaction (what the UI renders)
@@ -22,38 +21,55 @@
 
 ```mermaid
 flowchart LR
-    subgraph UI[Application UI]
+  subgraph APP[Application scope]
         U1[Analyst question]
         U2[Trend chart + prefilled question]
         U3[TDBB overview + maps]
         U4[Summary message]
+    BFF[Application BFF]
+    SVC[Application services]
     end
-    subgraph MODEL[Model - JSON only]
+  subgraph FRAMEWORK[Agent Framework]
+    R[Agent runtime]
+    MCP[Governed MCP tools]
+  end
+  subgraph MODEL[Model]
         M1[TrendFilters JSON]
         M2[ComparisonScope JSON]
         M3[TdbbModelAnalysis JSON]
     end
-    subgraph APP[Application services + Foundation]
-        A1[Year and one-month window]
-        F1[Read X/Y trend]
-        A2[Suggest change date]
-        A3[Check date in window]
-        F2[Run TDBB before / after]
-        F3[Foundation compare by run IDs]
-        A4[UI compatibility comparison]
+  subgraph FOUNDATION[Analytics Foundation]
+    F1[Read X/Y trend]
+    F2[Run TDBB before / after]
+    F3[Compare runs by IDs]
     end
-    U1 --> M1 --> A1 --> F1 --> A2 --> U2
-    U2 -- analyst confirms --> M2 --> A3 --> F2 --> F3 --> A4 --> U3
-    U3 -- Explain changes --> M3 --> U4
+  U1 --> BFF --> R
+  R --> M1 --> R
+  R --> SVC --> F1 --> R --> U2
+  U2 -- analyst confirms --> BFF --> R
+  R --> M2 --> R
+  R --> SVC --> F2 --> R
+  R --> MCP --> F3 --> R
+  R --> SVC --> U3
+  U3 -- Explain changes --> BFF --> R --> M3 --> R --> U4
 ```
 
-The agent runtime drives every arrow. The UI only renders what is in the
-workflow state; the model only returns JSON into that state.
+The Application scope includes the browser UI, BFF, and application services.
+The Agent Framework includes the runtime and its governed MCP interface. The
+framework drives the workflow and mediates model-to-MCP calls; MCP is not a
+separate application data store. The model only interprets supplied state and
+Foundation evidence as structured JSON. The UI renders the resulting workflow
+state and does not call the model, MCP, or Foundation directly.
 
 ## 4. What is asked from the model and what it returns
 
-The model gets a prompt and selected state as text, and must reply with JSON
-matching a declared schema. Example responses from the mock data run:
+The Application scope supplies the analyst question and workflow context. The
+Agent Framework builds the model prompt, invokes the model, and mediates its
+read-only MCP calls. The model receives selected workflow state and governed
+Foundation evidence, then must reply with JSON matching a declared schema.
+Foundation owns TDBB processing and numeric comparison; the model interprets
+that evidence rather than calculating raw deltas. Example exchanges from the
+mock data run:
 
 **Call 1: read filters** (prompt `trend_filters`, schema `TrendFilters`)
 Example payload sent to the model:
@@ -111,11 +127,11 @@ Expected model response:
 
 **Call 3: compare runs for model analysis** (tool `compare_tdbb_runs`)
 
-The model receives the run IDs returned by `run_tdbb`; it does not receive raw
-TDBB rows and does not calculate deltas. Foundation returns canonical
-before/after summaries plus each budget's X/Y delta and percentage, the
-largest increase and a headline. The model writes its structured analysis to
-`tdbb_model_analysis`.
+The Agent Framework asks MCP to provide the run IDs returned by `run_tdbb`.
+Foundation returns canonical before/after summaries plus each budget's X/Y
+delta and percentage, the largest increase, and a headline. The model does
+not receive raw TDBB rows or calculate deltas; it interprets the governed
+evidence and writes its structured analysis to `tdbb_model_analysis`.
 
 ```json
 {"before_run_ids":["run-LotOV1001","run-LotOV1002"],"after_run_ids":["run-LotOV1003","run-LotOV1004"]}
@@ -152,9 +168,9 @@ Expected model response:
 }
 ```
 
-The application checks or completes each JSON before it is used: dates from
-calls 1 and 2 go through the year and window checks, and the UI shows the
-Foundation comparison headline alongside the model's `largest_change`.
+The Application scope checks or completes each JSON before it is used: dates
+from calls 1 and 2 go through the year and window checks, and the UI renders
+the Foundation comparison headline alongside the model's `largest_change`.
 
 ## 5. What the model does not do
 
