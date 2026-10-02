@@ -19,7 +19,7 @@ from definitions.normalization_errors import (  # noqa: E402
     DefinitionNormalizationError,
 )
 
-AGENT = ROOT / "agents" / "opo-monitoring"
+AGENT = ROOT / "agents" / "monitoring-agent"
 
 
 @pytest.fixture(scope="module")
@@ -34,7 +34,7 @@ def node(definition, node_id):
 
 
 def test_identity_and_entry_come_from_the_package(definition) -> None:
-    assert definition.agent_id == "opo-monitoring-agent"
+    assert definition.agent_id == "monitoring-agent"
     assert definition.version == "1.0"
     assert definition.graph.entry_node == "parse_trend_request"
 
@@ -44,7 +44,7 @@ def test_authored_node_types_map_to_framework_kinds(definition) -> None:
 
     assert kinds["parse_trend_request"] == "model"
     assert kinds["request_trend_evidence"] == "tool"
-    assert kinds["analyse_trends"] == "model"
+    assert kinds["analyse_trends"] == "tool"
     assert kinds["approve_investigation"] == "interrupt"
 
 
@@ -72,7 +72,7 @@ def test_downstream_edges_start_from_the_mapping_node(definition) -> None:
         if edge.source == "request_trend_evidence__map"
     }
 
-    assert targets == {"review_trends", "interpret_detection_scope"}
+    assert targets == {"review_trends", "read_distribution_stats"}
 
 
 def test_approval_nodes_declare_their_payload(definition) -> None:
@@ -84,7 +84,7 @@ def test_approval_nodes_declare_their_payload(definition) -> None:
         "question": "Investigate the selected outlier?",
         "approve_label": "Investigate",
         "reject_label": "Reject",
-        "detected_outliers": "$.outlier_analysis.outliers",
+        "detected_outliers": "$.outliers",
         "selected_outlier": "$.selected_outlier",
     }
 
@@ -120,7 +120,7 @@ def test_routing_conditions_become_conditional_edges(definition) -> None:
         edge for edge in definition.graph.edges if edge.condition is not None
     ]
 
-    assert ("analyse_trends", "summarize_findings", "outlier_analysis.outliers == []") in {
+    assert ("analyse_trends__map", "summarize_findings", "outliers == []") in {
         (edge.source, edge.target, edge.condition) for edge in conditioned
     }
 
@@ -146,8 +146,8 @@ def test_state_model_becomes_a_json_schema(definition) -> None:
 def test_prompts_and_knowledge_are_carried_through(definition) -> None:
     assert {prompt.prompt_id for prompt in definition.prompts} == {
         "trend_filters", "trend_evidence", "detection_scope",
-        "outlier_analysis", "foundation_metadata", "wafer_evidence",
-        "workspace_request", "spatial_pattern", "findings_summary",
+        "foundation_metadata", "wafer_evidence",
+        "spatial_pattern", "findings_summary",
     }
     assert "Application-owned knowledge" in definition.knowledge[0]
 
@@ -164,7 +164,7 @@ def test_declared_tools_are_deduplicated(definition) -> None:
 
 def test_contracts_stay_available_for_the_contract_provider(definition) -> None:
     assert set(definition.metadata["models"]) == {
-        "EvidenceResponse", "OutlierAnalysis", "SpatialPattern",
+        "SpatialPattern",
         "TrendFilters", "DetectionScope", "FindingsSummary",
     }
 

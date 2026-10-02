@@ -68,7 +68,7 @@ def test_openapi_contract_has_required_operations():
     }
     assert operations == {
         "health", "ready", "getDatasetMetadata", "getDisplayTrends",
-        "queryTrends", "getTrendDistribution", "createWorkspace",
+        "queryTrends", "getTrendDistribution", "detectOutliers", "createWorkspace",
         "addWorkspaceFilters", "getWorkspaceConnectionInfo",
         "registerDataset", "getRegistrationStatus", "queryWafers",
         "runTdbb", "compareTdbbRuns", "getTdbbRun", "getTdbbData",

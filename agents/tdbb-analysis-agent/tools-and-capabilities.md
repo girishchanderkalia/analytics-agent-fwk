@@ -1,5 +1,5 @@
 ---
-id: opo-monitoring-capabilities-v4
+id: tdbb-analysis-agent-capabilities
 version: "4.0"
 kind: tools-and-capabilities
 

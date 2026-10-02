@@ -1,5 +1,5 @@
 ---
-id: opo-monitoring-workflow
+id: monitoring-agent-workflow
 version: "1.0"
 kind: workflow
 
@@ -37,21 +37,23 @@ nodes:
       trend_filters: ${state.trend_filters}
     activity: Waiting for the analyst to review the trend chart
 
+  - id: read_distribution_stats
+    type: capability
+    capability: data_query.read_distribution_stats
+    output_to: threshold_context
+    inputs:
+      - trend_filters
+    activity: Reading the empirical KPI distribution
+
   - id: interpret_detection_scope
     type: model
     prompt: detection_scope
     output: DetectionScope
     output_to: detection_scope
-    tools:
-      - data_query.read_distribution_stats
-    max_tool_calls: 1
-    grounded_outputs:
-      suggested_limit_value:
-        - p95
-        - p99
     inputs:
       - question
       - trend_filters
+      - threshold_context
     activity: Interpreting the outlier criteria
 
   - id: confirm_threshold
@@ -78,32 +80,21 @@ nodes:
     activity: Waiting for threshold confirmation
 
   - id: analyse_trends_with_confirmed_threshold
-    type: model
-    prompt: outlier_analysis
-    output: OutlierAnalysis
-    output_to: outlier_analysis
-    input_projection:
-      trend_series:
-        compact_list: $.trend_series
-        fields: [machine, product, layer_id, exposure_equipment_id, points]
-        point_fields: [date, kpi_value, kpi_value_y]
-        point_format: list
-      detection_scope: $.detection_scope
-      confirmed_threshold: $.confirmed_threshold
+    type: capability
+    capability: data_query.detect_outliers_with_confirmed_threshold
+    output_to: outliers
+    inputs:
+      - trend_filters
+      - confirmed_threshold
     activity: Identifying candidate outliers
 
   - id: analyse_trends
-    type: model
-    prompt: outlier_analysis
-    output: OutlierAnalysis
-    output_to: outlier_analysis
-    input_projection:
-      trend_series:
-        compact_list: $.trend_series
-        fields: [machine, product, layer_id, exposure_equipment_id, points]
-        point_fields: [date, kpi_value, kpi_value_y]
-        point_format: list
-      detection_scope: $.detection_scope
+    type: capability
+    capability: data_query.detect_outliers
+    output_to: outliers
+    inputs:
+      - trend_filters
+      - detection_scope
     activity: Identifying candidate outliers
 
   - id: read_metadata
@@ -120,7 +111,7 @@ nodes:
     output_to: wafer_rows
     inputs:
       - dataset_metadata
-      - outlier_analysis
+      - outliers
     activity: Previewing wafer-level data
 
   - id: approve_investigation
@@ -130,70 +121,23 @@ nodes:
     decision_fields:
       investigation_approved: approved
       selected_outlier: selected_outlier_id
-    selection_from: outlier_analysis.outliers
+    selection_from: outliers
     payload:
       question: Investigate the selected outlier?
       approve_label: Investigate
       reject_label: Reject
-      detected_outliers: ${state.outlier_analysis.outliers}
+      detected_outliers: ${state.outliers}
       selected_outlier: ${state.selected_outlier}
     activity: Waiting for investigation approval
 
-  - id: create_workspace
-    type: model
-    prompt: workspace_request
-    output: EvidenceResponse
-    output_to: workspace_request
-    inputs:
-      - selected_outlier
-    tools:
-      - workspace.create
-    approval_state: investigation_approved
-    tool_results_to: workspace
-    max_tool_calls: 1
-    require_tool_call: true
-    activity: Creating an investigation workspace
-
-  - id: apply_filters
-    type: model
-    prompt: workspace_request
-    output: EvidenceResponse
-    output_to: filter_request
-    inputs:
-      - workspace
-      - trend_filters
-    tools:
-      - workspace.add_filters
-    approval_state: investigation_approved
-    tool_results_to: applied_filters
-    max_tool_calls: 1
-    require_tool_call: true
-    activity: Applying investigation filters
-
-  - id: register_data
-    type: model
-    prompt: workspace_request
-    output: EvidenceResponse
-    output_to: registration_request
-    inputs:
-      - workspace
-      - applied_filters
-    tools:
-      - workspace.register_dataset
-    approval_state: investigation_approved
-    tool_results_to: registration
-    max_tool_calls: 1
-    require_tool_call: true
-    activity: Registering wafer-level data
-
-  - id: read_wafers
+  - id: investigate_selected_outlier
     type: capability
-    capability: data_query.read_wafers
+    capability: data_query.investigate_outlier
     output_to: wafer_rows
     inputs:
-      - workspace
-      - registration
-    activity: Reading wafer-level evidence
+      - dataset_metadata
+      - selected_outlier
+    activity: Reading wafer-level evidence for the selected outlier
 
   - id: classify_spatial_pattern
     type: model
@@ -214,10 +158,8 @@ nodes:
       - trend_filters
       - detection_scope
       - confirmed_threshold
-      - outlier_analysis
+      - outliers
       - selected_outlier
-      - workspace
-      - registration
       - anomalous_wafers
       - spatial_pattern
     activity: Preparing evidence-based findings
@@ -244,6 +186,9 @@ edges:
     to: review_trends
 
   - from: review_trends
+    to: read_distribution_stats
+
+  - from: read_distribution_stats
     to: interpret_detection_scope
 
   - from: interpret_detection_scope
@@ -265,18 +210,9 @@ edges:
     to: approve_investigation
 
   - from: approve_investigation
-    to: create_workspace
+    to: investigate_selected_outlier
 
-  - from: create_workspace
-    to: apply_filters
-
-  - from: apply_filters
-    to: register_data
-
-  - from: register_data
-    to: read_wafers
-
-  - from: read_wafers
+  - from: investigate_selected_outlier
     to: summarize_findings
 
   - from: summarize_findings
@@ -291,13 +227,14 @@ edges:
 routing:
   defaults:
     request_trend_evidence: review_trends
-    review_trends: interpret_detection_scope
+    review_trends: read_distribution_stats
+    read_distribution_stats: interpret_detection_scope
     interpret_detection_scope: analyse_trends
     confirm_threshold: analyse_trends_with_confirmed_threshold
     analyse_trends: read_metadata
     analyse_trends_with_confirmed_threshold: read_metadata
-    approve_investigation: create_workspace
-    read_wafers: summarize_findings
+    approve_investigation: investigate_selected_outlier
+    investigate_selected_outlier: summarize_findings
     summarize_findings: select_next_action
     select_next_action: END
 
@@ -305,7 +242,7 @@ routing:
     # A first message that already asks for outliers skips the trend review pause.
     - from: request_trend_evidence
       when: "trend_filters.outliers_requested == true"
-      to: interpret_detection_scope
+      to: read_distribution_stats
 
     - from: review_trends
       when: "outlier_detection_requested == false"
@@ -320,20 +257,16 @@ routing:
       to: END
 
     - from: analyse_trends
-      when: "outlier_analysis.outliers == []"
+      when: "outliers == []"
       to: summarize_findings
 
     - from: analyse_trends_with_confirmed_threshold
-      when: "outlier_analysis.outliers == []"
+      when: "outliers == []"
       to: summarize_findings
 
     - from: approve_investigation
       when: "investigation_approved == false"
       to: END
-
-    - from: read_wafers
-      when: "anomalous_wafers == []"
-      to: summarize_findings
 
     - from: select_next_action
       when: "next_action_approved == false"
@@ -373,8 +306,8 @@ approvals:
     decision_field: investigation_approved
     title: Investigate selected outlier
     description: >
-      Approve creation of an investigation workspace and access to
-      wafer-level evidence.
+      Approve reading wafer-level evidence scoped to the selected candidate
+      outlier.
 ---
 
 # OPO Monitoring Investigation Workflow
@@ -403,12 +336,9 @@ investigation of a selected candidate.
 
 ## 4. Perform the deep investigation
 
-After approval, the runtime:
-
-1. Creates an investigation workspace.
-2. Applies the selected filters.
-3. Registers the required wafer-level data.
-4. Reads wafer-level evidence.
+After approval, deterministic application logic reads wafer-level evidence
+scoped to the selected candidate's machine, layer, and lot. The language model
+does not decide which wafer rows are read.
 
 ## 5. Findings and recommended actions
 

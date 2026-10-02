@@ -21,6 +21,8 @@ from .models import (
     DatasetMetadata,
     DistributionStats,
     HealthResponse,
+    OutlierDetectionRequest,
+    OutlierDetectionResult,
     RegistrationRequest,
     RegistrationStatus,
     TdbbRunData,
@@ -118,6 +120,17 @@ class AnalyticsFoundationClient:
             "POST",
             "/trends/distribution",
             DistributionStats,
+            json_body=request.model_dump(mode="json"),
+        )
+
+    async def detect_outliers(
+        self,
+        request: OutlierDetectionRequest,
+    ) -> OutlierDetectionResult:
+        return await self._request(
+            "POST",
+            "/trends/outliers",
+            OutlierDetectionResult,
             json_body=request.model_dump(mode="json"),
         )
 

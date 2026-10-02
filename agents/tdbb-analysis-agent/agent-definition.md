@@ -1,9 +1,9 @@
 ---
-id: opo-monitoring-v4
+id: tdbb-analysis-agent
 version: "4.0"
 kind: agent
 
-display_name: OPO-monitoring-v4
+display_name: TDBB Analysis Agent
 
 description: >
   Displays a scoped OPO performance trend (overlay X and Y in nm) and, for an

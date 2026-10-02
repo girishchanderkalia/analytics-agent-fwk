@@ -1,5 +1,5 @@
 ---
-id: opo-monitoring-sequences
+id: monitoring-agent-sequences
 version: "1.0"
 kind: sequence-diagrams
 ---
@@ -58,13 +58,12 @@ sequenceDiagram
         CopilotFE->>Runtime: Resume conversation
     end
 
-    Runtime->>Model: Interpret outlier criteria with established filters
-    Model->>Runtime: Call get_distribution_stats (at most once)
     Runtime->>Adaptor: data_query.read_distribution_stats
     Adaptor->>AF: Get filtered KPI distribution
     AF-->>Adaptor: Empirical statistics
     Adaptor-->>Runtime: Distribution evidence
-    Runtime-->>Model: Tool result
+
+    Runtime->>Model: Interpret outlier criteria with established filters and distribution evidence
     Model-->>Runtime: Typed DetectionScope
 
     opt No explicit threshold named
@@ -90,23 +89,8 @@ sequenceDiagram
     CopilotFE->>CopilotService: Submit approval action
     CopilotService->>Runtime: Resume conversation
 
-    Runtime->>Adaptor: workspace.create
-    Adaptor->>AF: Create workspace
-    AF-->>Adaptor: Workspace evidence
-    Adaptor-->>Runtime: Normalized workspace evidence
-
-    Runtime->>Adaptor: workspace.add_filters
-    Adaptor->>AF: Apply filters
-    AF-->>Adaptor: Applied filter evidence
-    Adaptor-->>Runtime: Normalized filter evidence
-
-    Runtime->>Adaptor: workspace.register_dataset
-    Adaptor->>AF: Register wafer data
-    AF-->>Adaptor: Registration evidence
-    Adaptor-->>Runtime: Normalized registration evidence
-
-    Runtime->>Adaptor: data_query.read_wafers
-    Adaptor->>AF: Read wafer evidence
+    Runtime->>Adaptor: data_query.investigate_outlier
+    Adaptor->>AF: Read wafer evidence filtered to the selected outlier
     AF-->>Adaptor: Wafer rows
     Adaptor-->>Runtime: Normalized wafer evidence
 

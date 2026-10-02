@@ -8,6 +8,7 @@ from typing import Any, Awaitable, Callable
 from analytics_foundation_client import (
     AnalyticsFoundationClient,
     TdbbCompareRequest,
+    OutlierDetectionRequest,
     RegistrationRequest,
     TdbbRunRequest,
     TrendQueryRequest,
@@ -31,6 +32,7 @@ class AnalyticsFoundationMcpToolProvider:
         self._handlers: dict[str, Handler] = {
             "query_trends": self._query_trends,
             "get_distribution_stats": self._get_distribution_stats,
+            "detect_outliers": self._detect_outliers,
             "get_metadata": self._get_metadata,
             "create_workspace": self._create_workspace,
             "add_workspace_filters": self._add_workspace_filters,
@@ -68,6 +70,10 @@ class AnalyticsFoundationMcpToolProvider:
 
     async def _get_distribution_stats(self, values: Mapping[str, Any]) -> Mapping[str, Any]:
         result = await self._client.get_distribution(TrendQueryRequest.model_validate(values))
+        return result.model_dump(mode="json")
+
+    async def _detect_outliers(self, values: Mapping[str, Any]) -> Mapping[str, Any]:
+        result = await self._client.detect_outliers(OutlierDetectionRequest.model_validate(values))
         return result.model_dump(mode="json")
 
     async def _get_metadata(self, values: Mapping[str, Any]) -> Mapping[str, Any]:
@@ -198,12 +204,25 @@ def _tdbb_compare_schema() -> dict[str, Any]:
     }, ["before_run_ids", "after_run_ids"])
 
 
+def _outlier_detection_schema() -> dict[str, Any]:
+    properties = dict(_trend_schema()["properties"])
+    properties.update({
+        "mode": {"type": "string", "enum": ["absolute", "baseline"]},
+        "limit_value": {"type": "number"},
+        "direction": {"type": "string", "enum": ["above", "below"]},
+        "threshold_unit": {"type": "string", "enum": ["percent", "absolute"]},
+        "baseline_deviation_pct": {"type": ["number", "null"]},
+    })
+    return _object_schema(properties)
+
+
 def _tool_catalog() -> tuple[FoundationMcpTool, ...]:
     any_object = {"type": "object", "additionalProperties": True}
     empty = _object_schema({})
     return (
         FoundationMcpTool("query_trends", "1", "Query trend series.", _trend_schema(), any_object, {"readOnlyHint": True}),
         FoundationMcpTool("get_distribution_stats", "1", "Get trend distribution statistics.", _trend_schema(), any_object, {"readOnlyHint": True}),
+        FoundationMcpTool("detect_outliers", "1", "Deterministically find every trend point violating an absolute or per-series baseline threshold.", _outlier_detection_schema(), any_object, {"readOnlyHint": True}),
         FoundationMcpTool("get_metadata", "1", "Get dataset metadata.", empty, any_object, {"readOnlyHint": True}),
         FoundationMcpTool("create_workspace", "1", "Create a workspace.", empty, any_object, {"destructiveHint": False}),
         FoundationMcpTool("add_workspace_filters", "1", "Apply workspace filters.", _object_schema({"workspace_id": {"type": "string"}, "filters": any_object}, ["workspace_id", "filters"]), any_object, {"idempotentHint": True}),

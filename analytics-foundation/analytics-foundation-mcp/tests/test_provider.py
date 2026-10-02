@@ -14,6 +14,7 @@ sys.path.insert(0, str(ROOT.parent / "agent-runtime"))
 from analytics_foundation_client import (
     DatasetMetadata,
     DistributionStats,
+    OutlierDetectionResult,
     RegistrationStatus,
     TrendResponse,
     WaferQueryResponse,
@@ -42,6 +43,10 @@ class FakeFoundationClient:
     async def get_distribution(self, request):
         self.calls.append(("get_distribution", request.model_dump()))
         return DistributionStats(sample_count=0)
+
+    async def detect_outliers(self, request):
+        self.calls.append(("detect_outliers", request.model_dump()))
+        return OutlierDetectionResult(outliers=[])
 
     async def get_metadata(self):
         self.calls.append(("get_metadata", {}))
@@ -83,10 +88,10 @@ def run(awaitable):
 def test_discovery_registers_with_existing_registry() -> None:
     provider = AnalyticsFoundationMcpToolProvider(FakeFoundationClient())
     tools = run(provider.discover_tools())
-    assert len(tools) == 13
+    assert len(tools) == 14
     registry = McpToolRegistry()
     registry.register_many(to_registry_descriptors(tools))
-    assert len(registry.snapshot()) == 13
+    assert len(registry.snapshot()) == 14
     assert all(item.key.server == "analytics-foundation" for item in registry.snapshot())
 
 

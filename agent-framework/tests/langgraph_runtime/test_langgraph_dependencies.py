@@ -33,7 +33,7 @@ from mcp_tools.models import (  # noqa: E402
 )
 from mcp_tools.registry import McpToolRegistry  # noqa: E402
 
-AGENT = ROOT / "agents" / "opo-monitoring"
+AGENT = ROOT / "agents" / "monitoring-agent"
 
 SERVER = MCPServerRegistration(
     server_id="analytics-foundation",
@@ -155,15 +155,17 @@ def test_contracts_come_from_the_authored_models(definition) -> None:
     assert "lookback_days" in contract.model_fields
 
 
-def test_detection_scope_model_declares_only_distribution_tool(definition) -> None:
+def test_detection_scope_reads_predetermined_distribution_stats(definition) -> None:
     nodes = {node.node_id: node for node in definition.graph.nodes}
     scope = nodes["interpret_detection_scope"]
 
-    assert scope.config["max_tool_calls"] == 1
-    assert scope.config["grounded_outputs"] == {"suggested_limit_value": ["p95", "p99"]}
-    assert [tool["name"] for tool in scope.config["tools"]] == ["get_distribution_stats"]
-    assert scope.config["tools"][0]["arguments"]["days"] == "$.trend_filters.lookback_days"
-    assert "read_distribution_stats" not in nodes
+    assert "tools" not in scope.config
+    assert "grounded_outputs" not in scope.config
+
+    stats_node = nodes["read_distribution_stats"]
+    assert stats_node.kind == "tool"
+    assert stats_node.config["tool"] == "get_distribution_stats"
+    assert stats_node.config["arguments"]["days"] == "$.trend_filters.lookback_days"
 
 
 def test_every_declared_tool_resolves_for_compilation(definition) -> None:

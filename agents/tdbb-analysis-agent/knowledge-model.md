@@ -1,5 +1,5 @@
 ---
-id: opo-monitoring-knowledge-v4
+id: tdbb-analysis-agent-knowledge
 version: "4.0"
 kind: knowledge-model
 

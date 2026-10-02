@@ -1,5 +1,5 @@
 ---
-id: opo-monitoring-knowledge
+id: monitoring-agent-knowledge
 version: "1.0"
 kind: knowledge-model
 

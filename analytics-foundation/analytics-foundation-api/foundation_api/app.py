@@ -24,6 +24,8 @@ def display_trends(days:int|None=None,start_date:str|None=None,end_date:str|None
 def query_trends(q:TrendQueryRequest,s=Depends(dep)):return s.trends(q)
 @app.post("/trends/distribution",response_model=DistributionStats)
 def distribution(q:TrendQueryRequest,s=Depends(dep)):return s.distribution(q)
+@app.post("/trends/outliers",response_model=OutlierDetectionResult)
+def detect_outliers(q:OutlierDetectionRequest,s=Depends(dep)):return s.detect_outliers(q)
 @app.post("/workspaces",response_model=WorkspaceResponse,status_code=201)
 def create_workspace(s=Depends(dep)):return s.create_workspace()
 @app.post("/workspaces/{workspace_id}/filters",response_model=WorkspaceFiltersResponse)

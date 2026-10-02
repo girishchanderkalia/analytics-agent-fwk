@@ -82,6 +82,20 @@ paths:
           content:
             application/json:
               schema: {$ref: '#/components/schemas/DistributionStats'}
+  /trends/outliers:
+    post:
+      operationId: detectOutliers
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/OutlierDetectionRequest'}
+      responses:
+        '200':
+          description: Points deterministically violating the requested threshold.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/OutlierDetectionResult'}
   /workspaces:
     post:
       operationId: createWorkspace
@@ -367,6 +381,46 @@ components:
             upper: {type: number}
           required: [lower, upper]
           additionalProperties: false
+      additionalProperties: false
+    OutlierDetectionRequest:
+      type: object
+      properties:
+        days: {type: integer, minimum: 1, maximum: 90, nullable: true}
+        start_date: {type: string, format: date, nullable: true}
+        end_date: {type: string, format: date, nullable: true}
+        lot_ids: {type: array, items: {type: string}, default: []}
+        product_ids: {type: array, items: {type: string}, default: []}
+        layer_ids: {type: array, items: {type: string}, default: []}
+        exposure_equipment_ids: {type: array, items: {type: string}, default: []}
+        chuck_ids: {type: array, items: {type: string}, default: []}
+        mode: {type: string, enum: [absolute, baseline], default: baseline}
+        limit_value: {type: number, default: 3.0}
+        direction: {type: string, enum: [above, below], default: above}
+        threshold_unit: {type: string, enum: [percent, absolute], default: percent}
+        baseline_deviation_pct: {type: number, nullable: true}
+      additionalProperties: false
+    OutlierPoint:
+      type: object
+      required: [machine, product, date, kpi_value, baseline, applied_threshold]
+      properties:
+        machine: {type: string}
+        product: {type: string}
+        lot_id: {type: string, nullable: true}
+        layer_id: {type: string, nullable: true}
+        exposure_equipment_id: {type: string, nullable: true}
+        date: {type: string, format: date-time}
+        kpi_value: {type: number}
+        kpi_value_y: {type: number, nullable: true}
+        baseline: {type: number}
+        applied_threshold: {type: number}
+      additionalProperties: false
+    OutlierDetectionResult:
+      type: object
+      required: [outliers]
+      properties:
+        outliers:
+          type: array
+          items: {$ref: '#/components/schemas/OutlierPoint'}
       additionalProperties: false
     WorkspaceResponse:
       type: object

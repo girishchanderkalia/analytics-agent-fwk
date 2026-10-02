@@ -1,6 +1,6 @@
 ---
-id: opo-monitoring-state-v4
-version: "4.0"
+id: monitoring-agent-state
+version: "1.0"
 kind: state-model
 
 fields:
@@ -32,77 +32,42 @@ fields:
   trend_series:
     type: object_list
     default: []
-    description: Trend rows returned by the trend-query capability.
+    description: Trend rows returned by the model-mediated Foundation query.
 
-  change_suggestion:
-    type: object
-    default: {}
-    description: Suggested change date and prefilled follow-up question from the daily X/Y means.
-
-  comparison_requested:
-    type: boolean
-    default: false
-    description: Whether the analyst requested a before/after comparison.
-
-  comparison_request:
-    type: string
-    default: ""
-    description: Analyst's follow-up question describing the observed jump.
-
-  comparison_scope:
+  trend_evidence:
     type: object
     default: null
-    description: Parsed before/after change date.
+    description: Model response grounded in Foundation trend evidence.
 
-  tdbb_run:
+  metadata_evidence:
     type: object
     default: null
-    description: TDBB run result with run IDs, budgets and wafer/field maps per period.
+    description: Model response grounded in Foundation metadata.
 
-  tdbb_runs:
-    type: object_list
-    default: []
-    description: Before and after TDBB results returned by Foundation MCP.
-
-  tdbb_model_analysis:
+  preview_evidence:
     type: object
     default: null
-    description: Model interpretation grounded in the Foundation TDBB compare response.
+    description: Model response grounded in Foundation wafer preview evidence.
 
-  tdbb_before_analysis:
+  wafer_evidence:
     type: object
     default: null
-    description: Intermediate model output from the before-period evidence request.
+    description: Model response grounded in Foundation wafer evidence.
 
-  tdbb_after_analysis:
+  workspace_request:
     type: object
     default: null
-    description: Intermediate model output from the after-period evidence request.
+    description: Model request record for the Foundation workspace operation.
 
-  tdbb_before_run:
+  filter_request:
     type: object
     default: null
-    description: Foundation TDBB result for the before period.
+    description: Model request record for applying Foundation workspace filters.
 
-  tdbb_after_run:
+  registration_request:
     type: object
     default: null
-    description: Foundation TDBB result for the after period.
-
-  tdbb_comparison:
-    type: object
-    default: null
-    description: Before/after TDBB budget deltas and the largest increase.
-
-  tdbb_explanation_requested:
-    type: boolean
-    default: false
-    description: Whether the analyst asked for an explanation after reviewing the TDBB overview.
-
-  tdbb_summary:
-    type: object
-    default: null
-    description: Analyst-facing summary of the TDBB comparison.
+    description: Model request record for registering the Foundation dataset.
 
   detection_scope:
     type: object
@@ -138,28 +103,6 @@ fields:
     type: boolean
     default: false
     description: Whether the analyst approved the investigation.
-
-  workspace:
-    type: object
-    default: null
-    description: Workspace evidence returned by Analytics Foundation.
-
-  applied_filters:
-    type: object
-    default: {}
-    description: Filters applied to the investigation workspace.
-
-  registration:
-    type: object
-    default: null
-    description: Dataset registration evidence.
-
-  registration_poll_count:
-    type: integer
-    default: 0
-    description: >
-      Number of registration-status checks performed during the current
-      workflow execution.
 
   anomalous_wafers:
     type: object_list
@@ -287,9 +230,6 @@ The following state fields may be cited as evidence:
 
 - `trend_filters`
 - `trend_series`
-- `comparison_scope`
-- `tdbb_run`
-- `tdbb_comparison`
 - `detection_scope`
 - `analysis`
 - `outliers`

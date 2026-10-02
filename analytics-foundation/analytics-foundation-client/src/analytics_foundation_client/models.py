@@ -68,6 +68,31 @@ class DistributionStats(StrictModel):
     bell_curve_range: BellCurveRange | None = None
 
 
+class OutlierDetectionRequest(TrendQueryRequest):
+    mode: Literal["absolute", "baseline"] = "baseline"
+    limit_value: float = 3.0
+    direction: Literal["above", "below"] = "above"
+    threshold_unit: Literal["percent", "absolute"] = "percent"
+    baseline_deviation_pct: float | None = None
+
+
+class OutlierPoint(StrictModel):
+    machine: str
+    product: str
+    lot_id: str | None = None
+    layer_id: str | None = None
+    exposure_equipment_id: str | None = None
+    date: str
+    kpi_value: float
+    kpi_value_y: float | None = None
+    baseline: float
+    applied_threshold: float
+
+
+class OutlierDetectionResult(StrictModel):
+    outliers: list[OutlierPoint]
+
+
 class WorkspaceResponse(StrictModel):
     workspace_id: str
 

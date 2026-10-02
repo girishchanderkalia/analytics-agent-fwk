@@ -1,9 +1,9 @@
 ---
-id: opo-monitoring-agent
+id: monitoring-agent
 version: "1.0"
 kind: agent
 
-display_name: OPO-monitoring-v1
+display_name: Monitoring Agent
 
 description: >
   Supports conversational investigation of OPO KPI trends, candidate
@@ -41,24 +41,6 @@ context:
     - workspace_id
 
 models:
-  EvidenceResponse:
-    fields:
-      message:
-        type: string
-        default: ""
-        description: Short evidence-grounded response.
-
-  OutlierAnalysis:
-    fields:
-      analysis:
-        type: object_list
-        default: []
-        description: Evidence-based analysis rows.
-      outliers:
-        type: object_list
-        default: []
-        description: Candidate outliers identified from the trend evidence.
-
   SpatialPattern:
     fields:
       classification:
@@ -214,10 +196,6 @@ prompts:
     Treat the returned Foundation series as the only trend evidence and do
     not invent KPI values or identifiers.
 
-  outlier_analysis: |
-    Identify candidate outliers only from the supplied trend_series and the
-    approved detection scope. Do not claim a root cause or invent rows.
-
   foundation_metadata: |
     Request the Foundation metadata tool exactly once and use only its result
     to identify the wafer dataset needed for the approved investigation.
@@ -226,10 +204,6 @@ prompts:
     Request the supplied Foundation wafer query exactly once. Summarize only
     returned rows and preserve the distinction between observed evidence and
     inferred explanations.
-
-  workspace_request: |
-    Request the supplied approved Foundation workspace operation exactly once.
-    Do not access application services or invent workspace identifiers.
 
   spatial_pattern: |
     Classify the supplied wafer evidence only when it supports a pattern.
@@ -257,21 +231,21 @@ prompts:
     numeric threshold takes precedence: leave suggested_limit_value and
     suggested_limit_rationale null when one was given.
 
-    For a request without an explicit numeric threshold, call the
-    get_distribution_stats tool before recommending an absolute OPO KPI cutoff.
-    Call it at most once, with exactly the established trend filters; never
-    invent another filter. Use only the tool's p95, p99, mean, stdev and
-    bell_curve_range values; never invent or estimate distribution statistics.
-    Recommend p95 by default and p99 only for severe anomaly detection.
-    Set suggested_limit_value and suggested_limit_rationale from that evidence,
-    and set mode to absolute, limit_value to the suggested value, direction to
-    above, and threshold_unit to absolute. Never leave limit_value empty when
-    recommending a cutoff.
+    Reaching this step always means outlier detection was requested, even when
+    the analyst's wording does not say "outlier". For a request without an
+    explicit numeric threshold, recommend an absolute OPO KPI cutoff grounded
+    in the supplied threshold_context (p95, p99, mean, stdev, bell_curve_range);
+    never invent or estimate distribution statistics. Recommend p95 by default
+    and p99 only for severe anomaly detection. Set suggested_limit_value and
+    suggested_limit_rationale from that evidence, and set mode to absolute,
+    limit_value to the suggested value, direction to above, and threshold_unit
+    to absolute. Never leave limit_value empty when recommending a cutoff. Use
+    baseline (per-machine) mode only when the analyst explicitly asks to
+    compare each machine against its own history or baseline.
 
-    If sample_count is zero, leave suggested_limit_value null and explain the
-    missing data in suggested_limit_rationale. If the tool fails or is
-    unavailable, leave both suggestion fields null; do not guess a cutoff.
-    Do not claim that a threshold violation establishes a root cause.
+    If threshold_context.sample_count is zero, leave suggested_limit_value null
+    and explain the missing data in suggested_limit_rationale; do not guess a
+    cutoff. Do not claim that a threshold violation establishes a root cause.
 
   findings_summary: |
     Summarize only the supplied investigation evidence.

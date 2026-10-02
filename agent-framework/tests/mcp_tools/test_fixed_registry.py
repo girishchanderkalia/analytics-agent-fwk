@@ -21,7 +21,7 @@ from mcp_tools.fixed_registry import (  # noqa: E402
 )
 from mcp_tools.models import AgentToolReference  # noqa: E402
 
-AGENT = ROOT / "agents" / "opo-monitoring"
+AGENT = ROOT / "agents" / "monitoring-agent"
 
 
 def test_registry_is_identical_on_every_call() -> None:
@@ -41,6 +41,7 @@ def test_foundation_operations_are_all_exposed() -> None:
     assert names == {
         "query_trends",
         "get_distribution_stats",
+        "detect_outliers",
         "get_metadata",
         "create_workspace",
         "add_workspace_filters",
@@ -70,7 +71,7 @@ def test_a_tool_outside_the_surface_cannot_be_resolved() -> None:
 
 def test_every_tool_the_agent_declares_is_in_the_fixed_surface() -> None:
     registry = create_fixed_tool_registry()
-    definition = translate_markdown_agent(ROOT / "agents" / "opo-monitoring-v4")
+    definition = translate_markdown_agent(ROOT / "agents" / "tdbb-analysis-agent")
 
     for tool in definition.tools:
         assert registry.resolve(tool).key.name == tool.name

@@ -1,12 +1,7 @@
 ---
-id: opo-monitoring-capabilities
+id: monitoring-agent-capabilities
 version: "1.0"
 kind: tools-and-capabilities
-
-approvals:
-  default: deny
-  required_for:
-    - workspace.register_dataset
 
 capabilities:
   - id: data_query.read_trends
@@ -59,6 +54,66 @@ capabilities:
     result:
       threshold_context: ${result}
 
+  - id: data_query.detect_outliers
+    operation: detect_outliers
+    server: analytics-foundation
+    tool: detect_outliers
+    owner: Analytics Foundation
+    version: "1"
+
+    permissions:
+      - query:trends:read
+
+    side_effect: false
+    approval_required: false
+
+    # Exhaustive deterministic threshold check; not an LLM sampling task.
+    request:
+      days: ${state.trend_filters.lookback_days}
+      start_date: ${state.trend_filters.start_date}
+      end_date: ${state.trend_filters.end_date}
+      lot_ids: ${state.trend_filters.lot_ids}
+      product_ids: ${state.trend_filters.product_ids}
+      layer_ids: ${state.trend_filters.layer_ids}
+      exposure_equipment_ids: ${state.trend_filters.exposure_equipment_ids}
+      mode: ${state.detection_scope.mode}
+      limit_value: ${state.detection_scope.limit_value}
+      direction: ${state.detection_scope.direction}
+      threshold_unit: ${state.detection_scope.threshold_unit}
+      baseline_deviation_pct: ${state.detection_scope.baseline_deviation_pct}
+
+    result:
+      outliers: ${result.outliers}
+
+  - id: data_query.detect_outliers_with_confirmed_threshold
+    operation: detect_outliers
+    server: analytics-foundation
+    tool: detect_outliers
+    owner: Analytics Foundation
+    version: "1"
+
+    permissions:
+      - query:trends:read
+
+    side_effect: false
+    approval_required: false
+
+    request:
+      days: ${state.trend_filters.lookback_days}
+      start_date: ${state.trend_filters.start_date}
+      end_date: ${state.trend_filters.end_date}
+      lot_ids: ${state.trend_filters.lot_ids}
+      product_ids: ${state.trend_filters.product_ids}
+      layer_ids: ${state.trend_filters.layer_ids}
+      exposure_equipment_ids: ${state.trend_filters.exposure_equipment_ids}
+      mode: absolute
+      limit_value: ${state.confirmed_threshold}
+      direction: above
+      threshold_unit: absolute
+
+    result:
+      outliers: ${result.outliers}
+
   - id: data_query.read_metadata
     operation: read_metadata
     server: analytics-foundation
@@ -100,67 +155,8 @@ capabilities:
       wafer_rows: ${result.rows}
       anomalous_wafers: ${result.anomalous_wafers}
 
-  - id: workspace.create
-    operation: create_workspace
-    server: analytics-foundation
-    tool: create_workspace
-    owner: Analytics Foundation
-    version: "1"
-
-    permissions:
-      - workspace:create
-
-    side_effect: true
-    approval_required: true
-
-    request: {}
-
-    result:
-      workspace: ${result}
-
-  - id: workspace.add_filters
-    operation: add_filters
-    server: analytics-foundation
-    tool: add_workspace_filters
-    owner: Analytics Foundation
-    version: "1"
-
-    permissions:
-      - workspace:write
-
-    side_effect: true
-    approval_required: true
-
-    request:
-      workspace_id: ${state.workspace.workspace_id}
-      filters: ${state.trend_filters}
-
-    result:
-      applied_filters: ${result}
-
-  - id: workspace.register_dataset
-    operation: register_dataset
-    server: analytics-foundation
-    tool: register_dataset
-    owner: Analytics Foundation
-    version: "1"
-
-    permissions:
-      - workspace:register
-
-    side_effect: true
-    approval_required: true
-
-    request:
-      workspace_id: ${state.workspace.workspace_id}
-      dataset: overlay
-      table: overlay_wafer_points
-
-    result:
-      registration: ${result}
-
-  - id: data_query.read_wafers
-    operation: read_wafers
+  - id: data_query.investigate_outlier
+    operation: investigate_outlier
     server: analytics-foundation
     tool: query_wafers
     owner: Analytics Foundation
@@ -172,10 +168,17 @@ capabilities:
     side_effect: false
     approval_required: false
 
+    # Gated by the preceding investigate_outlier approval, not a fresh workspace.
+    # Trend series are lot-level aggregates; the wafer API holds per-wafer
+    # measurements for only a subset of lots. lot_id is the correct join key -
+    # wafer_rows.json's lots are an exact subset of trend_rows.json's lots.
     request:
-      workspace_id: ${state.workspace.workspace_id}
-      table: ${state.registration.table}
-      filters: {}
+      workspace_id: TREND_PREVIEW
+      table: ${state.dataset_metadata.wafer_table}
+      filters:
+        exposure_equipment_id: ${state.selected_outlier.machine}
+        layer_id: ${state.selected_outlier.layer_id}
+        lot_id: ${state.selected_outlier.lot_id}
 
     result:
       wafer_rows: ${result.rows}
@@ -197,12 +200,11 @@ Foundation API requests.
 | --- | --- | --- | --- |
 | Read OPO KPI trends | `data_query.read_trends` | No | No |
 | Read KPI distribution statistics (scope model tool) | `data_query.read_distribution_stats` | No | No |
+| Deterministically detect outliers against the interpreted scope | `data_query.detect_outliers` | No | No |
+| Deterministically detect outliers against the confirmed threshold | `data_query.detect_outliers_with_confirmed_threshold` | No | No |
 | Read dataset metadata | `data_query.read_metadata` | No | No |
 | Preview wafer data before approval | `data_query.preview_wafers` | No | No |
-| Create investigation workspace | `workspace.create` | Yes | No |
-| Apply workspace filters | `workspace.add_filters` | Yes | No |
-| Register wafer data | `workspace.register_dataset` | Yes | Yes |
-| Read wafer evidence | `data_query.read_wafers` | No | No |
+| Read wafer evidence scoped to the selected outlier | `data_query.investigate_outlier` | No | No |
 
 ## Runtime invocation rules
 

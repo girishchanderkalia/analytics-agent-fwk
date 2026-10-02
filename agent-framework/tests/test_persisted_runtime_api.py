@@ -62,7 +62,7 @@ class FakeRuntimeService:
 
         return FakeRuntimeResponse(
             conversation_id=command.conversation_id,
-            agent_id="opo-monitoring-agent",
+            agent_id="monitoring-agent",
             status="completed",
             version=2,
             result={"findings": {"finding": "Completed"}},
@@ -76,7 +76,7 @@ class FakeRuntimeService:
 
         return FakeRuntimeResponse(
             conversation_id=conversation_id,
-            agent_id="opo-monitoring-agent",
+            agent_id="monitoring-agent",
             status="waiting_for_approval",
             version=1,
             result={"outliers": [{"id": "outlier-1"}]},
@@ -85,7 +85,7 @@ class FakeRuntimeService:
     def list_agents(self, application_id: str) -> list[dict[str, Any]]:
         return [
             {
-                "agent_id": "opo-monitoring-agent",
+                "agent_id": "monitoring-agent",
                 "version": "1.0",
                 "display_name": "OPO Monitoring Agent",
                 "description": "Investigates OPO trends.",
@@ -103,7 +103,7 @@ def test_list_registered_agents_for_application() -> None:
         "applicationId": "opo-monitoring",
         "agents": [
             {
-                "agentId": "opo-monitoring-agent",
+                "agentId": "monitoring-agent",
                 "version": "1.0",
                 "displayName": "OPO Monitoring Agent",
                 "description": "Investigates OPO trends.",
@@ -124,7 +124,7 @@ def test_chat_creates_persisted_conversation() -> None:
         "/v1/chat",
         json={
             "applicationId": "opo-monitoring",
-            "agent_id": "opo-monitoring-agent",
+            "agent_id": "monitoring-agent",
             "message": "Show trends and outliers",
             "application_context": {"lookback_days": 30},
         },

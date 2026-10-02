@@ -1,6 +1,7 @@
 from __future__ import annotations
 from datetime import date,datetime,timedelta
 from math import sqrt
+from random import Random
 from statistics import mean,pstdev
 from typing import Any
 from uuid import uuid4
@@ -9,7 +10,7 @@ from .models import *
 from .tdbb import BUDGETS,TABLES,process_period,run_rows
 class FoundationService:
  def __init__(self,repository,trend_table:str,wafer_table:str):
-  self.repo=repository;self.trend_table=trend_table;self.wafer_table=wafer_table;self.workspaces={};self.registrations={}
+  self.repo=repository;self.trend_table=trend_table;self.wafer_table=wafer_table;self.workspaces={};self.registrations={};self._wafer_template_cache=None
  def ready(self):self.repo.trend_rows();self.repo.wafer_rows()
  def metadata(self):return DatasetMetadata(trend_table=self.trend_table,wafer_table=self.wafer_table)
  def _rows(self,q:TrendQueryRequest):
@@ -101,6 +102,25 @@ class FoundationService:
   def percentile(f):return ordered[min(len(ordered)-1,max(0,int(round((len(ordered)-1)*f))))]
   avg=mean(values);sd=pstdev(values) if len(values)>1 else 0.0
   return DistributionStats(sample_count=len(values),p95=percentile(.95),p99=percentile(.99),mean=avg,stdev=sd,bell_curve_range=BellCurveRange(lower=avg-3*sd,upper=avg+3*sd))
+ def detect_outliers(self,q:OutlierDetectionRequest)->OutlierDetectionResult:
+  # Exhaustive, deterministic threshold check over every point in every series; no sampling.
+  # A threshold must mark every violating point; whether a candidate's machine
+  # also has wafer-level data is handled later, when investigating that candidate.
+  outliers=[]
+  for series in self.trends(q).series:
+   values=sorted(p.kpi_value for p in series.points)
+   if not values:continue
+   middle=len(values)//2
+   baseline=values[middle] if len(values)%2 else (values[middle-1]+values[middle])/2
+   if q.mode=="absolute":
+    applied=baseline*(1+(q.limit_value if q.direction=="above" else -q.limit_value)/100) if q.threshold_unit=="percent" else q.limit_value
+   else:
+    applied=baseline*(1+(q.baseline_deviation_pct if q.baseline_deviation_pct is not None else 3.0)/100)
+   above=q.mode=="baseline" or q.direction=="above"
+   for point in series.points:
+    if (point.kpi_value>=applied) if above else (point.kpi_value<=applied):
+     outliers.append(OutlierPoint(machine=series.machine,product=series.product,lot_id=series.lot_id,layer_id=series.layer_id,exposure_equipment_id=series.exposure_equipment_id,date=point.date,kpi_value=point.kpi_value,kpi_value_y=point.kpi_value_y,baseline=baseline,applied_threshold=applied))
+  return OutlierDetectionResult(outliers=outliers)
  def create_workspace(self):
   wid=f"workspace-{uuid4()}";self.workspaces[wid]={"filters":{},"connection":{"workspace_id":wid}};return WorkspaceResponse(workspace_id=wid)
  def _workspace(self,wid):
@@ -120,8 +140,39 @@ class FoundationService:
    row=_identified_wafer_row(raw)
    if any(str(row.get(k,""))!=str(v) for k,v in request.filters.items() if v is not None):continue
    x=float(row.get("overlay_x_um",row.get("overlay_x",0)) or 0);y=float(row.get("overlay_y_um",row.get("overlay_y",0)) or 0);row.setdefault("overlay_magnitude_um",round(sqrt(x*x+y*y),4));rows.append(row)
+  # A lot with trend data but no measured wafer rows still gets an investigable wafer map.
+  if not rows and request.filters.get("lot_id"):rows=self._synthesize_wafer_rows(request.filters)
   anomalous=list(dict.fromkeys(str(r.get("wafer_id")) for r in rows if r.get("wafer_id") and float(r.get("overlay_magnitude_um",0))>.20))
   return WaferQueryResponse(workspace_id=request.workspace_id,table=request.table,rows=rows,anomalous_wafers=anomalous)
+ def _wafer_template(self):
+  # Reuse the real tool's field/intrafield grid so synthesized wafers have a plausible layout.
+  if self._wafer_template_cache is None:
+   rows=self.repo.wafer_rows()
+   first=(rows[0]["exposureprocessjob_lotid"],rows[0]["exposureprocessjob_waferexposureprocessjob_waferid"])
+   keys=("exposureprocessjob_waferexposureprocessjob_exposurelogicalwafer_exposedfield_field_center_x","exposureprocessjob_waferexposureprocessjob_exposurelogicalwafer_exposedfield_field_center_y","measureprocessjob_wafermeasureprocessjob_measurement_intrafieldposition_position_x","measureprocessjob_wafermeasureprocessjob_measurement_intrafieldposition_position_y","exposureprocessjob_reticle_image_imagesize_width","exposureprocessjob_reticle_image_imagesize_height")
+   self._wafer_template_cache=[{k:r[k] for k in keys} for r in rows if (r["exposureprocessjob_lotid"],r["exposureprocessjob_waferexposureprocessjob_waferid"])==first]
+  return self._wafer_template_cache
+ def _synthesize_wafer_rows(self,filters):
+  lot_id=filters.get("lot_id")
+  trend_row=next((row for row in self.repo.trend_rows() if str(row.get("lot_id") or row.get("lotId"))==str(lot_id)),None)
+  if trend_row is None:return []
+  machine=filters.get("exposure_equipment_id") or str(trend_row.get("machine") or trend_row.get("exposureEquipmentId") or "")
+  layer_id=filters.get("layer_id") or str(trend_row.get("layer_id") or trend_row.get("layerId") or "")
+  kpi_value=float(trend_row.get("kpi_value",trend_row.get("kpiValue1")) or 3.0)
+  spread=max(0.15,(kpi_value-2.5)*0.6)
+  rows=[]
+  for index in range(1,5):
+   wafer_id=f"wafer{index}";chuck_id="Waferstage chuck ID 1" if index%2 else "Waferstage chuck ID 2"
+   rng=Random(f"synthetic|{lot_id}|{wafer_id}")
+   for point in self._wafer_template():
+    overlay_x=round(rng.gauss(0,spread),3);overlay_y=round(rng.gauss(0,spread),3)
+    row=_identified_wafer_row({**point,"overlay_x":overlay_x,"overlay_y":overlay_y,"overlay_valid_x":1,"overlay_valid_y":1,
+     "exposureprocessjob_lotid":lot_id,"exposureprocessjob_waferexposureprocessjob_waferid":wafer_id,
+     "exposureprocessjob_waferexposureprocessjob_chuck_id":chuck_id,"measureprocessjob_layerid":layer_id,
+     "exposureprocessjob_equipment_equipmentid":machine})
+    row["overlay_magnitude_um"]=round(sqrt(overlay_x*overlay_x+overlay_y*overlay_y),4)
+    rows.append(row)
+  return rows
 
 # Wafer source columns are fully qualified; expose the identity the contract names.
 _WAFER_IDENTITY={

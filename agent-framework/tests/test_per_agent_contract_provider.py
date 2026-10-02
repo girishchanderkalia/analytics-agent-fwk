@@ -26,7 +26,7 @@ from bootstrap.contract_provider import (  # noqa: E402
 
 
 def bundle(
-    agent_id: str = "opo-monitoring-agent",
+    agent_id: str = "monitoring-agent",
     version: str = "1.0",
     models: dict | None = None,
 ):
@@ -124,7 +124,7 @@ def test_cache_invalidation_rebuilds_provider() -> None:
 
     first = cache.get_or_create(resolved_bundle)
     cache.invalidate(
-        agent_id="opo-monitoring-agent",
+        agent_id="monitoring-agent",
         version="1.0",
     )
     second = cache.get_or_create(resolved_bundle)

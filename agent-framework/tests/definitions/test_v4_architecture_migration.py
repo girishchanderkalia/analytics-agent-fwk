@@ -11,9 +11,9 @@ from bootstrap.markdown_agent_registration import register_markdown_agents
 from mcp_tools.fixed_registry import create_fixed_tool_registry
 
 
-V4 = ROOT / "agents" / "opo-monitoring-v4"
+V4 = ROOT / "agents" / "tdbb-analysis-agent"
 PACKAGES = (
-    ROOT / "agents" / "opo-monitoring",
+    ROOT / "agents" / "monitoring-agent",
     ROOT / "agents" / "opo-monitoring-v2",
     ROOT / "agents" / "opo-monitoring-v3",
     V4,
@@ -22,10 +22,10 @@ PACKAGES = (
 
 def test_all_opo_packages_load_with_foundation_only_tools():
     expected = {
-        "opo-monitoring-agent": "1.0",
+        "monitoring-agent": "1.0",
         "opo-monitoring-v2": "2.0",
         "opo-monitoring-v3": "3.0",
-        "opo-monitoring-v4": "4.0",
+        "tdbb-analysis-agent": "4.0",
     }
 
     for package in PACKAGES:
@@ -34,7 +34,7 @@ def test_all_opo_packages_load_with_foundation_only_tools():
         assert definition.version == expected[definition.agent_id]
         assert {tool.server for tool in definition.tools} == {"analytics-foundation"}
         assert all(tool.name in {
-            "query_trends", "get_distribution_stats", "get_metadata",
+            "query_trends", "get_distribution_stats", "detect_outliers", "get_metadata",
             "create_workspace", "add_workspace_filters",
             "register_dataset", "query_wafers", "run_tdbb",
         } for tool in definition.tools)
@@ -52,8 +52,8 @@ def test_all_opo_packages_register_as_distinct_versions():
 
     assert len(result.registrations) == 4
     assert {record.key.agent_id for record in result.registrations} == {
-        "opo-monitoring-agent", "opo-monitoring-v2", "opo-monitoring-v3",
-        "opo-monitoring-v4",
+        "monitoring-agent", "opo-monitoring-v2", "opo-monitoring-v3",
+        "tdbb-analysis-agent",
     }
     assert len(catalog.list_for_application("opo-monitoring")) == 4
 
@@ -90,6 +90,6 @@ def test_default_startup_has_three_deployables_and_v4_only():
 
     assert "start_service \"opo-capability\"" not in startup
     assert "OPO_CAPABILITY_MCP_URL" not in startup
-    for package in ("opo-monitoring", "opo-monitoring-v2", "opo-monitoring-v3", "opo-monitoring-v4"):
+    for package in ("monitoring-agent", "opo-monitoring-v2", "opo-monitoring-v3", "tdbb-analysis-agent"):
         assert f"agents/{package}" in startup
         assert f"agents/{package}" in local_deploy

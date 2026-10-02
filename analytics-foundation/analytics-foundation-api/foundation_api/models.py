@@ -49,3 +49,14 @@ class TdbbWafer(StrictModel): wafer_id:str;chuck_id:str|None=None
 class TdbbRunInfo(StrictModel):
     run_id:str;status:Literal["COMPLETED"];model_step:str;context_levels:list[str];product_id:str;layer_id:str;exposure_equipment_id:str;lot_id:str;lot_start:str;wafers:list[TdbbWafer]
 class TdbbRunData(StrictModel): run_id:str;tables:dict[str,list[dict[str,Any]]]
+class OutlierDetectionRequest(TrendQueryRequest):
+    mode:Literal["absolute","baseline"]="baseline"
+    limit_value:float=3.0
+    direction:Literal["above","below"]="above"
+    threshold_unit:Literal["percent","absolute"]="percent"
+    baseline_deviation_pct:float|None=None
+class OutlierPoint(StrictModel):
+    machine:str;product:str;lot_id:str|None=None;layer_id:str|None=None;exposure_equipment_id:str|None=None
+    date:str;kpi_value:float;kpi_value_y:float|None=None;baseline:float;applied_threshold:float
+class OutlierDetectionResult(StrictModel): outliers:list[OutlierPoint]
+

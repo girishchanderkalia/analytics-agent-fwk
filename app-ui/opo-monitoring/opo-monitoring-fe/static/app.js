@@ -13,7 +13,7 @@ const tdbbPanel = document.getElementById("tdbb-panel");
 const ncePanel = document.getElementById("nce-panel");
 const V2_AGENT = "opo-monitoring-v2";
 const V3_AGENT = "opo-monitoring-v3";
-const V4_AGENT = "opo-monitoring-v4";
+const V4_AGENT = "tdbb-analysis-agent";
 const selectedAgentId = () => registeredAgents[agentSelect.selectedIndex]?.agentId;
 const isScopedAgent = (agentId) => agentId === V2_AGENT || agentId === V3_AGENT || agentId === V4_AGENT;
 
@@ -32,11 +32,6 @@ function setRightPanelCollapsed(collapsed) {
   );
 }
 
-const SERIES_COLOURS = [
-  "#4c9aff", "#a371f7", "#3fb950", "#f78166", "#e3b341",
-  "#39c5cf", "#db61a2", "#8ddb8c", "#79c0ff", "#d29922",
-  "#f47067", "#56d4dd",
-];
 const OUTLIER_COLOUR = "#f85149";
 
 const PLOT_LAYOUT = {
@@ -61,6 +56,8 @@ const PLOT_CONFIG = { displaylogo: false, responsive: true, displayModeBar: fals
 
 let trendSeries = null;
 let availableTrendSeries = null;
+let lastWaferRows = [];
+let lastAnomalousWafers = [];
 
 function availableTrendScopes() {
   return (availableTrendSeries || []).map((series) => ({
@@ -108,62 +105,67 @@ function starterPrompt(agentId) {
   return "Show trends";
 }
 
-function drawPlot(scope, selectedMachine) {
+// Every workflow step renders the same two overlay KPIs, never per-machine series.
+// The outliers schema is a free-form object_list: the model emits either a
+// grouped { points: [[date, x, y], ...] } shape or a single { timestamp, value } point.
+function outlierPoints(item) {
+  if (Array.isArray(item.points)) {
+    return item.points.map(([date, kpiValue]) => ({ date, kpiValue }));
+  }
+  if (item.timestamp !== undefined) {
+    return [{ date: item.timestamp, kpiValue: Array.isArray(item.value) ? item.value[0] : item.value }];
+  }
+  if (item.date !== undefined && item.kpi_value !== undefined) {
+    return [{ date: item.date, kpiValue: item.kpi_value }];
+  }
+  return [];
+}
+
+// Every workflow step renders the same two overlay KPIs, never per-machine series.
+function drawPlot(outliers, selectedMachine) {
+  const plot = document.getElementById("trend-plot");
   if (!trendSeries) return;
-  document.getElementById("trend-plot").style.height = "";
+  plot.style.height = "";
   if (!trendSeries.length) {
-    Plotly.purge(document.getElementById("trend-plot"));
+    Plotly.purge(plot);
     return;
   }
 
-  const traces = trendSeries.map((s, idx) => {
-    const dimmed = selectedMachine && s.machine !== selectedMachine;
+  const points = trendSeries.flatMap((s) =>
+    (s.points || []).map((p) => ({ ...p, machine: s.machine, product: s.product })));
+
+  const trace = (name, key, color) => {
+    const filtered = points.filter((p) => Number.isFinite(Number(p[key])));
     return {
       type: "scatter",
       mode: "markers",
-      name: `${s.machine} / ${s.product}`,
-      x: s.points.map((p) => p.date),
-      y: s.points.map((p) => p.kpi_value),
-      marker: { size: 8, color: SERIES_COLOURS[idx % SERIES_COLOURS.length] },
-      opacity: dimmed ? 0.3 : 1,
-      hovertemplate: `%{x}<br>%{y:.2f} absolute OPO KPI<extra>${s.machine} / ${s.product}</extra>`,
+      name,
+      x: filtered.map((p) => p.date),
+      y: filtered.map((p) => Number(p[key])),
+      marker: {
+        size: 6,
+        color,
+        opacity: filtered.map((p) => (selectedMachine && p.machine !== selectedMachine ? 0.3 : 1)),
+      },
+      hovertemplate: `%{x}<br>${name} %{y:.2f} absolute OPO KPI<extra>${name}</extra>`,
     };
-  });
+  };
 
+  const traces = [
+    trace("KPI X", "kpi_value", "#4c9aff"),
+    trace("KPI Y", "kpi_value_y", "#f0883e"),
+  ];
+
+  // Ring the exact points the agent identified as outliers; no visual approximation.
   const rings = { x: [], y: [], text: [] };
-  if (scope?.mode) {
-    trendSeries.forEach((series) => {
-      const values = (series.points || [])
-        .map((point) => Number(point.kpi_value))
-        .filter(Number.isFinite)
-        .sort((left, right) => left - right);
-      if (!values.length) return;
-
-      const middle = Math.floor(values.length / 2);
-      const baseline = values.length % 2
-        ? values[middle]
-        : (values[middle - 1] + values[middle]) / 2;
-      const direction = scope.direction || "below";
-      const limit = Number(scope.limit_value);
-      const applied = scope.mode === "absolute"
-        ? scope.threshold_unit === "percent"
-          ? baseline * (1 + (direction === "above" ? limit : -limit) / 100)
-          : limit
-        : baseline * (1 + Number(scope.baseline_deviation_pct ?? 3) / 100);
-      if (!Number.isFinite(applied)) return;
-
-      (series.points || []).forEach((point) => {
-        const value = Number(point.kpi_value);
-        const matches = scope.mode === "baseline" || direction === "above"
-          ? value >= applied
-          : value <= applied;
-        if (!Number.isFinite(value) || !matches) return;
-        rings.x.push(point.date);
-        rings.y.push(value);
-        rings.text.push(`${series.machine} / ${series.product}`);
-      });
+  (outliers || []).forEach((item) => {
+    outlierPoints(item).forEach(({ date, kpiValue }) => {
+      if (!Number.isFinite(Number(kpiValue))) return;
+      rings.x.push(date);
+      rings.y.push(Number(kpiValue));
+      rings.text.push(`${item.machine} / ${item.product}`);
     });
-  }
+  });
 
   if (rings.x.length) {
     traces.push({
@@ -174,15 +176,15 @@ function drawPlot(scope, selectedMachine) {
       y: rings.y,
       text: rings.text,
       marker: {
-        size: 12,
+        size: 9,
         color: "rgba(0,0,0,0)",
-        line: { color: OUTLIER_COLOUR, width: 2.5 },
+        line: { color: OUTLIER_COLOUR, width: 2 },
       },
       hovertemplate: "<b>Outlier</b><br>%{text}<br>%{x} — %{y:.2f} absolute OPO KPI<extra></extra>",
     });
   }
 
-  Plotly.react(document.getElementById("trend-plot"), traces, PLOT_LAYOUT, PLOT_CONFIG);
+  Plotly.react(plot, traces, { ...PLOT_LAYOUT, showlegend: true }, PLOT_CONFIG);
 }
 
 // v3 plots overlay X and Y of the scoped wafers in stacked panels so neither hides the other.
@@ -409,7 +411,7 @@ async function loadTrends() {
     }
     const points = trendSeries.reduce((total, series) => total + series.points.length, 0);
     document.getElementById("chart-note").textContent =
-      `${trendSeries.length} series \u00b7 ${points} points`;
+      `KPI X \u0026 KPI Y \u00b7 ${points} points`;
   } catch (err) {
     document.getElementById("chart-note").textContent = `Could not load trends: ${err.message}`;
   }
@@ -510,6 +512,20 @@ function setBusy(value, label) {
 
 // Gate text comes from the agent package payload (question, details, labels);
 // an outlier selector is shown when the payload offers candidates.
+function previewWafersForCandidate(candidate) {
+  if (!candidate) {
+    renderWaferMap({ wafer_rows: lastWaferRows, anomalous_wafers: lastAnomalousWafers });
+    return;
+  }
+  // Trend series are lot-level aggregates; lot_id is the correct key into the
+  // wafer API, which only holds per-wafer detail for a subset of lots.
+  const scoped = lastWaferRows.filter((row) =>
+    row.exposure_equipment_id === candidate.machine
+    && row.layer_id === candidate.layer_id
+    && row.lot_id === candidate.lot_id);
+  renderWaferMap({ wafer_rows: scoped, anomalous_wafers: lastAnomalousWafers });
+}
+
 function renderGate(request) {
   const payload = request.payload || {};
   const candidates = payload.detected_outliers || [];
@@ -523,8 +539,8 @@ function renderGate(request) {
     : selected
       ? `Most extreme: <code>${escapeHtml(selected.machine)}</code> /
        <code>${escapeHtml(selected.product)}</code> &mdash;
-       <code>${escapeHtml(selected.extreme_kpi_value)}</code> absolute OPO KPI,
-       <code>${escapeHtml((selected.outlier_dates || []).length)}</code> marked points`
+       <code>${escapeHtml(selected.kpi_value)}</code> absolute OPO KPI on
+       <code>${escapeHtml(selected.date)}</code>`
       : candidates.length ? "Select the candidate to investigate." : "";
 
   const selector = candidates.length
@@ -535,7 +551,7 @@ function renderGate(request) {
           selected?.id && candidate.id === selected.id ? " selected" : ""
         }>
           ${escapeHtml(candidate.machine)} / ${escapeHtml(candidate.product)} —
-          ${escapeHtml(candidate.extreme_kpi_value)} absolute OPO KPI
+          ${escapeHtml(candidate.kpi_value)} absolute OPO KPI (${escapeHtml(candidate.date)})
         </option>`;
         }).join("")}</select>`
     : "";
@@ -571,6 +587,18 @@ function renderGate(request) {
         <button data-action="reject" class="reject">${escapeHtml(payload.reject_label || "Reject")}</button>
       </div>
     </div>`;
+
+  // Keep every candidate circled while the user is still choosing which one to investigate.
+  if (candidates.length) {
+    drawPlot(candidates, selected);
+    const outlierSelect = interactionPanel.querySelector("#outlier-select");
+    const candidateFor = (value) =>
+      candidates.find((candidate, index) => (candidate.id ?? String(index)) === value);
+    previewWafersForCandidate(candidateFor(outlierSelect?.value) || candidates[0]);
+    outlierSelect?.addEventListener("change", () => {
+      previewWafersForCandidate(candidateFor(outlierSelect.value));
+    });
+  }
 
   const gate = interactionPanel;
   const actionSelect = gate.querySelector("#action-select");
@@ -763,22 +791,30 @@ function ruleLabel(scope) {
 function renderTrendChart(evidence) {
   if (!evidence) return;
   const note = document.getElementById("chart-note");
-  const selected = evidence.selected_outlier?.machine || null;
+  const selectedOutlier = evidence.selected_outlier || null;
+  const selected = selectedOutlier?.machine || null;
   const scope = effectiveScope(evidence);
-  const hasAppliedRule = evidence.confirmed_threshold != null || evidence.outliers?.length > 0;
-  drawPlot(hasAppliedRule ? scope : null, selected);
+  const outliers = evidence.outliers || [];
+  const hasAppliedRule = evidence.confirmed_threshold != null || outliers.length > 0;
+  // Once a specific candidate is selected, ring only that point - not the whole candidate set.
+  drawPlot(hasAppliedRule ? (selectedOutlier ? [selectedOutlier] : outliers) : null, selected);
   if (!scope.mode) return;
   const rule = ruleLabel(scope);
 
-  if (!evidence.outliers?.length) {
+  if (!outliers.length) {
     note.textContent = `No points ${rule}`;
     return;
   }
 
-  const points = evidence.outliers.reduce((total, item) =>
-    total + (item.outlier_dates || []).length, 0);
+  if (selectedOutlier) {
+    note.textContent = `Investigating 1 of ${outliers.length} candidates: ${selectedOutlier.machine} / ${selectedOutlier.product}`;
+    return;
+  }
+
+  const points = outliers.reduce((total, item) =>
+    total + outlierPoints(item).length, 0);
   note.innerHTML = `<span class="ring-key"></span>${points} points ${rule},
-     across ${evidence.outliers.length} series`;
+     across ${outliers.length} series`;
 }
 
 function renderWaferMap(evidence) {
@@ -788,6 +824,12 @@ function renderWaferMap(evidence) {
   if (!plotEl || !evidence) return;
 
   const rows = evidence.wafer_rows || [];
+  // Keep the broadest (pre-approval) wafer preview around so the outlier dropdown
+  // can show a live, candidate-scoped wafer map before the analyst approves anything.
+  if (rows.length) {
+    lastWaferRows = rows;
+    lastAnomalousWafers = evidence.anomalous_wafers || [];
+  }
   if (!rows.length) {
     noteEl.textContent = "No wafer data";
     Plotly.purge(plotEl);
@@ -1215,7 +1257,7 @@ document.getElementById("reopen-btn").onclick = async () => {
 async function loadAgents() {
   try {
     registeredAgents = (await window.OpoBff.listAgents()).filter(
-      (agent) => agent.agentId === "opo-monitoring-agent" || agent.agentId === V4_AGENT,
+      (agent) => agent.agentId === "monitoring-agent" || agent.agentId === V4_AGENT,
     );
   } catch (err) {
     registeredAgents = [];
@@ -1246,7 +1288,7 @@ agentSelect.addEventListener("change", () => {
     trendSeries = availableTrendSeries;
     drawPlot(null, null);
     const points = (availableTrendSeries || []).reduce((total, series) => total + series.points.length, 0);
-    document.getElementById("chart-note").textContent = `${(availableTrendSeries || []).length} series · ${points} points`;
+    document.getElementById("chart-note").textContent = `KPI X & KPI Y · ${points} points`;
   }
 });
 

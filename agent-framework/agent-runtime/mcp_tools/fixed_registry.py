@@ -20,6 +20,7 @@ OBJECT_SCHEMA: dict[str, object] = {"type": "object"}
 FOUNDATION_TOOLS: tuple[tuple[str, str], ...] = (
     ("query_trends", "Read OPO KPI trend series."),
     ("get_distribution_stats", "Read empirical KPI distribution statistics."),
+    ("detect_outliers", "Deterministically find trend points violating a threshold."),
     ("get_metadata", "Read available dataset and table metadata."),
     ("create_workspace", "Create a governed investigation workspace."),
     ("add_workspace_filters", "Apply filters to an investigation workspace."),
