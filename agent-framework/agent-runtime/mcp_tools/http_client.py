@@ -71,6 +71,7 @@ class HttpMcpClient:
             method="tools/call",
             params={"name": tool_name, "arguments": dict(arguments)},
             timeout_seconds=timeout_seconds or server.timeout_seconds,
+            tool_name=tool_name,
         )
 
         structured = result.get("structuredContent")
@@ -97,6 +98,7 @@ class HttpMcpClient:
         method: str,
         params: Mapping[str, Any],
         timeout_seconds: float,
+        tool_name: str | None = None,
     ) -> dict[str, Any]:
         payload = json.dumps(
             {
@@ -124,9 +126,10 @@ class HttpMcpClient:
             ) from exc
 
         logger.warning(
-            "mcp_http_complete server=%s method=%s elapsed_ms=%d",
+            "mcp_http_complete server=%s method=%s tool=%s elapsed_ms=%d",
             server.server_id,
             method,
+            tool_name or "-",
             (perf_counter() - started) * 1000,
         )
 

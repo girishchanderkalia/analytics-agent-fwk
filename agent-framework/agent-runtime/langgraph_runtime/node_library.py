@@ -100,6 +100,13 @@ class StandardNodeLibrary:
                     "input_text": _model_input(definition.config, state),
                     "output_contract": contract,
                 }
+                logger.warning(
+                    "chat_model_request_size conversation_id=%s node_id=%s system_prompt_chars=%d input_chars=%d",
+                    conversation_id,
+                    definition.node_id,
+                    len(request["system_prompt"]),
+                    len(request["input_text"]),
+                )
                 cache_key = None
                 if definition.config.get("cacheable") and not tools:
                     cache_key = json.dumps(
@@ -193,6 +200,13 @@ class StandardNodeLibrary:
                     )
                 if hasattr(result, "model_dump"):
                     result = result.model_dump(mode="python")
+                logger.warning(
+                    "chat_model_response_size conversation_id=%s node_id=%s output_chars=%d tool_calls=%d",
+                    conversation_id,
+                    definition.node_id,
+                    len(json.dumps(result, default=str)),
+                    call_count if tools else 0,
+                )
                 if cache_key is not None:
                     model_cache[cache_key] = (perf_counter(), deepcopy(result))
                     logger.warning(

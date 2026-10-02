@@ -8,7 +8,9 @@ metadata; graph state itself stays in LangGraph's checkpointer.
 from __future__ import annotations
 
 import asyncio
+import logging
 import threading
+from time import perf_counter
 from typing import Any
 from uuid import uuid4
 
@@ -26,6 +28,8 @@ from runtime_service_langgraph import (
 
 WAITING = "waiting_for_approval"
 COMPLETED = "completed"
+
+logger = logging.getLogger(__name__)
 
 _PUBLIC_RESULT_FIELDS = frozenset({
     "question",
@@ -112,6 +116,7 @@ class LangGraphConversationService:
         record = self._registration(command)
         conversation_id = str(uuid4())
 
+        started = perf_counter()
         result = self._loop.run(
             self.runtime_service.start(
                 RuntimeServiceStartRequest(
@@ -126,6 +131,12 @@ class LangGraphConversationService:
                     ),
                 )
             )
+        )
+        logger.warning(
+            "chat_turn_complete conversation_id=%s agent_id=%s action=start elapsed_ms=%d",
+            conversation_id,
+            record.key.agent_id,
+            (perf_counter() - started) * 1000,
         )
 
         status, approval = _status(result)
@@ -160,6 +171,7 @@ class LangGraphConversationService:
             )
 
         pending = metadata.pending_approval or {}
+        started = perf_counter()
         result = self._loop.run(
             self.runtime_service.resume(
                 RuntimeServiceResumeRequest(
@@ -171,6 +183,12 @@ class LangGraphConversationService:
                     interrupt_id=pending.get("interrupt_id"),
                 )
             )
+        )
+        logger.warning(
+            "chat_turn_complete conversation_id=%s agent_id=%s action=resume elapsed_ms=%d",
+            command.conversation_id,
+            metadata.agent_id,
+            (perf_counter() - started) * 1000,
         )
 
         status, approval = _status(result)

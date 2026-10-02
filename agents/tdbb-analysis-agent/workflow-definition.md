@@ -121,11 +121,18 @@ nodes:
     prompt: tdbb_summary
     output: TdbbSummary
     output_to: tdbb_summary
-    inputs:
-      - comparison_scope
-      - tdbb_before_run
-      - tdbb_after_run
-      - tdbb_model_analysis
+    # tdbb_before_run/tdbb_after_run also carry per-point wafer/field maps for
+    # the UI overview; the summary only needs the budget numbers, so project
+    # those out instead of serializing the full run result into the prompt.
+    input_projection:
+      comparison_scope: $.comparison_scope
+      tdbb_model_analysis: $.tdbb_model_analysis
+      before:
+        change_date: $.tdbb_before_run.change_date
+        periods: $.tdbb_before_run.periods
+      after:
+        change_date: $.tdbb_after_run.change_date
+        periods: $.tdbb_after_run.periods
     activity: Summarizing the TDBB comparison
 
 edges:
