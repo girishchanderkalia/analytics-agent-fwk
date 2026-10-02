@@ -150,12 +150,48 @@ button.reject {
 main {
   flex: 1;
   display: grid;
-  grid-template-columns: 1fr 380px;
+  grid-template-columns: 1fr 8px var(--evidence-width, 380px);
   min-height: 0;
 }
 
 main.right-panel-collapsed {
-  grid-template-columns: 1fr 46px;
+  grid-template-columns: 1fr 0px 46px;
+}
+
+.panel-resizer {
+  position: relative;
+  cursor: col-resize;
+  background: transparent;
+}
+
+.panel-resizer::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 2px;
+  transform: translateX(-50%);
+  background: var(--border);
+}
+
+.panel-resizer:hover::after,
+.panel-resizer:active::after {
+  background: var(--accent);
+}
+
+main.right-panel-collapsed .panel-resizer {
+  pointer-events: none;
+}
+
+body.resizing-panels {
+  cursor: col-resize;
+  user-select: none;
+}
+
+body.resizing-panels * {
+  cursor: col-resize;
+  user-select: none;
 }
 
 .timeline-pane {

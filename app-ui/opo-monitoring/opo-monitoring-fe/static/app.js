@@ -8,6 +8,7 @@ const findingsPanel = document.getElementById("findings-panel");
 const findingsContent = document.getElementById("findings-content");
 const mainLayout = document.querySelector("main");
 const toggleRightPanel = document.getElementById("toggle-right-panel");
+const panelResizer = document.getElementById("panel-resizer");
 const agentSelect = document.getElementById("agent-select");
 const tdbbPanel = document.getElementById("tdbb-panel");
 const ncePanel = document.getElementById("nce-panel");
@@ -31,6 +32,52 @@ function setRightPanelCollapsed(collapsed) {
     collapsed ? "Show interaction and evidence panel" : "Minimize interaction and evidence panel"
   );
 }
+
+const EVIDENCE_WIDTH_KEY = "opoEvidencePanelWidth";
+const MIN_EVIDENCE_WIDTH = 320;
+const MAX_EVIDENCE_WIDTH = 760;
+
+function setEvidenceWidth(widthPx) {
+  const clamped = Math.min(MAX_EVIDENCE_WIDTH, Math.max(MIN_EVIDENCE_WIDTH, widthPx));
+  mainLayout.style.setProperty("--evidence-width", `${clamped}px`);
+  return clamped;
+}
+
+function resizeChartsIfAny() {
+  ["trend-plot", "wafer-plot"].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el.data) Plotly.Plots.resize(el);
+  });
+}
+
+(function restoreEvidenceWidth() {
+  const saved = Number(localStorage.getItem(EVIDENCE_WIDTH_KEY));
+  if (saved) setEvidenceWidth(saved);
+})();
+
+let resizingPanels = false;
+
+panelResizer.addEventListener("mousedown", (event) => {
+  if (mainLayout.classList.contains("right-panel-collapsed")) return;
+  resizingPanels = true;
+  document.body.classList.add("resizing-panels");
+  event.preventDefault();
+});
+
+document.addEventListener("mousemove", (event) => {
+  if (!resizingPanels) return;
+  const rect = mainLayout.getBoundingClientRect();
+  setEvidenceWidth(rect.right - event.clientX);
+});
+
+document.addEventListener("mouseup", () => {
+  if (!resizingPanels) return;
+  resizingPanels = false;
+  document.body.classList.remove("resizing-panels");
+  const width = parseInt(getComputedStyle(mainLayout).getPropertyValue("--evidence-width"), 10);
+  if (width) localStorage.setItem(EVIDENCE_WIDTH_KEY, String(width));
+  resizeChartsIfAny();
+});
 
 const OUTLIER_COLOUR = "#f85149";
 
