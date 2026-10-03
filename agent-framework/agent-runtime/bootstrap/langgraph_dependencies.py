@@ -34,6 +34,17 @@ class PackagePromptProvider:
             prompt.prompt_id: prompt.template for prompt in definition.prompts
         }
         self._knowledge = "\n\n".join(definition.knowledge).strip()
+        self._labels = dict(getattr(definition, "knowledge_labels", None) or {})
+        # Model nodes may share a prompt id, so scopes are unioned per prompt.
+        self._scopes: dict[str, frozenset[str]] = {}
+        for node in definition.graph.nodes:
+            if node.kind != "model":
+                continue
+            prompt_id = node.config.get("prompt")
+            if not prompt_id:
+                continue
+            scope = frozenset(node.config.get("knowledge_scope", ()))
+            self._scopes[prompt_id] = self._scopes.get(prompt_id, frozenset()) | scope
 
     def render(self, prompt_id: str, state: Mapping[str, Any]) -> str:
         del state
@@ -43,16 +54,27 @@ class PackagePromptProvider:
             raise ExpressionError(
                 f"Agent package declares no prompt {prompt_id!r}"
             ) from exc
-        if not self._knowledge:
-            return template.strip()
-        return (
-            f"{template.strip()}\n\n"
-            f"Application knowledge:\n{self._knowledge}"
-        )
+        sections = [template.strip()]
+        if self._knowledge:
+            sections.append(f"Application knowledge:\n{self._knowledge}")
+        data_semantics = self._render_data_semantics(prompt_id)
+        if data_semantics:
+            sections.append(f"Data semantics:\n{data_semantics}")
+        return "\n\n".join(sections)
+
+    def _render_data_semantics(self, prompt_id: str) -> str:
+        lines = [
+            f"- {name}: {self._labels[name]['description'].strip()}"
+            for name in sorted(self._scopes.get(prompt_id, frozenset()))
+            if isinstance(self._labels.get(name), Mapping)
+            and self._labels[name].get("description")
+        ]
+        return "\n".join(lines)
 
 
 class TextExpressionEngine:
     """Evaluate the comparison expressions authored on routing conditions."""
+
 
     def evaluate(self, expression: str, state: Mapping[str, Any]) -> bool:
         if not isinstance(expression, str) or not expression.strip():

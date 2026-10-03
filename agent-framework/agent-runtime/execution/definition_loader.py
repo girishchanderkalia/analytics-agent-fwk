@@ -354,6 +354,7 @@ def validate_agent_bundle(
     validate_state_model(bundle.state)
     validate_capability_definition(bundle.capabilities)
     validate_workflow_definition(bundle)
+    validate_knowledge_model(bundle)
     validate_definition_identity(bundle)
 
 
@@ -462,6 +463,45 @@ def validate_fields(
                     f"Field {field_name!r} in {location} must name "
                     "the model it contains"
                 )
+
+
+def validate_knowledge_model(
+    bundle: AgentDefinitionBundle,
+) -> None:
+    """Validate domain knowledge and its link to the declared state fields."""
+
+    definition = bundle.knowledge
+    state_fields = set(bundle.state.metadata.get("fields", {}))
+
+    concepts = definition.metadata.get("concepts", {})
+    if not isinstance(concepts, dict):
+        raise AgentDefinitionError(f"{definition.path} concepts must be a mapping")
+    for name, concept in concepts.items():
+        if not isinstance(concept, dict) or not str(
+            concept.get("description", "")
+        ).strip():
+            raise AgentDefinitionError(
+                f"Concept {name!r} in {definition.path} must declare a description"
+            )
+
+    evidence_labels = definition.metadata.get("evidence_labels", {})
+    if not isinstance(evidence_labels, dict):
+        raise AgentDefinitionError(
+            f"{definition.path} evidence_labels must be a mapping"
+        )
+    for name, label in evidence_labels.items():
+        if not isinstance(label, dict) or not str(
+            label.get("description", "")
+        ).strip():
+            raise AgentDefinitionError(
+                f"Evidence label {name!r} in {definition.path} must declare "
+                "a description"
+            )
+        if name not in state_fields:
+            raise AgentDefinitionError(
+                f"Evidence label {name!r} in {definition.path} does not "
+                "match any state-model field"
+            )
 
 
 def validate_capability_definition(

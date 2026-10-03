@@ -62,14 +62,14 @@ evidence_labels:
   selected_outlier:
     description: Candidate selected by the analyst.
 
-  applied_filters:
-    description: Filters applied to the investigation workspace.
+  workspace_request:
+    description: Model request record for the Foundation workspace operation.
 
-  workspace:
-    description: Workspace identifier and status.
+  filter_request:
+    description: Model request record for applying Foundation workspace filters.
 
-  registration:
-    description: Registration state and registered table information.
+  registration_request:
+    description: Model request record for registering the Foundation dataset.
 
   anomalous_wafers:
     description: Wafer records identified as anomalous.

@@ -62,4 +62,7 @@ class NormalizedAgentDefinition:
     prompts: tuple[NormalizedPrompt, ...] = ()
     tools: tuple[AgentToolReference, ...] = ()
     knowledge: tuple[str, ...] = ()
+    # Per-state-field semantics (knowledge-model.md `evidence_labels`), rendered
+    # into a prompt only when its node's config.knowledge_scope names the field.
+    knowledge_labels: Mapping[str, Mapping[str, Any]] = field(default_factory=dict)
     metadata: Mapping[str, Any] = field(default_factory=dict)

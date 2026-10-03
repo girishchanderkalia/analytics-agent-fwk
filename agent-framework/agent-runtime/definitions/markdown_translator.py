@@ -88,6 +88,7 @@ def translate_bundle(bundle: Any) -> NormalizedAgentDefinition:
         prompts=_prompts(agent),
         tools=_tools(bindings),
         knowledge=(bundle.knowledge.markdown,),
+        knowledge_labels=dict(bundle.knowledge.metadata.get("evidence_labels", {}) or {}),
         metadata={
             "display_name": bundle.display_name,
             "models": dict(agent.get("models", {})),
@@ -271,7 +272,42 @@ def _model_config(
     guardrails = node.get("guardrails")
     if guardrails is not None:
         config["guardrails"] = _guardrails(guardrails, node_id)
+    config["knowledge_scope"] = sorted(_knowledge_scope(config))
     return config
+
+
+def _knowledge_scope(config: Mapping[str, Any]) -> set[str]:
+    """State fields a model node reads or writes, used to scope injected knowledge."""
+
+    scope: set[str] = set(config.get("inputs", []))
+    scope.add(config["result_key"])
+    projection = config.get("input_projection")
+    if projection is not None:
+        scope |= _referenced_state_fields(projection)
+    for tool in config.get("tools", []):
+        scope |= _referenced_state_fields(tool.get("arguments"))
+    return scope
+
+
+def _referenced_state_fields(value: Any) -> set[str]:
+    """Extract root state field names from resolved `$.field...` references."""
+
+    if isinstance(value, str):
+        if value.startswith("$."):
+            root = re.sub(r"\[\d+\]$", "", value[2:].split(".", 1)[0])
+            return {root} if root else set()
+        return set()
+    if isinstance(value, Mapping):
+        fields: set[str] = set()
+        for item in value.values():
+            fields |= _referenced_state_fields(item)
+        return fields
+    if isinstance(value, list):
+        fields = set()
+        for item in value:
+            fields |= _referenced_state_fields(item)
+        return fields
+    return set()
 
 
 def _guardrails(guardrails: Any, node_id: str) -> dict[str, Any]:
