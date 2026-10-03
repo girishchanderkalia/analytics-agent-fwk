@@ -7,13 +7,26 @@ from typing import Any, Awaitable, Callable
 
 from analytics_foundation_client import (
     AnalyticsFoundationClient,
-    TdbbCompareRequest,
+    DatasetMetadata,
+    DistributionStats,
     OutlierDetectionRequest,
+    OutlierDetectionResult,
     RegistrationRequest,
+    RegistrationStatus,
+    TdbbCompareRequest,
+    TdbbCompareResult,
+    TdbbRunData,
+    TdbbRunInfo,
     TdbbRunRequest,
+    TdbbRunResult,
     TrendQueryRequest,
+    TrendResponse,
     WaferQueryRequest,
+    WaferQueryResponse,
+    WorkspaceConnectionInfo,
     WorkspaceFiltersRequest,
+    WorkspaceFiltersResponse,
+    WorkspaceResponse,
 )
 
 from .errors import FoundationMcpToolNotFoundError
@@ -217,21 +230,20 @@ def _outlier_detection_schema() -> dict[str, Any]:
 
 
 def _tool_catalog() -> tuple[FoundationMcpTool, ...]:
-    any_object = {"type": "object", "additionalProperties": True}
     empty = _object_schema({})
     return (
-        FoundationMcpTool("query_trends", "1", "Query trend series.", _trend_schema(), any_object, {"readOnlyHint": True}),
-        FoundationMcpTool("get_distribution_stats", "1", "Get trend distribution statistics.", _trend_schema(), any_object, {"readOnlyHint": True}),
-        FoundationMcpTool("detect_outliers", "1", "Deterministically find every trend point violating an absolute or per-series baseline threshold.", _outlier_detection_schema(), any_object, {"readOnlyHint": True}),
-        FoundationMcpTool("get_metadata", "1", "Get dataset metadata.", empty, any_object, {"readOnlyHint": True}),
-        FoundationMcpTool("create_workspace", "1", "Create a workspace.", empty, any_object, {"destructiveHint": False}),
-        FoundationMcpTool("add_workspace_filters", "1", "Apply workspace filters.", _object_schema({"workspace_id": {"type": "string"}, "filters": any_object}, ["workspace_id", "filters"]), any_object, {"idempotentHint": True}),
-        FoundationMcpTool("get_workspace_connection_info", "1", "Get workspace connection information.", _object_schema({"workspace_id": {"type": "string"}}, ["workspace_id"]), any_object, {"readOnlyHint": True}),
-        FoundationMcpTool("register_dataset", "1", "Register a dataset in a workspace.", _object_schema({"workspace_id": {"type": "string"}, "dataset": {"type": "string"}, "table": {"type": "string"}}, ["workspace_id", "dataset", "table"]), any_object, {"destructiveHint": False}),
-        FoundationMcpTool("get_registration_status", "1", "Get dataset registration status.", _object_schema({"workspace_id": {"type": "string"}, "registration_id": {"type": "string"}}, ["workspace_id", "registration_id"]), any_object, {"readOnlyHint": True}),
-        FoundationMcpTool("query_wafers", "1", "Query wafer rows.", _object_schema({"workspace_id": {"type": "string"}, "table": {"type": "string"}, "filters": any_object}, ["workspace_id", "table"]), any_object, {"readOnlyHint": True}),
-        FoundationMcpTool("run_tdbb", "1", "Request TDBB processing before and after a change date; returns completed run IDs, budgets and maps.", _tdbb_schema(), any_object, {"destructiveHint": False}),
-        FoundationMcpTool("compare_tdbb_runs", "1", "Compare completed TDBB runs by ID and return Foundation-computed budget deltas.", _tdbb_compare_schema(), any_object, {"readOnlyHint": True}),
-        FoundationMcpTool("get_tdbb_run", "1", "Get TDBB run metadata.", _object_schema({"run_id": {"type": "string"}}, ["run_id"]), any_object, {"readOnlyHint": True}),
-        FoundationMcpTool("get_tdbb_data", "1", "Get TDBB output rows of one run.", _object_schema({"run_id": {"type": "string"}, "tables": {"type": "array", "items": {"type": "string", "enum": ["ce_wafer", "ce_field", "nce_wafer", "nce_field"]}}}, ["run_id"]), any_object, {"readOnlyHint": True}),
+        FoundationMcpTool("query_trends", "1", "Query trend series.", _trend_schema(), TrendResponse.model_json_schema(), {"readOnlyHint": True}),
+        FoundationMcpTool("get_distribution_stats", "1", "Get trend distribution statistics.", _trend_schema(), DistributionStats.model_json_schema(), {"readOnlyHint": True}),
+        FoundationMcpTool("detect_outliers", "1", "Deterministically find every trend point violating an absolute or per-series baseline threshold.", _outlier_detection_schema(), OutlierDetectionResult.model_json_schema(), {"readOnlyHint": True}),
+        FoundationMcpTool("get_metadata", "1", "Get dataset metadata.", empty, DatasetMetadata.model_json_schema(), {"readOnlyHint": True}),
+        FoundationMcpTool("create_workspace", "1", "Create a workspace.", empty, WorkspaceResponse.model_json_schema(), {"destructiveHint": False}),
+        FoundationMcpTool("add_workspace_filters", "1", "Apply workspace filters.", _object_schema({"workspace_id": {"type": "string"}, "filters": {"type": "object", "additionalProperties": True}}, ["workspace_id", "filters"]), WorkspaceFiltersResponse.model_json_schema(), {"idempotentHint": True}),
+        FoundationMcpTool("get_workspace_connection_info", "1", "Get workspace connection information.", _object_schema({"workspace_id": {"type": "string"}}, ["workspace_id"]), WorkspaceConnectionInfo.model_json_schema(), {"readOnlyHint": True}),
+        FoundationMcpTool("register_dataset", "1", "Register a dataset in a workspace.", _object_schema({"workspace_id": {"type": "string"}, "dataset": {"type": "string"}, "table": {"type": "string"}}, ["workspace_id", "dataset", "table"]), RegistrationStatus.model_json_schema(), {"destructiveHint": False}),
+        FoundationMcpTool("get_registration_status", "1", "Get dataset registration status.", _object_schema({"workspace_id": {"type": "string"}, "registration_id": {"type": "string"}}, ["workspace_id", "registration_id"]), RegistrationStatus.model_json_schema(), {"readOnlyHint": True}),
+        FoundationMcpTool("query_wafers", "1", "Query wafer rows.", _object_schema({"workspace_id": {"type": "string"}, "table": {"type": "string"}, "filters": {"type": "object", "additionalProperties": True}}, ["workspace_id", "table"]), WaferQueryResponse.model_json_schema(), {"readOnlyHint": True}),
+        FoundationMcpTool("run_tdbb", "1", "Request TDBB processing before and after a change date; returns completed run IDs, budgets and maps.", _tdbb_schema(), TdbbRunResult.model_json_schema(), {"destructiveHint": False}),
+        FoundationMcpTool("compare_tdbb_runs", "1", "Compare completed TDBB runs by ID and return Foundation-computed budget deltas.", _tdbb_compare_schema(), TdbbCompareResult.model_json_schema(), {"readOnlyHint": True}),
+        FoundationMcpTool("get_tdbb_run", "1", "Get TDBB run metadata.", _object_schema({"run_id": {"type": "string"}}, ["run_id"]), TdbbRunInfo.model_json_schema(), {"readOnlyHint": True}),
+        FoundationMcpTool("get_tdbb_data", "1", "Get TDBB output rows of one run.", _object_schema({"run_id": {"type": "string"}, "tables": {"type": "array", "items": {"type": "string", "enum": ["ce_wafer", "ce_field", "nce_wafer", "nce_field"]}}}, ["run_id"]), TdbbRunData.model_json_schema(), {"readOnlyHint": True}),
     )
