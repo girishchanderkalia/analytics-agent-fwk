@@ -695,16 +695,35 @@ function gateQuestion(request) {
 }
 
 function resolveGate(gateNode, label, decision) {
-  gateNode.querySelector(".gate").classList.add("resolved");
-  gateNode.querySelector(".gate-actions").innerHTML =
-    `<span class="gate-label">${escapeHtml(label)}</span>`;
+  const gateEl = gateNode.querySelector(".gate");
+  const actionsEl = gateNode.querySelector(".gate-actions");
+  const buttons = [...actionsEl.querySelectorAll("button")];
   const select = gateNode.querySelector("select");
-  if (select) select.disabled = true;
   const input = gateNode.querySelector("input");
+  buttons.forEach((button) => (button.disabled = true));
+  if (select) select.disabled = true;
   if (input) input.disabled = true;
+  gateEl.classList.remove("gate-failed");
+  gateEl.querySelector(".gate-error")?.remove();
   send(
     () => window.OpoBff.resume(conversationId, decision, conversationVersion),
     "Continuing investigation\u2026",
+    {
+      onSuccess: () => {
+        gateEl.classList.add("resolved");
+        actionsEl.innerHTML = `<span class="gate-label">${escapeHtml(label)}</span>`;
+      },
+      onError: (err) => {
+        gateEl.classList.add("gate-failed");
+        actionsEl.insertAdjacentHTML(
+          "beforebegin",
+          `<p class="gate-error">Could not continue: ${escapeHtml(err.message)}. You can try again.</p>`,
+        );
+        buttons.forEach((button) => (button.disabled = false));
+        if (select) select.disabled = false;
+        if (input) input.disabled = false;
+      },
+    },
   );
 }
 
@@ -1235,11 +1254,14 @@ function handleResponse(runtime) {
       `<div class="findings">${renderMarkdown(evidence.findings || "")}</div>`}`);
 }
 
-async function send(call, busyLabel) {
+async function send(call, busyLabel, callbacks = {}) {
   setBusy(true, busyLabel);
   try {
-    handleResponse(await call());
+    const response = await call();
+    handleResponse(response);
+    callbacks.onSuccess?.(response);
   } catch (err) {
+    callbacks.onError?.(err);
     addNode("msg agent", `<span class="badge cancelled">Error</span>
       <p>${escapeHtml(err.message)}</p>`);
   } finally {

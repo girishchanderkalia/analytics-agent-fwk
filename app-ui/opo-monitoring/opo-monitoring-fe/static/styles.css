@@ -454,6 +454,17 @@ main.right-panel-collapsed .panel-toggle {
   background: transparent;
 }
 
+.gate.gate-failed {
+  border-color: var(--danger);
+  background: rgba(248, 81, 73, 0.07);
+}
+
+.gate-error {
+  color: var(--danger);
+  font-size: 13px;
+  margin: 0 0 10px;
+}
+
 .findings h2,
 .findings h3 {
   font-size: 14px;
