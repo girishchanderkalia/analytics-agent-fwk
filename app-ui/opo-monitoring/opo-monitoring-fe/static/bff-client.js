@@ -6,7 +6,7 @@
 // envelope reaches the renderer unchanged; the only shaping here is building
 // the request DTOs the API declares.
 
-const AGENT_ID = window.OPO_AGENT_ID || "monitoring-agent";
+const AGENT_ID = window.OPO_AGENT_ID || "opo-analysis-agent-v1";
 const APPLICATION_ID = window.OPO_APPLICATION_ID || "opo-monitoring";
 
 async function requestJson(path, options) {

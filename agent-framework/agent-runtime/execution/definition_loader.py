@@ -1036,7 +1036,7 @@ def build_argument_parser() -> argparse.ArgumentParser:
         nargs="?",
         default=(
             "./ai-enabled-analytics-v3/"
-            "agents/monitoring-agent"
+            "agents/opo-analysis-agent-v1"
         ),
         help=(
             "Path to the application-agent directory. "

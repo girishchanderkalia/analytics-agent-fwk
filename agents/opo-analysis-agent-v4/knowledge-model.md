@@ -1,7 +1,17 @@
 ---
-id: monitoring-agent-knowledge
-version: "1.0"
+id: opo-analysis-agent-v4-knowledge
+version: "4.0"
 kind: knowledge-model
+
+# `concepts` is a glossary for the agent development team; it is validated but
+# not injected into prompts. `evidence_labels` is the single source of truth
+# for data semantics: each key MUST match a declared state-model.md field, and
+# the runtime injects an entry into a model node's prompt only when that node
+# actually reads or writes the field (see workflow-definition.md inputs /
+# input_projection / output_to). Keep both sections limited to what this
+# agent's workflow actually produces or consumes - a stale entry here is
+# either silently wasted (concepts) or rejected at load time (evidence_labels,
+# since the field-match is validated).
 
 concepts:
   trend:
@@ -9,73 +19,55 @@ concepts:
     description: >
       A time-ordered representation of an application-defined OPO KPI.
 
-  detection_scope:
-    owner: OPO Monitoring application
-    description: >
-      The deterministic rule and threshold used to identify candidate
-      outliers.
-
-  outlier:
-    owner: OPO Monitoring application
-    description: >
-      A trend observation that violates the selected deterministic detection
-      rule.
-
-  selected_outlier:
-    owner: OPO Monitoring application
-    description: >
-      A candidate outlier selected by the analyst for deeper investigation.
-
-  workspace:
+  tdbb_run:
     owner: Analytics Foundation
     description: >
-      Governed analytical context created for an approved investigation.
+      Completed TDBB processing (10par model, AVG per lot and W2W per wafer)
+      reported as an overview of NCE and CE wafer, field and translation
+      budgets per context level (average, chuck to chuck, lot to lot, wafer
+      to wafer), each |mean| + 3 sigma in nm.
 
-  registration:
-    owner: Analytics Foundation
-    description: >
-      Evidence describing whether requested analytical data is available in
-      the investigation workspace.
-
-  wafer_evidence:
+  tdbb_comparison:
     owner: OPO Monitoring application
     description: >
-      Wafer-level rows returned through governed Analytics Foundation
-      capabilities and interpreted using application semantics.
+      Before/after change in each TDBB budget and the largest increase.
 
 evidence_labels:
   trend_filters:
     description: Filters extracted from the analyst request.
 
   trend_series:
-    description: Trend rows returned by the trend-query capability.
+    description: Per-wafer overlay X and Y KPIs returned by the trend-query capability.
 
-  detection_scope:
-    description: Detection mode and threshold used to identify outliers.
+  change_suggestion:
+    description: >
+      Suggested change date and prefilled follow-up question derived from a
+      step in the daily X/Y means.
 
-  analysis:
-    description: Deterministic trend-analysis output.
+  comparison_scope:
+    description: Change date separating the before and after periods.
 
-  outliers:
-    description: Candidate outliers produced by deterministic analysis.
+  tdbb_before_run:
+    description: >
+      Foundation TDBB result for the before period: run IDs, budgets (NCE and
+      CE wafer, field and translation per context level, each |mean| + 3
+      sigma in nm) and wafer/field maps, from the 10par model with AVG and
+      W2W context levels.
 
-  selected_outlier:
-    description: Candidate selected by the analyst.
+  tdbb_after_run:
+    description: >
+      Foundation TDBB result for the after period, with the same semantics as
+      tdbb_before_run.
 
-  workspace_request:
-    description: Model request record for the Foundation workspace operation.
+  tdbb_model_analysis:
+    description: >
+      Model interpretation of where the before/after TDBB budget change is
+      concentrated, grounded only in tdbb_before_run and tdbb_after_run.
 
-  filter_request:
-    description: Model request record for applying Foundation workspace filters.
-
-  registration_request:
-    description: Model request record for registering the Foundation dataset.
-
-  anomalous_wafers:
-    description: Wafer records identified as anomalous.
-
-  wafer_rows:
-    description: Wafer-level rows used to support findings.
+  tdbb_summary:
+    description: >
+      Analyst-facing summary of the TDBB comparison, including the largest
+      relative budget increase.
 ---
 
 # OPO Monitoring Knowledge Model
@@ -127,6 +119,7 @@ A finding may describe:
 - a comparison between supplied observations
 - a grouping pattern present in supplied evidence
 - a spatial pattern present in supplied wafer evidence
+- a change in a TDBB budget between two periods
 - a limitation of the available evidence
 
 A finding must not describe:

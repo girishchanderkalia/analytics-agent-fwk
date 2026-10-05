@@ -1,5 +1,5 @@
 ---
-id: monitoring-agent-capabilities
+id: opo-analysis-agent-v1-capabilities
 version: "1.0"
 kind: tools-and-capabilities
 
@@ -187,7 +187,7 @@ capabilities:
 
 # OPO Monitoring Tools and Capabilities
 
-Capabilities describe the contract between the OPO Monitoring Agent and the
+Capabilities describe the contract between the OPO Analysis Agent and the
 shared Application Agent Runtime.
 
 The Capability Adaptor is owned by the Application Agent Runtime. The

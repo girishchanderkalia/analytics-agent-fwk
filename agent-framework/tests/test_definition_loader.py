@@ -10,7 +10,7 @@ import pytest
 V3_ROOT = Path(__file__).resolve().parents[2]
 AGENT_RUNTIME_ROOT = V3_ROOT / "agent-framework" / "agent-runtime"
 AGENT_REPOSITORY_ROOT = V3_ROOT / "agents"
-OPO_AGENT_ROOT = AGENT_REPOSITORY_ROOT / "monitoring-agent"
+OPO_AGENT_ROOT = AGENT_REPOSITORY_ROOT / "opo-analysis-agent-v1"
 
 # Add agent-runtime to Python's module search path.
 # This must appear before importing execution.definition_loader.
@@ -34,9 +34,9 @@ def test_opo_agent_bundle_loads() -> None:
     bundle = load_agent_definition(OPO_AGENT_ROOT)
 
     assert isinstance(bundle, AgentDefinitionBundle)
-    assert bundle.agent_id == "monitoring-agent"
-    assert bundle.version == "1.0"
-    assert bundle.display_name == "Monitoring Agent"
+    assert bundle.agent_id == "opo-analysis-agent-v1"
+    assert bundle.version == "V1"
+    assert bundle.display_name == "OPO Analysis Agent"
 
 
 def test_all_required_definition_files_are_loaded() -> None:
@@ -49,42 +49,42 @@ def test_agent_definition_is_available() -> None:
     bundle = load_agent_definition(OPO_AGENT_ROOT)
 
     assert bundle.agent.kind == "agent"
-    assert bundle.agent.id == "monitoring-agent"
+    assert bundle.agent.id == "opo-analysis-agent-v1"
 
 
 def test_workflow_definition_is_available() -> None:
     bundle = load_agent_definition(OPO_AGENT_ROOT)
 
     assert bundle.workflow.kind == "workflow"
-    assert bundle.workflow.id == "monitoring-agent-workflow"
+    assert bundle.workflow.id == "opo-analysis-agent-v1-workflow"
 
 
 def test_state_definition_is_available() -> None:
     bundle = load_agent_definition(OPO_AGENT_ROOT)
 
     assert bundle.state.kind == "state-model"
-    assert bundle.state.id == "monitoring-agent-state"
+    assert bundle.state.id == "opo-analysis-agent-v1-state"
 
 
 def test_capability_definition_is_available() -> None:
     bundle = load_agent_definition(OPO_AGENT_ROOT)
 
     assert bundle.capabilities.kind == "tools-and-capabilities"
-    assert bundle.capabilities.id == "monitoring-agent-capabilities"
+    assert bundle.capabilities.id == "opo-analysis-agent-v1-capabilities"
 
 
 def test_knowledge_definition_is_available() -> None:
     bundle = load_agent_definition(OPO_AGENT_ROOT)
 
     assert bundle.knowledge.kind == "knowledge-model"
-    assert bundle.knowledge.id == "monitoring-agent-knowledge"
+    assert bundle.knowledge.id == "opo-analysis-agent-v1-knowledge"
 
 
 def test_sequence_definition_is_available() -> None:
     bundle = load_agent_definition(OPO_AGENT_ROOT)
 
     assert bundle.sequences.kind == "sequence-diagrams"
-    assert bundle.sequences.id == "monitoring-agent-sequences"
+    assert bundle.sequences.id == "opo-analysis-agent-v1-sequences"
 
 
 def test_repository_discovers_opo_monitoring() -> None:
@@ -92,15 +92,15 @@ def test_repository_discovers_opo_monitoring() -> None:
 
     discovered_agents = repository.list_agent_directories()
 
-    assert "monitoring-agent" in discovered_agents
+    assert "opo-analysis-agent-v1" in discovered_agents
 
 
 def test_repository_loads_agent_by_directory_name() -> None:
     repository = AgentRepository(AGENT_REPOSITORY_ROOT)
 
-    bundle = repository.load("monitoring-agent")
+    bundle = repository.load("opo-analysis-agent-v1")
 
-    assert bundle.agent_id == "monitoring-agent"
+    assert bundle.agent_id == "opo-analysis-agent-v1"
 
 
 def test_repository_loads_all_agents_by_agent_id() -> None:
@@ -108,8 +108,8 @@ def test_repository_loads_all_agents_by_agent_id() -> None:
 
     agents = repository.load_all()
 
-    assert "monitoring-agent" in agents
-    assert agents["monitoring-agent"].display_name == "Monitoring Agent"
+    assert "opo-analysis-agent-v1" in agents
+    assert agents["opo-analysis-agent-v1"].display_name == "OPO Analysis Agent"
 
 
 def test_workflow_uses_supported_node_types() -> None:

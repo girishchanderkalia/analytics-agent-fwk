@@ -1,9 +1,9 @@
 ---
-id: tdbb-analysis-agent
-version: "4.0"
+id: opo-analysis-agent-v4
+version: "V4"
 kind: agent
 
-display_name: TDBB Analysis Agent
+display_name: OPO Analysis Agent
 
 description: >
   Displays a scoped OPO performance trend (overlay X and Y in nm) and, for an
@@ -402,9 +402,9 @@ guardrails:
   - Require approval before operations marked as approval-required.
 ---
 
-# OPO Monitoring Agent
+# OPO Analysis Agent
 
-The OPO Monitoring Agent interprets analyst requests, coordinates governed
+The OPO Analysis Agent interprets analyst requests, coordinates governed
 Analytics Foundation capabilities, and produces evidence-based findings.
 
 Model calls are limited to interpretation and summarization. Deterministic

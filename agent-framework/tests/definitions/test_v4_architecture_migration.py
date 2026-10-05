@@ -11,17 +11,17 @@ from bootstrap.markdown_agent_registration import register_markdown_agents
 from mcp_tools.fixed_registry import create_fixed_tool_registry
 
 
-V4 = ROOT / "agents" / "tdbb-analysis-agent"
+V4 = ROOT / "agents" / "opo-analysis-agent-v4"
 PACKAGES = (
-    ROOT / "agents" / "monitoring-agent",
+    ROOT / "agents" / "opo-analysis-agent-v1",
     V4,
 )
 
 
 def test_all_opo_packages_load_with_foundation_only_tools():
     expected = {
-        "monitoring-agent": "1.0",
-        "tdbb-analysis-agent": "4.0",
+        "opo-analysis-agent-v1": "V1",
+        "opo-analysis-agent-v4": "V4",
     }
 
     for package in PACKAGES:
@@ -48,7 +48,7 @@ def test_all_opo_packages_register_as_distinct_versions():
 
     assert len(result.registrations) == 2
     assert {record.key.agent_id for record in result.registrations} == {
-        "monitoring-agent", "tdbb-analysis-agent",
+        "opo-analysis-agent-v1", "opo-analysis-agent-v4",
     }
     assert len(catalog.list_for_application("opo-monitoring")) == 2
 
@@ -85,6 +85,6 @@ def test_default_startup_has_three_deployables_and_v4_only():
 
     assert "start_service \"opo-capability\"" not in startup
     assert "OPO_CAPABILITY_MCP_URL" not in startup
-    for package in ("monitoring-agent", "tdbb-analysis-agent"):
+    for package in ("opo-analysis-agent-v1", "opo-analysis-agent-v4"):
         assert f"agents/{package}" in startup
         assert f"agents/{package}" in local_deploy

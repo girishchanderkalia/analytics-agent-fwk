@@ -24,7 +24,7 @@ from bootstrap.markdown_agent_registration import (  # noqa: E402
     register_markdown_agents_from_environment,
 )
 
-AGENT = ROOT / "agents" / "monitoring-agent"
+AGENT = ROOT / "agents" / "opo-analysis-agent-v1"
 APPLICATION = "opo-monitoring"
 
 
@@ -42,7 +42,7 @@ def test_registration_reads_identity_from_the_package() -> None:
 
     record = result.registrations[0]
     assert record.key == AgentRegistrationKey(
-        APPLICATION, "monitoring-agent", "1.0"
+        APPLICATION, "opo-analysis-agent-v1", "V1"
     )
     assert record.definition_root == AGENT.resolve()
     assert catalog.contains(record.key)

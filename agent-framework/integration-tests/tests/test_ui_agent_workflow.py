@@ -78,7 +78,7 @@ def test_v4_starter_prompt_uses_observed_product_layer_scanner_and_date(page: Pa
         re.compile(r"[1-9]\d* series .* [1-9]\d* points"), timeout=30_000
     )
     expect(page.locator("#agent-select")).to_be_enabled(timeout=30_000)
-    page.locator("#agent-select").select_option(label="TDBB Analysis Agent (v4.0)")
+    page.locator("#agent-select").select_option(label="OPO Analysis Agent (V4)")
 
     prompt = page.locator("#message-input").input_value()
     match = re.fullmatch(

@@ -1,5 +1,5 @@
 ---
-id: monitoring-agent-sequences
+id: opo-analysis-agent-v1-sequences
 version: "1.0"
 kind: sequence-diagrams
 ---
@@ -34,7 +34,7 @@ sequenceDiagram
     participant CopilotFE as Analytics Copilot FE
     participant CopilotService as Analytics Copilot Service
     participant Runtime as Application Agent Runtime
-    participant Agent as OPO Monitoring Agent
+    participant Agent as OPO Analysis Agent
     participant Model as Model Gateway
     participant Adaptor as Capability Adaptor
     participant AF as Analytics Foundation APIs

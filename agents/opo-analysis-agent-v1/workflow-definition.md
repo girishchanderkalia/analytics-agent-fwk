@@ -1,5 +1,5 @@
 ---
-id: monitoring-agent-workflow
+id: opo-analysis-agent-v1-workflow
 version: "1.0"
 kind: workflow
 

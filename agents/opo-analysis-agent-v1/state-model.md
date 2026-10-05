@@ -1,5 +1,5 @@
 ---
-id: monitoring-agent-state
+id: opo-analysis-agent-v1-state
 version: "1.0"
 kind: state-model
 

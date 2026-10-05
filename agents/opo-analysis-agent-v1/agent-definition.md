@@ -1,9 +1,9 @@
 ---
-id: monitoring-agent
-version: "1.0"
+id: opo-analysis-agent-v1
+version: "V1"
 kind: agent
 
-display_name: Monitoring Agent
+display_name: OPO Analysis Agent
 
 description: >
   Supports conversational investigation of OPO KPI trends, candidate
@@ -286,9 +286,9 @@ guardrails:
   - Require approval before Foundation tools marked as approval-required.
 ---
 
-# OPO Monitoring Agent
+# OPO Analysis Agent
 
-The OPO Monitoring Agent interprets analyst requests, coordinates governed
+The OPO Analysis Agent interprets analyst requests, coordinates governed
 Analytics Foundation capabilities, and produces evidence-based findings.
 
 Model calls interpret supplied evidence and request governed Foundation tools.

@@ -19,7 +19,7 @@ from definitions.normalization_errors import (  # noqa: E402
     DefinitionNormalizationError,
 )
 
-AGENT = ROOT / "agents" / "monitoring-agent"
+AGENT = ROOT / "agents" / "opo-analysis-agent-v1"
 
 
 @pytest.fixture(scope="module")
@@ -34,8 +34,8 @@ def node(definition, node_id):
 
 
 def test_identity_and_entry_come_from_the_package(definition) -> None:
-    assert definition.agent_id == "monitoring-agent"
-    assert definition.version == "1.0"
+    assert definition.agent_id == "opo-analysis-agent-v1"
+    assert definition.version == "V1"
     assert definition.graph.entry_node == "parse_trend_request"
 
 
