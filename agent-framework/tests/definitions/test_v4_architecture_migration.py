@@ -14,8 +14,6 @@ from mcp_tools.fixed_registry import create_fixed_tool_registry
 V4 = ROOT / "agents" / "tdbb-analysis-agent"
 PACKAGES = (
     ROOT / "agents" / "monitoring-agent",
-    ROOT / "agents" / "opo-monitoring-v2",
-    ROOT / "agents" / "opo-monitoring-v3",
     V4,
 )
 
@@ -23,8 +21,6 @@ PACKAGES = (
 def test_all_opo_packages_load_with_foundation_only_tools():
     expected = {
         "monitoring-agent": "1.0",
-        "opo-monitoring-v2": "2.0",
-        "opo-monitoring-v3": "3.0",
         "tdbb-analysis-agent": "4.0",
     }
 
@@ -50,12 +46,11 @@ def test_all_opo_packages_register_as_distinct_versions():
         package_roots=list(PACKAGES),
     )
 
-    assert len(result.registrations) == 4
+    assert len(result.registrations) == 2
     assert {record.key.agent_id for record in result.registrations} == {
-        "monitoring-agent", "opo-monitoring-v2", "opo-monitoring-v3",
-        "tdbb-analysis-agent",
+        "monitoring-agent", "tdbb-analysis-agent",
     }
-    assert len(catalog.list_for_application("opo-monitoring")) == 4
+    assert len(catalog.list_for_application("opo-monitoring")) == 2
 
 
 def test_v4_uses_governed_foundation_tools_only():
@@ -90,6 +85,6 @@ def test_default_startup_has_three_deployables_and_v4_only():
 
     assert "start_service \"opo-capability\"" not in startup
     assert "OPO_CAPABILITY_MCP_URL" not in startup
-    for package in ("monitoring-agent", "opo-monitoring-v2", "opo-monitoring-v3", "tdbb-analysis-agent"):
+    for package in ("monitoring-agent", "tdbb-analysis-agent"):
         assert f"agents/{package}" in startup
         assert f"agents/{package}" in local_deploy

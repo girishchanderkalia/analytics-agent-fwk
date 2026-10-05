@@ -82,9 +82,9 @@ capabilities:
     side_effect: true
     approval_required: true
     request:
-      start_date: ${state.comparison_scope.change_date}
+      start_date: ${state.trend_filters.start_date}
       end_date: ${state.trend_filters.end_date}
-      change_date: ${state.trend_filters.end_date}
+      change_date: ${state.comparison_scope.change_date}
       lot_ids: ${state.trend_filters.lot_ids}
       product_ids: ${state.trend_filters.product_ids}
       layer_ids: ${state.trend_filters.layer_ids}

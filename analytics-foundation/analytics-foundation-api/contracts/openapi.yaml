@@ -548,6 +548,10 @@ components:
         context_label: {type: string}
         x_m3s: {type: number, nullable: true}
         y_m3s: {type: number, nullable: true}
+        mean_x: {type: number, nullable: true, description: "Component mean, nm; combine across components by direct sum."}
+        mean_y: {type: number, nullable: true}
+        sigma_x: {type: number, nullable: true, description: "Component sigma, nm; combine across components in quadrature (RSS)."}
+        sigma_y: {type: number, nullable: true}
       additionalProperties: false
     TdbbBudgetDelta:
       type: object
@@ -626,6 +630,10 @@ components:
               context_label: {type: string}
               x_m3s: {type: number, nullable: true, description: nm}
               y_m3s: {type: number, nullable: true, description: nm}
+              mean_x: {type: number, nullable: true, description: "Component mean, nm; combine across components by direct sum."}
+              mean_y: {type: number, nullable: true}
+              sigma_x: {type: number, nullable: true, description: "Component sigma, nm; combine across components in quadrature (RSS)."}
+              sigma_y: {type: number, nullable: true}
             additionalProperties: false
       additionalProperties: false
     TdbbMap:

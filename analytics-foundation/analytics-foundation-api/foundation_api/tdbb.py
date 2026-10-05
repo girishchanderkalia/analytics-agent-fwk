@@ -52,16 +52,25 @@ class _Stats:
     def mean(self) -> tuple[float, float]:
         return self.sx / self.n, self.sy / self.n
 
+    def sigma(self) -> tuple[float | None, float | None]:
+        if self.n < 2:
+            return None, None
+        return round(math.sqrt(_variance(self.n, self.sx, self.sxx)), 3), round(math.sqrt(_variance(self.n, self.sy, self.syy)), 3)
+
     def m3s(self) -> tuple[float | None, float | None]:
         if self.n < 2:
             return None, None
         return _m3s(self.n, self.sx, self.sxx), _m3s(self.n, self.sy, self.syy)
 
 
+def _variance(n: int, total: float, squares: float) -> float:
+    average = total / n
+    return max(0.0, (squares - n * average * average) / (n - 1))
+
+
 def _m3s(n: int, total: float, squares: float) -> float:
     average = total / n
-    variance = max(0.0, (squares - n * average * average) / (n - 1))
-    return round(abs(average) + 3 * math.sqrt(variance), 3)
+    return round(abs(average) + 3 * math.sqrt(_variance(n, total, squares)), 3)
 
 
 def _lot(run: Mapping[str, Any], chuck_ids: Iterable[str] = ()) -> tuple[list[Mapping[str, Any]], list[list[dict[str, float]]]]:
@@ -138,14 +147,17 @@ def process_period(runs: Iterable[Mapping[str, Any]], chuck_ids: Iterable[str] =
             chucks: dict[Any, list[list[tuple[float, float]]]] = defaultdict(list)
             for wafer, wafer_values in zip(wafers, values):
                 chucks[wafer.get("chuck_id")].append(wafer_values)
+            # Nested per the A-C-L-W hierarchy: wafer-to-wafer is the residual within the
+            # wafer's own chuck context, not within the whole lot.
+            chuck_averages = {chuck: [_mean([wv[index] for wv in chuck_values]) for index in range(len(average))] for chuck, chuck_values in chucks.items()}
             for index, (ax, ay) in enumerate(average):
                 location = locations[metric][index]
                 add(metric, "average", location, ax, ay)
-                for wafer_values in values:
-                    add(metric, "wafer_to_wafer", location, wafer_values[index][0] - ax, wafer_values[index][1] - ay)
-                for chuck_values in chucks.values():
-                    cx, cy = _mean([wafer_values[index] for wafer_values in chuck_values])
+                for chuck, chuck_values in chucks.items():
+                    cx, cy = chuck_averages[chuck][index]
                     add(metric, "chuck_to_chuck", location, cx - ax, cy - ay)
+                    for wafer_values in chuck_values:
+                        add(metric, "wafer_to_wafer", location, wafer_values[index][0] - cx, wafer_values[index][1] - cy)
 
     for metric, averages in lot_averages.items():
         period = [_mean(list(column)) for column in zip(*averages)]
@@ -156,7 +168,10 @@ def process_period(runs: Iterable[Mapping[str, Any]], chuck_ids: Iterable[str] =
     summary = []
     for context, context_label in CONTEXTS:
         for metric, metric_label in METRICS:
-            x_m3s, y_m3s = budgets[(metric, context)].m3s()
+            stats = budgets[(metric, context)]
+            x_m3s, y_m3s = stats.m3s()
+            mean_x, mean_y = stats.mean() if stats.n else (None, None)
+            sigma_x, sigma_y = stats.sigma()
             summary.append({
                 "budget": f"{metric}.{context}",
                 "label": f"{metric_label} · {context_label}",
@@ -166,6 +181,10 @@ def process_period(runs: Iterable[Mapping[str, Any]], chuck_ids: Iterable[str] =
                 "context_label": context_label,
                 "x_m3s": x_m3s,
                 "y_m3s": y_m3s,
+                "mean_x": mean_x,
+                "mean_y": mean_y,
+                "sigma_x": sigma_x,
+                "sigma_y": sigma_y,
             })
     return {
         "lot_count": lot_count,

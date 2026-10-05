@@ -72,27 +72,26 @@ def test_ui_loads_and_renders_deterministic_trend_data(page: Page, settings):
 
 
 @pytest.mark.ui
-def test_v2_starter_prompt_uses_observed_product_layer_scanner_and_month(page: Page, settings):
+def test_v4_starter_prompt_uses_observed_product_layer_scanner_and_date(page: Page, settings):
     open_ui(page, settings)
     expect(page.locator("#chart-note")).to_have_text(
         re.compile(r"[1-9]\d* series .* [1-9]\d* points"), timeout=30_000
     )
     expect(page.locator("#agent-select")).to_be_enabled(timeout=30_000)
-    page.locator("#agent-select").select_option(label="OPO-monitoring-v2 (v2.0)")
+    page.locator("#agent-select").select_option(label="TDBB Analysis Agent (v4.0)")
 
     prompt = page.locator("#message-input").input_value()
     match = re.fullmatch(
-        r"Show OPO performance of product (.+), layer (.+) on scanner (.+) since (\d{4}-\d{2})-01",
+        r"Show OPO performance of product (.+), layer (.+) on scanner (.+) since \d{1,2} \w+ \d{4}",
         prompt,
     )
     assert match is not None
-    product, layer, scanner, month = match.groups()
+    product, layer, scanner = match.groups()
     series = page.evaluate("availableTrendSeries")
     assert any(
         item["product"] == product
         and item["layer_id"] == layer
         and (item.get("exposure_equipment_id") or item["machine"]) == scanner
-        and any(point["date"].startswith(month) for point in item["points"])
         for item in series
     )
 

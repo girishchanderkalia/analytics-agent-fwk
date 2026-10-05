@@ -30,7 +30,7 @@ class TdbbRunRequest(TrendQueryRequest):
 class TdbbCompareRequest(StrictModel):
     before_run_ids:list[str]=Field(default_factory=list);after_run_ids:list[str]=Field(default_factory=list)
 class TdbbSettings(StrictModel): model_step:str;context_levels:list[str];budgets:list[str]
-class TdbbBudget(StrictModel): budget:str;label:str;metric:str;metric_label:str;context:str;context_label:str;x_m3s:float|None=None;y_m3s:float|None=None
+class TdbbBudget(StrictModel): budget:str;label:str;metric:str;metric_label:str;context:str;context_label:str;x_m3s:float|None=None;y_m3s:float|None=None;mean_x:float|None=None;mean_y:float|None=None;sigma_x:float|None=None;sigma_y:float|None=None
 class TdbbPeriodSummary(StrictModel): period:Literal["before","after"];run_ids:list[str];lot_count:int=Field(ge=0);wafer_count:int=Field(ge=0);budgets:list[TdbbBudget]
 class TdbbBudgetDelta(StrictModel):
     budget:str;label:str;metric:str;metric_label:str;context:str;context_label:str

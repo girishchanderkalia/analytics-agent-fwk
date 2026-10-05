@@ -12,11 +12,9 @@ const panelResizer = document.getElementById("panel-resizer");
 const agentSelect = document.getElementById("agent-select");
 const tdbbPanel = document.getElementById("tdbb-panel");
 const ncePanel = document.getElementById("nce-panel");
-const V2_AGENT = "opo-monitoring-v2";
-const V3_AGENT = "opo-monitoring-v3";
 const V4_AGENT = "tdbb-analysis-agent";
 const selectedAgentId = () => registeredAgents[agentSelect.selectedIndex]?.agentId;
-const isScopedAgent = (agentId) => agentId === V2_AGENT || agentId === V3_AGENT || agentId === V4_AGENT;
+const isScopedAgent = (agentId) => agentId === V4_AGENT;
 
 let conversationId = null;
 let conversationVersion = null;
@@ -115,20 +113,8 @@ function availableTrendScopes() {
   }));
 }
 
-function v2StarterPrompt() {
-  const observed = (availableTrendSeries || []).filter((series) =>
-    series.product && series.layer_id && (series.exposure_equipment_id || series.machine) && series.points?.length
-  ).map((series) => ({
-    series,
-    month: series.points.map((point) => String(point.date).slice(0, 7)).sort().at(-1),
-  })).sort((left, right) => right.month.localeCompare(left.month) || right.series.points.length - left.series.points.length)[0];
-  if (!observed) return "Show OPO performance by product, layer, and scanner since a date";
-  const { product, layer_id: layer, exposure_equipment_id, machine } = observed.series;
-  return `Show OPO performance of product ${product}, layer ${layer} on scanner ${exposure_equipment_id || machine} since ${observed.month}-01`;
-}
-
 // Series are grouped per lot, so pick the product/layer/scanner scope with the most wafers.
-function v3StarterPrompt() {
+function v4StarterPrompt() {
   const scopes = new Map();
   (availableTrendSeries || []).forEach((series) => {
     const scanner = series.exposure_equipment_id || series.machine;
@@ -147,8 +133,7 @@ function v3StarterPrompt() {
 }
 
 function starterPrompt(agentId) {
-  if (agentId === V2_AGENT) return v2StarterPrompt();
-  if (agentId === V3_AGENT || agentId === V4_AGENT) return v3StarterPrompt();
+  if (agentId === V4_AGENT) return v4StarterPrompt();
   return "Show trends";
 }
 
@@ -1105,8 +1090,7 @@ function handleResponse(runtime) {
 
   const evidence = runtime.result || {};
   const agentId = runtime.agentId || selectedAgentId();
-  const isV3 = agentId === V3_AGENT || agentId === V4_AGENT;
-  const isV2 = isScopedAgent(agentId);
+  const isV4 = isScopedAgent(agentId);
   if (!evidence.tdbb_run) {
     const runResults = Array.isArray(evidence.tdbb_runs) ? evidence.tdbb_runs : [];
     const beforeRun = Array.isArray(evidence.tdbb_before_run)
@@ -1127,63 +1111,36 @@ function handleResponse(runtime) {
       };
     }
   }
-  document.getElementById("trend-title").textContent = isV2 ? "OPO performance trend" : "Daily overlay trend";
-  document.querySelector(".wafer-panel").hidden = isV2;
-  tdbbPanel.hidden = !isV2 || !evidence.comparison_scope;
-  document.getElementById("tdbb-views").hidden = !isV3;
-  ncePanel.hidden = !isV3 || !evidence.tdbb_run;
+  document.getElementById("trend-title").textContent = isV4 ? "OPO performance trend" : "Daily overlay trend";
+  document.querySelector(".wafer-panel").hidden = isV4;
+  tdbbPanel.hidden = !isV4 || !evidence.comparison_scope;
+  document.getElementById("tdbb-views").hidden = !isV4;
+  ncePanel.hidden = !isV4 || !evidence.tdbb_run;
   if (evidence.trend_series) {
     trendSeries = Array.isArray(evidence.trend_series)
       ? evidence.trend_series
       : evidence.trend_series.series || [];
   }
-  else if (isV2) trendSeries = [];
-  if (isV3) {
+  else if (isV4) trendSeries = [];
+  if (isV4) {
     const filters = evidence.trend_filters || {};
     const wafers = drawV3Trend(trendSeries, evidence.comparison_scope?.change_date);
     document.getElementById("chart-note").textContent = filters.start_date
       ? `${filters.start_date} to ${filters.end_date || "?"} \u00b7 ${wafers} wafers \u00b7 overlay X / Y (nm)`
       : "Start date needed";
     if (evidence.comparison_scope) renderTdbb(evidence);
-  } else if (isV2) {
-    renderTrendChart(evidence);
-    const filters = evidence.trend_filters || {};
-    const points = (trendSeries || []).reduce((total, series) => total + (series.points || []).length, 0);
-    document.getElementById("chart-note").textContent = filters.start_date
-      ? `${filters.start_date} to ${filters.end_date || "?"} \u00b7 ${points} KPI points \u00b7 X/Y unavailable`
-      : "Year needed for this scope";
-    if (evidence.comparison_scope) {
-      document.getElementById("tdbb-period").textContent = evidence.comparison_scope.change_date
-        ? `Before / after ${evidence.comparison_scope.change_date}`
-        : "Change date unavailable";
-      document.getElementById("tdbb-note").textContent =
-        "Budget bars and wafer/field plots are unavailable in v2: Analytics Foundation TDBB data is not connected to this agent.";
-    }
   } else {
     renderTrendChart(evidence);
   }
   renderWaferMap(evidence);
   renderEvidence(evidence);
 
-  if (isV2) {
+  if (isV4) {
     if (runtime.approvalRequest) {
       renderGate(runtime.approvalRequest);
       return;
     }
     interactionPanel.hidden = true;
-    if (!isV3) {
-      if (runtime.status === "completed" && evidence.comparison_scope) {
-        addNode("msg agent", `<span class="badge ready">Comparison set up</span>
-          <p>Before/after TDBB budgets and wafer/field plots are waiting for Analytics Foundation data. No TDBB measurements or cause can be reported yet.</p>`);
-      } else if (runtime.status === "cancelled") {
-        addNode("msg agent", "<p>Comparison finished without TDBB analysis.</p>");
-      } else if (runtime.status === "completed" && !evidence.trend_filters?.start_date) {
-        addNode("msg agent", "<p>No matching trend data was available to determine a year. Please include a year in the date and try again.</p>");
-      } else if (runtime.status === "failed") {
-        addNode("msg agent", "<p>Could not set up the comparison.</p>");
-      }
-      return;
-    }
     if (runtime.status === "completed" && evidence.tdbb_summary) {
       const summary = evidence.tdbb_summary;
       const limits = (summary.limitations || []).map((item) => `<li>${escapeHtml(item)}</li>`).join("");
@@ -1283,11 +1240,11 @@ document.getElementById("composer").onsubmit = (event) => {
   findingsContent.innerHTML = "";
   tdbbPanel.hidden = true;
   ncePanel.hidden = true;
-  const isV2 = isScopedAgent(selectedAgentId());
-  document.querySelector(".wafer-panel").hidden = isV2;
+  const isV4 = isScopedAgent(selectedAgentId());
+  document.querySelector(".wafer-panel").hidden = isV4;
   messageInput.disabled = false;
   evidencePane.innerHTML = '<div class="empty-state small"><p>No evidence yet.</p></div>';
-  if (isV2) Plotly.purge(document.getElementById("trend-plot"));
+  if (isV4) Plotly.purge(document.getElementById("trend-plot"));
   else drawPlot(null, null);
   addNode("msg user", escapeHtml(message));
   send(() => window.OpoBff.startChat(
@@ -1344,13 +1301,13 @@ async function loadAgents() {
 }
 
 agentSelect.addEventListener("change", () => {
-  const isV2 = isScopedAgent(selectedAgentId());
+  const isV4 = isScopedAgent(selectedAgentId());
   messageInput.value = starterPrompt(selectedAgentId());
-  document.querySelector(".wafer-panel").hidden = isV2;
+  document.querySelector(".wafer-panel").hidden = isV4;
   tdbbPanel.hidden = true;
   ncePanel.hidden = true;
-  document.getElementById("trend-title").textContent = isV2 ? "OPO performance trend" : "Daily overlay trend";
-  if (isV2) {
+  document.getElementById("trend-title").textContent = isV4 ? "OPO performance trend" : "Daily overlay trend";
+  if (isV4) {
     Plotly.purge(document.getElementById("trend-plot"));
     document.getElementById("chart-note").textContent = "Awaiting scope";
   } else {

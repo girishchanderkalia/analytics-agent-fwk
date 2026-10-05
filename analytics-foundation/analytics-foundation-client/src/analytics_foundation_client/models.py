@@ -178,6 +178,10 @@ class TdbbBudget(StrictModel):
     context_label: str = Field(description="Human-readable context label, e.g. 'Wafer to wafer'.")
     x_m3s: float | None = Field(default=None, description="Overlay X budget value, |mean| + 3 sigma in nm.")
     y_m3s: float | None = Field(default=None, description="Overlay Y budget value, |mean| + 3 sigma in nm.")
+    mean_x: float | None = Field(default=None, description="Overlay X component mean, nm; combine across components by direct sum.")
+    mean_y: float | None = Field(default=None, description="Overlay Y component mean, nm; combine across components by direct sum.")
+    sigma_x: float | None = Field(default=None, description="Overlay X component sigma, nm; combine across components in quadrature (RSS).")
+    sigma_y: float | None = Field(default=None, description="Overlay Y component sigma, nm; combine across components in quadrature (RSS).")
 
 
 class TdbbPeriodSummary(StrictModel):
