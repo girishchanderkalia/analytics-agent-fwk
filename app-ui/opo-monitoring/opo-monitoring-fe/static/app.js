@@ -329,7 +329,7 @@ function drawTdbbOverview(plot, before, after) {
       const y1 = 0.94 - row * height;
       layout[`xaxis${suffix}`] = { domain: [x0 + gap, x0 + width - gap], anchor: `y${suffix}`, type: "category", fixedrange: true, linecolor: "#2a3441", tickfont: { size: 10 } };
       layout[`yaxis${suffix}`] = { domain: [y1 - height + 0.035, y1 - 0.01], anchor: `x${suffix}`, range: [0, top], fixedrange: true, gridcolor: "#2a3441", zeroline: false, showticklabels: column === 0, tickfont: { size: 9 } };
-      [["before", before, "#8fb8de"], ["after", after, "#f0883e"]].forEach(([name, period, color]) => {
+      [["before", before, "#4c9aff"], ["after", after, "#f0883e"]].forEach(([name, period, color]) => {
         const values = cell(period, metric, context);
         traces.push({
           type: "bar",
@@ -358,18 +358,103 @@ function drawTdbbOverview(plot, before, after) {
   Plotly.react(plot, traces, layout, PLOT_CONFIG);
 }
 
-// Wafer metrics map per field center, field metrics per intrafield position; before/after share scales.
+// Faint reference grid behind the vectors, matching the pitch overlay tools draw
+// across a wafer/field map (so points read as sitting "on" a grid, not floating).
+// Lines are drawn at the actual reticle field boundaries (derived from the field-center
+// pitch in the data), not an arbitrary fixed division, so each point sits within its
+// own field cell like a real overlay map tool.
+// A square grid's corners (range*sqrt(2)) fall outside a circular boundary of the
+// same radius, so clipRadius shortens each line to its chord within that circle.
+function fieldBoundaries(values) {
+  const unique = [...new Set(values.map((v) => Math.round(v * 100) / 100))].sort((a, b) => a - b);
+  if (unique.length < 2) return [];
+  const gaps = [];
+  for (let i = 1; i < unique.length; i++) {
+    const gap = unique[i] - unique[i - 1];
+    if (gap > 1e-6) gaps.push(gap);
+  }
+  const pitch = gaps.length ? Math.min(...gaps) : 0;
+  if (!pitch) return [];
+  return unique.map((v) => v - pitch / 2).concat([unique[unique.length - 1] + pitch / 2]);
+}
+
+function gridLineShapes(suffix, boundariesX, boundariesY, clipRadius) {
+  const shapes = [];
+  const fallbackExtent = Math.max(...boundariesX.map(Math.abs), ...boundariesY.map(Math.abs), 1);
+  const extentAt = (coordinate) => {
+    if (clipRadius == null) return fallbackExtent;
+    if (Math.abs(coordinate) >= clipRadius) return null;
+    return Math.sqrt(clipRadius * clipRadius - coordinate * coordinate);
+  };
+  boundariesX.forEach((x) => {
+    const extent = extentAt(x);
+    if (extent == null) return;
+    shapes.push({ type: "line", xref: `x${suffix}`, yref: `y${suffix}`, x0: x, x1: x, y0: -extent, y1: extent, line: { color: "#232b36", width: 1 }, layer: "below" });
+  });
+  boundariesY.forEach((y) => {
+    const extent = extentAt(y);
+    if (extent == null) return;
+    shapes.push({ type: "line", xref: `x${suffix}`, yref: `y${suffix}`, x0: -extent, x1: extent, y0: y, y1: y, line: { color: "#232b36", width: 1 }, layer: "below" });
+  });
+  return shapes;
+}
+
+// Field metrics now carry both a "field" map (intrafield pattern averaged across all fields)
+// and a "wafer" map (each field's own average, positioned at its real field center) - prefer
+// the wafer-positioned view so field budgets render on the same wafer-shaped map as wafer budgets.
+// CE-Field's intrafield formula is linear and symmetric about the field center, so averaging it
+// per field (not per intrafield position) always cancels to exactly zero - that map carries no
+// signal, so fall back to the intrafield "field" view for any budget where that happens.
 function drawTdbbMaps(budget) {
   const plot = document.getElementById("tdbb-maps");
   if (!tdbbRun || !budget) return;
-  const level = tdbbRun.maps.find((m) => m.budget === budget)?.level || "wafer";
-  const panels = [[level, "before"], [level, "after"]];
-  const mapFor = (l, period) => tdbbRun.maps.find((m) => m.budget === budget && m.level === l && m.period === period)?.points || [];
   const magnitude = (p) => Math.max(p.m3s_x ?? 0, p.m3s_y ?? 0);
+  const mapFor = (l, period) => tdbbRun.maps.find((m) => m.budget === budget && m.level === l && m.period === period)?.points || [];
+  const levels = tdbbRun.maps.filter((m) => m.budget === budget).map((m) => m.level);
+  const waferPoints = ["before", "after"].flatMap((period) => mapFor("wafer", period));
+  const waferHasSignal = waferPoints.some((p) => magnitude(p) > 1e-9 || Math.abs(p.dx) > 1e-9 || Math.abs(p.dy) > 1e-9);
+  const level = levels.includes("wafer") && waferHasSignal ? "wafer" : levels.includes("field") ? "field" : levels[0] || "wafer";
+  const panels = [[level, "before"], [level, "after"]];
   const all = panels.flatMap(([l, period]) => mapFor(l, period));
   const colorMax = Math.max(...all.map(magnitude), 0.001);
   const longest = () => Math.max(...all.map((p) => Math.hypot(p.dx, p.dy)), 1e-6);
   const target = { wafer: 14, field: 4 };
+  let scale = target[level] / longest();
+  // The dense field-on-wafer maps plot every true (field center + intrafield offset) point, a
+  // few of which land a little past the nominal 150mm wafer radius by construction - grow the
+  // drawn circle to the real data extent instead of clipping those points' own base position.
+  const waferRadius = level === "wafer" ? Math.max(150, ...all.map((p) => Math.hypot(p.x, p.y))) : 150;
+  // Shrink the shared scale (never per-arrow, which would distort relative lengths) so every
+  // arrow TIP stays within the wafer circle / field rectangle - a point near the wafer edge can
+  // otherwise poke its arrow outside the physical boundary it's meant to be drawn on. The tip
+  // moves from the point (fixed) towards point+vector as k goes 0->1, so the largest k that
+  // still fits is found per point (ray/circle or ray/rect intersection), not by naively scaling
+  // the tip's distance from the origin, which ignores the point's own fixed offset.
+  const circleFit = (p) => {
+    const vx = p.dx * scale, vy = p.dy * scale;
+    const a = vx * vx + vy * vy;
+    if (a < 1e-12) return 1;
+    const b = 2 * (p.x * vx + p.y * vy);
+    const c = p.x * p.x + p.y * p.y - waferRadius * waferRadius;
+    if (a + b + c <= 0) return 1;
+    const discriminant = b * b - 4 * a * c;
+    if (discriminant < 0) return 1;
+    return Math.max(0, Math.min(1, (-b + Math.sqrt(discriminant)) / (2 * a)));
+  };
+  const axisFit = (base, delta, bound) => {
+    if (delta === 0) return 1;
+    const tip = base + delta;
+    if (tip <= bound && tip >= -bound) return 1;
+    const edge = tip > bound ? bound : -bound;
+    return Math.max(0, Math.min(1, (edge - base) / delta));
+  };
+  const rectFit = (p) => Math.min(axisFit(p.x, p.dx * scale, 13), axisFit(p.y, p.dy * scale, 16.5));
+  // 0.99 safety margin absorbs floating-point slop right at the boundary check above, so tips
+  // land a hair inside the circle/rect instead of possibly a hair outside it.
+  scale *= 0.99 * Math.min(1, ...all.map(level === "wafer" ? circleFit : rectFit));
+  const shapeExtent = level === "wafer" ? waferRadius : 16.5;
+  const tipExtent = Math.max(shapeExtent, ...all.flatMap((p) => [Math.abs(p.x + p.dx * scale), Math.abs(p.y + p.dy * scale)]));
+  const range = tipExtent * 1.08;
   const traces = [];
   const layout = {
     paper_bgcolor: "rgba(0,0,0,0)",
@@ -385,8 +470,6 @@ function drawTdbbMaps(budget) {
   panels.forEach(([l, period], index) => {
     const suffix = index ? index + 1 : "";
     const points = mapFor(l, period);
-    const scale = target[l] / longest();
-    const range = l === "wafer" ? 160 : 20;
     layout[`xaxis${suffix}`] = { domain: [index * 0.5 + 0.01, index * 0.5 + 0.45], range: [-range, range], visible: false, fixedrange: true, constrain: "domain" };
     layout[`yaxis${suffix}`] = { domain: [0, 0.92], range: [-range, range], visible: false, fixedrange: true, scaleanchor: `x${suffix}`, constrain: "domain" };
     layout.annotations.push({
@@ -394,8 +477,10 @@ function drawTdbbMaps(budget) {
       text: `<b>${l === "wafer" ? "Wafer" : "Field"} \u00b7 ${period}</b>`, font: { color: "#e4e8ee", size: 11 },
     });
     if (l === "wafer") {
-      layout.shapes.push({ type: "circle", xref: `x${suffix}`, yref: `y${suffix}`, x0: -150, y0: -150, x1: 150, y1: 150, line: { color: "#667085", width: 1 } });
+      layout.shapes.push(...gridLineShapes(suffix, fieldBoundaries(points.map((p) => p.x)), fieldBoundaries(points.map((p) => p.y)), waferRadius));
+      layout.shapes.push({ type: "circle", xref: `x${suffix}`, yref: `y${suffix}`, x0: -waferRadius, y0: -waferRadius, x1: waferRadius, y1: waferRadius, line: { color: "#667085", width: 1 } });
     } else {
+      layout.shapes.push(...gridLineShapes(suffix, fieldBoundaries(points.map((p) => p.x)), fieldBoundaries(points.map((p) => p.y))));
       layout.shapes.push({ type: "rect", xref: `x${suffix}`, yref: `y${suffix}`, x0: -13, y0: -16.5, x1: 13, y1: 16.5, line: { color: "#667085", width: 1 } });
     }
     traces.push({
@@ -417,7 +502,7 @@ function drawTdbbMaps(budget) {
       y: points.map((p) => p.y),
       customdata: points.map((p) => [p.dx, p.dy, p.m3s_x, p.m3s_y]),
       marker: {
-        size: level === "wafer" ? 7 : 12,
+        size: level === "wafer" ? 3 : 5,
         color: points.map(magnitude),
         cmin: 0,
         cmax: colorMax,
@@ -426,6 +511,28 @@ function drawTdbbMaps(budget) {
         colorbar: { title: { text: "3\u03c3 nm", side: "right" }, thickness: 10, len: 0.9 },
       },
       hovertemplate: "(%{x:.1f}, %{y:.1f}) mm<br>mean %{customdata[0]:.3f} / %{customdata[1]:.3f} nm<br>|m|+3\u03c3 X %{customdata[2]:.2f} Y %{customdata[3]:.2f} nm<extra></extra>",
+    });
+    // Arrowhead at each vector's tip, rotated to its direction - only for vectors long
+    // enough to have a visible direction, so near-zero points stay plain dots.
+    const arrowPoints = points.filter((p) => Math.hypot(p.dx, p.dy) > 1e-6);
+    traces.push({
+      type: "scatter",
+      mode: "markers",
+      xaxis: `x${suffix}`,
+      yaxis: `y${suffix}`,
+      x: arrowPoints.map((p) => p.x + p.dx * scale),
+      y: arrowPoints.map((p) => p.y + p.dy * scale),
+      marker: {
+        symbol: "arrow",
+        size: level === "wafer" ? 9 : 11,
+        angle: arrowPoints.map((p) => (Math.atan2(p.dx, p.dy) * 180) / Math.PI),
+        color: arrowPoints.map(magnitude),
+        cmin: 0,
+        cmax: colorMax,
+        colorscale: "Viridis",
+        showscale: false,
+      },
+      hoverinfo: "skip",
     });
   });
   plot.style.height = `${layout.height}px`;
@@ -1124,7 +1231,10 @@ function handleResponse(runtime) {
   else if (isV4) trendSeries = [];
   if (isV4) {
     const filters = evidence.trend_filters || {};
-    const wafers = drawV3Trend(trendSeries, evidence.comparison_scope?.change_date);
+    // Show the suggested change date's line as soon as suggest_change runs, not only once the
+    // analyst confirms it in comparison_scope (a later workflow step).
+    const changeDate = evidence.comparison_scope?.change_date ?? evidence.change_suggestion?.change_date;
+    const wafers = drawV3Trend(trendSeries, changeDate);
     document.getElementById("chart-note").textContent = filters.start_date
       ? `${filters.start_date} to ${filters.end_date || "?"} \u00b7 ${wafers} wafers \u00b7 overlay X / Y (nm)`
       : "Start date needed";

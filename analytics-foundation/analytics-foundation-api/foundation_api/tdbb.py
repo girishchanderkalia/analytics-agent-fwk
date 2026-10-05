@@ -31,6 +31,11 @@ CONTEXTS = (
 )
 BUDGETS = tuple(f"{metric}.{context}" for context, _ in CONTEXTS for metric, _ in METRICS)
 _MAP_LEVELS = {"nce_wafer": "wafer", "ce_wafer": "wafer", "nce_field": "field", "ce_field": "field"}
+# Field metrics also get a second map positioned at each field's own center across the wafer
+# (that field's own average, not the intrafield pattern shared by all fields), so the "field"
+# budgets can be viewed on a wafer-shaped map too. Keyed by the pseudo metric name below; these
+# never enter the reported NCE-Field/CE-Field overview numbers, only their own wafer-level map.
+_FIELD_ON_WAFER_METRICS = {"nce_field": "nce_field_on_wafer", "ce_field": "ce_field_on_wafer"}
 TABLES = ("ce_wafer", "ce_field", "nce_wafer", "nce_field")
 _AVERAGED = ("ce_translation_x", "ce_translation_y", "ce_wafer_x", "ce_wafer_y", "ce_field_x", "ce_field_y", "nce_x", "nce_y", "overlay_x", "overlay_y")
 
@@ -51,6 +56,17 @@ class _Stats:
 
     def mean(self) -> tuple[float, float]:
         return self.sx / self.n, self.sy / self.n
+
+    def rms(self) -> tuple[float, float]:
+        """Root-mean-square per axis: the magnitude a cancelling mean would hide.
+
+        chuck_to_chuck/lot_to_lot/wafer_to_wafer values are deviations from their own
+        group's average, so averaging them across many groups always nets to ~zero by
+        construction - RMS recovers the real fingerprint magnitude instead.
+        """
+        if self.n == 0:
+            return 0.0, 0.0
+        return round(math.sqrt(self.sxx / self.n), 4), round(math.sqrt(self.syy / self.n), 4)
 
     def sigma(self) -> tuple[float | None, float | None]:
         if self.n < 2:
@@ -104,12 +120,20 @@ def _metric_values(points: list[dict[str, float]]) -> dict[str, tuple[list[tuple
         by_position[(point["intrafield_position_x"], point["intrafield_position_y"])].append(point)
     positions = list(INTRAFIELD_POSITIONS)
     centers = [(p["field_center_x"], p["field_center_y"]) for p in points]
-    field = lambda component: [_mean([(p[f"{component}_x"], p[f"{component}_y"]) for p in by_position[pos]]) for pos in positions]
+    # True physical location of each measured point (no averaging across a field's intrafield
+    # positions): CE-Field's mag/rotation pattern is a linear, symmetric function of intrafield
+    # offset, so averaging it over a field's 5 positions always cancels to exactly zero - every
+    # individual point must be kept to show the pattern on the wafer map.
+    true_locations = [(p["field_center_x"] + p["intrafield_position_x"], p["field_center_y"] + p["intrafield_position_y"]) for p in points]
+    pattern = lambda component: [_mean([(p[f"{component}_x"], p[f"{component}_y"]) for p in by_position[pos]]) for pos in positions]
+    per_point = lambda component: [(p[f"{component}_x"], p[f"{component}_y"]) for p in points]
     return {
         "nce_wafer": ([(p["nce_x"], p["nce_y"]) for p in points], centers),
-        "nce_field": (field("nce"), positions),
+        "nce_field": (pattern("nce"), positions),
+        "nce_field_on_wafer": (per_point("nce"), true_locations),
         "ce_wafer": ([(p["ce_wafer_x"], p["ce_wafer_y"]) for p in points], centers),
-        "ce_field": (field("ce_field"), positions),
+        "ce_field": (pattern("ce_field"), positions),
+        "ce_field_on_wafer": (per_point("ce_field"), true_locations),
         "ce_translation": ([(points[0]["ce_translation_x"], points[0]["ce_translation_y"])], [None]),
     }
 
@@ -123,12 +147,22 @@ def process_period(runs: Iterable[Mapping[str, Any]], chuck_ids: Iterable[str] =
 
     budgets = {(metric, context): _Stats() for metric, _ in METRICS for context, _ in CONTEXTS}
     maps = {key: defaultdict(_Stats) for key in budgets}
+    field_on_wafer_maps_keys = set(_FIELD_ON_WAFER_METRICS.values())
+    field_on_wafer_maps = {(pseudo, context): defaultdict(_Stats) for pseudo in field_on_wafer_maps_keys for context, _ in CONTEXTS}
 
+    # chuck_to_chuck/lot_to_lot/wafer_to_wafer are deviations from their own group's average,
+    # so their per-location mean always cancels to ~zero - read out with .rms() instead of
+    # .mean() in _map_points for those contexts (handled by the caller, not here).
     def add(metric: str, context: str, location: tuple[float, float] | None, x: float, y: float) -> None:
+        if metric in field_on_wafer_maps_keys:
+            if location is not None:
+                field_on_wafer_maps[(metric, context)][location].add(x, y)
+            return
         budgets[(metric, context)].add(x, y)
         if location is not None:
             maps[(metric, context)][location].add(x, y)
 
+    all_metrics = [metric for metric, _ in METRICS] + list(field_on_wafer_maps_keys)
     lot_averages: dict[str, list[list[tuple[float, float]]]] = defaultdict(list)
     locations: dict[str, list[tuple[float, float] | None]] = {}
     lot_count = wafer_count = 0
@@ -139,7 +173,7 @@ def process_period(runs: Iterable[Mapping[str, Any]], chuck_ids: Iterable[str] =
         lot_count += 1
         wafer_count += len(wafers)
         per_wafer = [_metric_values(points) for points in points_by_wafer]
-        for metric, _ in METRICS:
+        for metric in all_metrics:
             values = [wafer[metric][0] for wafer in per_wafer]
             locations[metric] = per_wafer[0][metric][1]
             average = [_mean(list(column)) for column in zip(*values)]
@@ -191,7 +225,10 @@ def process_period(runs: Iterable[Mapping[str, Any]], chuck_ids: Iterable[str] =
         "wafer_count": wafer_count,
         "budgets": summary,
         "maps": {
-            f"{metric}.{context}": {_MAP_LEVELS[metric]: _map_points(maps[(metric, context)])}
+            f"{metric}.{context}": {
+                **{_MAP_LEVELS[metric]: _map_points(maps[(metric, context)], use_rms=context != "average")},
+                **({"wafer": _map_points(field_on_wafer_maps[(_FIELD_ON_WAFER_METRICS[metric], context)], use_rms=context != "average")} if metric in _FIELD_ON_WAFER_METRICS else {}),
+            }
             for metric, context in budgets
             if metric in _MAP_LEVELS
         },
@@ -283,10 +320,10 @@ def _field_rows(table: str, base: Mapping[str, Any], points: list[Mapping[str, f
     return rows
 
 
-def _map_points(locations: Mapping[tuple[float, float], _Stats]) -> list[dict[str, float | None]]:
+def _map_points(locations: Mapping[tuple[float, float], _Stats], use_rms: bool = False) -> list[dict[str, float | None]]:
     points = []
     for (x, y), stats in sorted(locations.items()):
-        dx, dy = stats.mean()
+        dx, dy = stats.rms() if use_rms else stats.mean()
         m3s_x, m3s_y = stats.m3s()
         points.append({"x": x, "y": y, "dx": round(dx, 4), "dy": round(dy, 4), "m3s_x": m3s_x, "m3s_y": m3s_y})
     return points

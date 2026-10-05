@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 from functools import lru_cache
@@ -57,6 +58,7 @@ def get_model() -> Any:
             azure_endpoint=endpoint,
             api_version=api_version,
             api_key=api_key,
+            http_client=_content_normalizing_http_client(),
         )
 
         return model_class(
@@ -74,6 +76,7 @@ def get_model() -> Any:
         provider = OpenAIProvider(
             base_url=_base_url(endpoint),
             api_key=api_key,
+            http_client=_content_normalizing_http_client(),
         )
 
         return model_class(
@@ -84,6 +87,46 @@ def get_model() -> Any:
     raise ModelGatewayConfigurationError(
         f"Unsupported provider: {provider_type}"
     )
+
+
+async def _normalize_content_blocks(response: Any) -> None:
+    """Join a content-block-list response into plain text.
+
+    Some backing models return `choices[].message.content` as a list of
+    `{"type": "text", "text": ...}` blocks instead of a plain string for long
+    completions (observed on analyze_tdbb's large before/after payload).
+    pydantic_ai requires content to be a str, so left as-is this fails the
+    whole model call with a ValidationError (surfaced to the UI as a 502).
+    """
+
+    if "chat/completions" not in response.request.url.path:
+        return
+
+    await response.aread()
+
+    try:
+        payload = json.loads(response.content)
+    except ValueError:
+        return
+
+    changed = False
+    for choice in payload.get("choices", ()) or ():
+        message = (choice or {}).get("message") or {}
+        content = message.get("content")
+        if isinstance(content, list):
+            message["content"] = "".join(
+                part.get("text", "") for part in content if isinstance(part, dict)
+            )
+            changed = True
+
+    if changed:
+        response._content = json.dumps(payload).encode("utf-8")
+
+
+def _content_normalizing_http_client() -> Any:
+    import httpx
+
+    return httpx.AsyncClient(event_hooks={"response": [_normalize_content_blocks]})
 
 
 def _base_url(endpoint: str) -> str:
