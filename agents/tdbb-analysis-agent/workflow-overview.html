@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>workflow-overview.md</title>
+<meta http-equiv="Content-type" content="text/html;charset=UTF-8">
+
+<style>
+/* https://github.com/microsoft/vscode/blob/master/extensions/markdown-language-features/media/markdown.css */
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+body {
+	font-family: var(--vscode-markdown-font-family, -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif);
+	font-size: var(--vscode-markdown-font-size, 14px);
+	padding: 0 26px;
+	line-height: var(--vscode-markdown-line-height, 22px);
+	word-wrap: break-word;
+}
+
+#code-csp-warning {
+	position: fixed;
+	top: 0;
+	right: 0;
+	color: white;
+	margin: 16px;
+	text-align: center;
+	font-size: 12px;
+	font-family: sans-serif;
+	background-color:#444444;
+	cursor: pointer;
+	padding: 6px;
+	box-shadow: 1px 1px 1px rgba(0,0,0,.25);
+}
+
+#code-csp-warning:hover {
+	text-decoration: none;
+	background-color:#007acc;
+	box-shadow: 2px 2px 2px rgba(0,0,0,.25);
+}
+
+body.scrollBeyondLastLine {
+	margin-bottom: calc(100vh - 22px);
+}
+
+body.showEditorSelection .code-line {
+	position: relative;
+}
+
+body.showEditorSelection .code-active-line:before,
+body.showEditorSelection .code-line:hover:before {
+	content: "";
+	display: block;
+	position: absolute;
+	top: 0;
+	left: -12px;
+	height: 100%;
+}
+
+body.showEditorSelection li.code-active-line:before,
+body.showEditorSelection li.code-line:hover:before {
+	left: -30px;
+}
+
+.vscode-light.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.15);
+}
+
+.vscode-light.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.40);
+}
+
+.vscode-light.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-dark.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.4);
+}
+
+.vscode-dark.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.60);
+}
+
+.vscode-dark.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-high-contrast.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 160, 0, 0.7);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 160, 0, 1);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+img {
+	max-width: 100%;
+	max-height: 100%;
+}
+
+a {
+	text-decoration: none;
+}
+
+a:hover {
+	text-decoration: underline;
+}
+
+a:focus,
+input:focus,
+select:focus,
+textarea:focus {
+	outline: 1px solid -webkit-focus-ring-color;
+	outline-offset: -1px;
+}
+
+hr {
+	border: 0;
+	height: 2px;
+	border-bottom: 2px solid;
+}
+
+h1 {
+	padding-bottom: 0.3em;
+	line-height: 1.2;
+	border-bottom-width: 1px;
+	border-bottom-style: solid;
+}
+
+h1, h2, h3 {
+	font-weight: normal;
+}
+
+table {
+	border-collapse: collapse;
+}
+
+table > thead > tr > th {
+	text-align: left;
+	border-bottom: 1px solid;
+}
+
+table > thead > tr > th,
+table > thead > tr > td,
+table > tbody > tr > th,
+table > tbody > tr > td {
+	padding: 5px 10px;
+}
+
+table > tbody > tr + tr > td {
+	border-top: 1px solid;
+}
+
+blockquote {
+	margin: 0 7px 0 5px;
+	padding: 0 16px 0 10px;
+	border-left-width: 5px;
+	border-left-style: solid;
+}
+
+code {
+	font-family: Menlo, Monaco, Consolas, "Droid Sans Mono", "Courier New", monospace, "Droid Sans Fallback";
+	font-size: 1em;
+	line-height: 1.357em;
+}
+
+body.wordWrap pre {
+	white-space: pre-wrap;
+}
+
+pre:not(.hljs),
+pre.hljs code > div {
+	padding: 16px;
+	border-radius: 3px;
+	overflow: auto;
+}
+
+pre code {
+	color: var(--vscode-editor-foreground);
+	tab-size: 4;
+}
+
+/** Theming */
+
+.vscode-light pre {
+	background-color: rgba(220, 220, 220, 0.4);
+}
+
+.vscode-dark pre {
+	background-color: rgba(10, 10, 10, 0.4);
+}
+
+.vscode-high-contrast pre {
+	background-color: rgb(0, 0, 0);
+}
+
+.vscode-high-contrast h1 {
+	border-color: rgb(0, 0, 0);
+}
+
+.vscode-light table > thead > tr > th {
+	border-color: rgba(0, 0, 0, 0.69);
+}
+
+.vscode-dark table > thead > tr > th {
+	border-color: rgba(255, 255, 255, 0.69);
+}
+
+.vscode-light h1,
+.vscode-light hr,
+.vscode-light table > tbody > tr + tr > td {
+	border-color: rgba(0, 0, 0, 0.18);
+}
+
+.vscode-dark h1,
+.vscode-dark hr,
+.vscode-dark table > tbody > tr + tr > td {
+	border-color: rgba(255, 255, 255, 0.18);
+}
+
+</style>
+
+<style>
+/* Tomorrow Theme */
+/* http://jmblog.github.com/color-themes-for-google-code-highlightjs */
+/* Original theme - https://github.com/chriskempson/tomorrow-theme */
+
+/* Tomorrow Comment */
+.hljs-comment,
+.hljs-quote {
+	color: #8e908c;
+}
+
+/* Tomorrow Red */
+.hljs-variable,
+.hljs-template-variable,
+.hljs-tag,
+.hljs-name,
+.hljs-selector-id,
+.hljs-selector-class,
+.hljs-regexp,
+.hljs-deletion {
+	color: #c82829;
+}
+
+/* Tomorrow Orange */
+.hljs-number,
+.hljs-built_in,
+.hljs-builtin-name,
+.hljs-literal,
+.hljs-type,
+.hljs-params,
+.hljs-meta,
+.hljs-link {
+	color: #f5871f;
+}
+
+/* Tomorrow Yellow */
+.hljs-attribute {
+	color: #eab700;
+}
+
+/* Tomorrow Green */
+.hljs-string,
+.hljs-symbol,
+.hljs-bullet,
+.hljs-addition {
+	color: #718c00;
+}
+
+/* Tomorrow Blue */
+.hljs-title,
+.hljs-section {
+	color: #4271ae;
+}
+
+/* Tomorrow Purple */
+.hljs-keyword,
+.hljs-selector-tag {
+	color: #8959a8;
+}
+
+.hljs {
+	display: block;
+	overflow-x: auto;
+	color: #4d4d4c;
+	padding: 0.5em;
+}
+
+.hljs-emphasis {
+	font-style: italic;
+}
+
+.hljs-strong {
+	font-weight: bold;
+}
+</style>
+
+<style>
+/*
+ * Markdown PDF CSS
+ */
+
+ body {
+	font-family: -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif, "Meiryo";
+	padding: 0 12px;
+}
+
+pre {
+	background-color: #f8f8f8;
+	border: 1px solid #cccccc;
+	border-radius: 3px;
+	overflow-x: auto;
+	white-space: pre-wrap;
+	overflow-wrap: break-word;
+}
+
+pre:not(.hljs) {
+	padding: 23px;
+	line-height: 19px;
+}
+
+blockquote {
+	background: rgba(127, 127, 127, 0.1);
+	border-color: rgba(0, 122, 204, 0.5);
+}
+
+.emoji {
+	height: 1.4em;
+}
+
+code {
+	font-size: 14px;
+	line-height: 19px;
+}
+
+/* for inline code */
+:not(pre):not(.hljs) > code {
+	color: #C9AE75; /* Change the old color so it seems less like an error */
+	font-size: inherit;
+}
+
+/* Page Break : use <div class="page"/> or <div class="page"></div> to insert page break
+-------------------------------------------------------- */
+.page {
+	page-break-after: always;
+}
+
+</style>
+
+<script src="https://unpkg.com/mermaid/dist/mermaid.min.js"></script>
+</head>
+<body>
+  <script>
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: document.body.classList.contains('vscode-dark') || document.body.classList.contains('vscode-high-contrast')
+          ? 'dark'
+          : 'default'
+    });
+  </script>
+<h1 id="opo-monitoring-v4-how-the-workflow-works">OPO Monitoring v4: How the Workflow Works</h1>
+<h2 id="1-components">1. Components</h2>
+<table>
+<thead>
+<tr>
+<th>Component</th>
+<th>What it is</th>
+<th>What it does</th>
+<th>Never does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Application</strong></td>
+<td>OPO Monitoring browser UI + BFF</td>
+<td>Transports chat requests, queries Foundation directly for deterministic chart data, and renders charts, tables, and messages</td>
+<td>Call the model or MCP directly; execute agent workflows; own Foundation TDBB calculations</td>
+</tr>
+<tr>
+<td><strong>Agent Framework</strong></td>
+<td>Domain-neutral LangGraph runtime, model gateway, and governed MCP interface</td>
+<td>Executes generic agent-definition nodes, pauses for decisions, persists state, calls external models through the gateway, and mediates model-to-MCP calls</td>
+<td>Contain OPO rules, application logic, or Foundation data semantics</td>
+</tr>
+<tr>
+<td><strong>Model</strong></td>
+<td>Language model</td>
+<td>Turns text and supplied Foundation evidence into <strong>JSON</strong> matching a fixed schema</td>
+<td>Read data independently, calculate raw deltas, draw, decide</td>
+</tr>
+<tr>
+<td><strong>Analytics Foundation</strong></td>
+<td>Data platform</td>
+<td>Trend queries and TDBB processing</td>
+<td>Interpret or summarize</td>
+</tr>
+</tbody>
+</table>
+<h2 id="2-analyst-interaction-what-the-ui-renders">2. Analyst interaction (what the UI renders)</h2>
+<table>
+<thead>
+<tr>
+<th>Step</th>
+<th>Analyst types or clicks in the UI</th>
+<th>UI renders (from workflow state)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>&quot;Show OPO performance of product AAA2, layer OV_NO_ID2 on scanner GW021 since 17 Aug&quot;</td>
+<td>X and Y trend chart from Foundation data and a model-generated follow-up question when the evidence contains a clear step</td>
+</tr>
+<tr>
+<td>2</td>
+<td>Confirms or edits &quot;I observe a jump from 1 Sep 2026 to 16 Sep 2026...&quot; and clicks <strong>Run TDBB</strong></td>
+<td>TDBB overview grid, wafer/field maps and budget data from the two Foundation runs</td>
+</tr>
+<tr>
+<td>3</td>
+<td>Clicks <strong>Explain changes</strong></td>
+<td>The model's evidence-grounded summary of the two Foundation results</td>
+</tr>
+</tbody>
+</table>
+<h2 id="3-flow-and-separation">3. Flow and separation</h2>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+  actor Analyst
+  participant App as Application UI + BFF
+  participant Runtime as Agent Framework
+  participant MCP as Agent Framework MCP
+  participant Foundation as Analytics Foundation
+  participant External as External model
+
+  Analyst->>App: Request deterministic chart data
+  App->>Foundation: Query Foundation REST API
+  Foundation-->>App: Return chart data
+  App-->>Analyst: Render deterministic chart
+
+  Analyst->>App: Enter OPO investigation question
+  App->>Runtime: Start conversation
+  Runtime->>External: Request TrendFilters JSON
+  External-->>Runtime: Return TrendFilters
+  Runtime->>External: Ask model whether trend evidence is needed
+  External-->>Runtime: Request query_trends through MCP
+  Runtime->>MCP: Execute model-requested query_trends
+  MCP->>Foundation: Query trend data
+  Foundation-->>MCP: Return trend series
+  MCP-->>Runtime: Return model-requested trend evidence
+  Runtime->>External: Provide trend evidence
+  External-->>Runtime: Return interpretation and answer data
+  Runtime-->>App: Return conversation state and change suggestion
+  App-->>Analyst: Render response and approval prompt
+
+  Analyst->>App: Confirm or edit the change question
+  App->>Runtime: Resume conversation
+  Runtime->>External: Request ComparisonScope JSON
+  External-->>Runtime: Return change date
+  Runtime->>External: Request before-period analysis
+  External-->>Runtime: Request before period
+  Runtime->>MCP: Call run_tdbb for before period
+  MCP->>Foundation: run_tdbb(before period)
+  Foundation-->>MCP: Return before TDBB result
+  MCP-->>Runtime: Return before TDBB result
+  Runtime->>External: Request after-period analysis
+  External-->>Runtime: Request after period
+  Runtime->>MCP: Call run_tdbb for after period
+  MCP->>Foundation: run_tdbb(after period)
+  Foundation-->>MCP: Return after TDBB result
+  MCP-->>Runtime: Return after TDBB result
+  Runtime->>External: Provide both TDBB results for analysis
+  External-->>Runtime: Return TdbbModelAnalysis JSON
+  Runtime-->>App: Return TDBB state and model analysis
+  App-->>Analyst: Render TDBB overview, maps, and analysis
+</div></code></pre>
+<p>There are three deployable entities: the Application (browser UI and BFF), the
+domain-neutral Agent Framework (runtime, model gateway, and governed MCP), and
+Analytics Foundation. External model providers are called through the Agent
+Framework model gateway and are not part of the application deployment. The
+agent definition owns OPO-specific prompts, schemas, routing, approvals, and
+guardrails; the framework only executes those generic definition constructs.
+The BFF calls the Agent Framework chat interface and nothing in the Agent
+Framework calls back into the BFF. For deterministic chart rendering, the BFF
+calls the Analytics Foundation REST API directly. For agent workflows, the
+framework mediates model-to-MCP calls; MCP is not a separate application data
+store. For TDBB, Analytics Foundation provides <code>run_tdbb</code> for one requested
+period at a time. The model requests the before and after runs through MCP and
+analyzes the two returned results.</p>
+<h2 id="4-what-is-asked-from-the-model-and-what-it-returns">4. What is asked from the model and what it returns</h2>
+<p>The Application supplies the analyst question through the BFF. The Agent
+Framework executes the v4 agent definition, builds model prompts, invokes the
+model, and mediates its read-only MCP calls. The model decides when it needs
+Foundation evidence and requests that evidence through MCP. The model receives
+selected workflow state and governed Foundation evidence, then must reply with
+JSON matching a declared schema. Foundation owns TDBB processing and returns the
+numeric results for each requested run; the model interprets the two results
+and analyzes their difference. Example exchanges from the mock data run:</p>
+<p><strong>Call 1: read filters</strong> (prompt <code>trend_filters</code>, schema <code>TrendFilters</code>)
+Example payload sent to the model:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;question&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Show OPO performance of product AAA2, layer OV_NO_ID2 on scanner GW021 since 17 Aug.&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;conversation_context&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">&quot;available_trend_scopes&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-punctuation">]</span>
+  <span class="hljs-punctuation">}</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Expected model response:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;lookback_days&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">null</span></span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;start_date&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;2026-08-17&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;end_date&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;2026-09-16&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;lot_ids&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;product_ids&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-string">&quot;AAA2&quot;</span><span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;layer_ids&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-string">&quot;OV_NO_ID2&quot;</span><span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;exposure_equipment_ids&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-string">&quot;GW021&quot;</span><span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;chuck_ids&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;interpretation&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;OPO performance of product AAA2, layer OV_NO_ID2 on scanner GW021 since 17 Aug.&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;outliers_requested&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">false</span></span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p><strong>Call 2: request trend evidence</strong> (prompt <code>trend_evidence</code>, tool <code>query_trends</code>)
+Example payload sent to the model:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;comparison_request&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;I observe a jump from 1 Sep 2026 to 16 Sep 2026. I want to know what changed in OPO.&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;trend_filters&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">&quot;start_date&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;2026-08-17&quot;</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">&quot;end_date&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;2026-09-16&quot;</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">&quot;product_ids&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-string">&quot;AAA2&quot;</span><span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">&quot;layer_ids&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-string">&quot;OV_NO_ID2&quot;</span><span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">&quot;exposure_equipment_ids&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-string">&quot;GW021&quot;</span><span class="hljs-punctuation">]</span>
+  <span class="hljs-punctuation">}</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Expected model response:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;change_date&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;2026-09-01&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;interpretation&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;The analyst observed a jump from 1 Sep 2026 and asks what changed in OPO.&quot;</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>After receiving the parsed filters, the model requests trend evidence through
+MCP. The Agent Framework validates and mediates the request; it does not issue
+an unsolicited trend query.</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;start_date&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;2026-08-17&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;end_date&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;2026-09-16&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;product_ids&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-string">&quot;AAA2&quot;</span><span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;layer_ids&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-string">&quot;OV_NO_ID2&quot;</span><span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;exposure_equipment_ids&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-string">&quot;GW021&quot;</span><span class="hljs-punctuation">]</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Foundation returns the trend series requested by the model, and the model
+returns the extracted filters while the runtime stores the returned series in
+<code>trend_series</code>. A following model step suggests a change date from that
+evidence.</p>
+<p><strong>Call 3: read change date</strong> (prompt <code>comparison_scope</code>, schema <code>ComparisonScope</code>)</p>
+<p><strong>Call 4: create before/after TDBB runs for model analysis</strong> (tool <code>run_tdbb</code>)</p>
+<p>The Agent Framework mediates two model-to-MCP requests. The model asks MCP to
+create one run for the before period and one run for the after period. Each
+Foundation response contains the TDBB result for that requested period. The
+model receives both governed results and analyzes the difference; Foundation
+does not perform a separate comparison call.</p>
+<p>Before-period request:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;start_date&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;2026-08-17&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;end_date&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;2026-08-31&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;change_date&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;2026-08-31&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;product_ids&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-string">&quot;AAA2&quot;</span><span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;layer_ids&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-string">&quot;OV_NO_ID2&quot;</span><span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;exposure_equipment_ids&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-string">&quot;GW021&quot;</span><span class="hljs-punctuation">]</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>After-period request:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;start_date&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;2026-09-01&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;end_date&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;2026-09-16&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;change_date&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;2026-09-16&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;product_ids&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-string">&quot;AAA2&quot;</span><span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;layer_ids&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-string">&quot;OV_NO_ID2&quot;</span><span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;exposure_equipment_ids&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-string">&quot;GW021&quot;</span><span class="hljs-punctuation">]</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>The model then returns <code>TdbbModelAnalysis</code> JSON in <code>tdbb_model_analysis</code>.</p>
+<p><strong>Call 5: write summary</strong> (prompt <code>tdbb_summary</code>, schema <code>TdbbSummary</code>)
+Example payload sent to the model:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;comparison_scope&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">&quot;change_date&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;2026-09-01&quot;</span>
+  <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;tdbb_runs&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+    <span class="hljs-punctuation">{</span><span class="hljs-attr">&quot;period&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;before&quot;</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">&quot;budgets&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-punctuation">{</span><span class="hljs-attr">&quot;budget&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;nce_wafer.average&quot;</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">&quot;x_m3s&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">0.75</span><span class="hljs-punctuation">}</span><span class="hljs-punctuation">]</span><span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-punctuation">{</span><span class="hljs-attr">&quot;period&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;after&quot;</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">&quot;budgets&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-punctuation">{</span><span class="hljs-attr">&quot;budget&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;nce_wafer.average&quot;</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">&quot;x_m3s&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">1.52</span><span class="hljs-punctuation">}</span><span class="hljs-punctuation">]</span><span class="hljs-punctuation">}</span>
+  <span class="hljs-punctuation">]</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Expected model response:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;message&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;TDBB compared 17-31 Aug 2026 (30 lots, 240 wafers) with 1-16 Sep 2026 (32 lots, 256 wafers).\n- Average: NCE - Wafer X 0.75 -&gt; 1.52 nm (+103%) ...\n- Chuck to chuck: ...\n- Lot to lot: ...\n- Wafer to wafer: ...&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;largest_change&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;NCE - Field - Average Y +159.1% (0.132 -&gt; 0.342 nm)&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;limitations&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-string">&quot;TDBB localises the change; it does not establish its cause.&quot;</span><span class="hljs-punctuation">]</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>The agent definition supplies the date interpretation, approval, and evidence
+guardrails. The UI renders the Foundation run results and the model's
+interpretation; it does not calculate a canonical TDBB comparison.</p>
+<h2 id="5-what-the-model-does-not-do">5. What the model does not do</h2>
+<ul>
+<li>No data access outside governed MCP tools: all model evidence comes from Analytics Foundation.</li>
+<li>No independent data access or application-owned TDBB comparison: the model requests Foundation evidence through MCP and analyzes the two returned runs.</li>
+<li>No rendering: every chart, table and message is drawn by the application UI.</li>
+<li>No final decisions: the application checks every date, and the analyst approves before TDBB runs.</li>
+<li>No root causes: the summary says where the change sits, not why.</li>
+</ul>
+<h2 id="6-guardrails">6. Guardrails</h2>
+<ul>
+<li>Every model answer must be JSON that fits a fixed schema (filters, change date, summary).</li>
+<li>Date interpretation, evidence references, and no-causality rules are authored in the v4 definition.</li>
+<li>Charts and TDBB tables come from Foundation data; explanatory text is grounded in the two returned runs.</li>
+<li>The UI shows TDBB results as soon as processing ends; the model summary is optional.</li>
+</ul>
+<h2 id="7-tdbb-overview-rendered-by-the-application-ui">7. TDBB overview rendered by the application UI</h2>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>NCE - Wafer</th>
+<th>NCE - Field</th>
+<th>CE - Wafer</th>
+<th>CE - Field</th>
+<th>CE - Translation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Average</strong></td>
+<td>X / Y</td>
+<td>X / Y</td>
+<td>X / Y</td>
+<td>X / Y</td>
+<td>X / Y</td>
+</tr>
+<tr>
+<td><strong>Chuck to chuck</strong></td>
+<td>X / Y</td>
+<td>X / Y</td>
+<td>X / Y</td>
+<td>X / Y</td>
+<td>X / Y</td>
+</tr>
+<tr>
+<td><strong>Lot to lot</strong></td>
+<td>X / Y</td>
+<td>X / Y</td>
+<td>X / Y</td>
+<td>X / Y</td>
+<td>X / Y</td>
+</tr>
+<tr>
+<td><strong>Wafer to wafer</strong></td>
+<td>X / Y</td>
+<td>X / Y</td>
+<td>X / Y</td>
+<td>X / Y</td>
+<td>X / Y</td>
+</tr>
+</tbody>
+</table>
+<p>Each cell shows |mean| + 3sigma in nm, before vs after the change date. The
+values come from Analytics Foundation TDBB processing, not from the model.</p>
+<p>Example result on the mock data: NCE - Wafer - Average X rises from 0.75 to
+1.52 nm (+103%), so the jump sits in non-correctable error.</p>
+<h2 id="8-next-iteration">8. Next iteration</h2>
+<p>NCE root-cause views (fingerprint, EExy, fingerprint residuals) are
+placeholders until their table schemas are defined.</p>
+
+</body>
+</html>
