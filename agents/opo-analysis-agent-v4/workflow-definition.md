@@ -100,20 +100,28 @@ nodes:
       - change_suggestion
     activity: Identifying the before and after periods
 
-  # Returns the TDBB overview to the analyst before the model summary runs.
+  # Returns the TDBB overview to the analyst before the model summary runs. The same
+  # approval also collects the NCE root-cause observation (e.g. a bigger wafer-edge
+  # residual) so the analyst's third prompt has a place to go without an extra gate.
   - id: review_tdbb
     type: approval
     approval: review_tdbb_results
     decision_field: tdbb_explanation_requested
     decision_fields:
       tdbb_explanation_requested: approved
+      root_cause_requested: approved
+      root_cause_request: root_cause_request
     payload:
-      question: TDBB completed. Explain how the budgets changed?
+      question: TDBB completed. Explain how the budgets changed, and describe what you noticed (e.g. a bigger wafer-edge residual) for a root-cause correlation.
       approve_label: Explain changes
       reject_label: Finish
       details:
         Result: ${state.tdbb_model_analysis.message}
-    activity: Waiting for the analyst to review the TDBB overview
+      input:
+        name: root_cause_request
+        label: Your observation (e.g. which map or budget changed)
+        type: text
+    activity: Waiting for the analyst to review the TDBB overview and describe an NCE observation
 
   - id: summarize_tdbb
     type: model
@@ -133,6 +141,22 @@ nodes:
         change_date: $.tdbb_after_run.change_date
         periods: $.tdbb_after_run.periods
     activity: Summarizing the TDBB comparison
+
+  - id: analyze_nce_root_cause
+    type: model
+    prompt: nce_root_cause_analysis
+    output: NceRootCauseAnalysis
+    output_to: nce_root_cause_analysis
+    # Same projection style as analyze_tdbb/summarize_tdbb: periods carry budgets and
+    # radial_profile, not the heavy per-point maps (those stay UI-only evidence).
+    input_projection:
+      comparison_scope: $.comparison_scope
+      root_cause_request: $.root_cause_request
+      before:
+        periods: $.tdbb_before_run.periods
+      after:
+        periods: $.tdbb_after_run.periods
+    activity: Looking for a correlation between the TDBB change and the NCE residual pattern
 
 edges:
   - from: parse_trend_request
@@ -154,6 +178,8 @@ edges:
   - from: review_tdbb
     to: summarize_tdbb
   - from: summarize_tdbb
+    to: analyze_nce_root_cause
+  - from: analyze_nce_root_cause
     to: END
 
 routing:
@@ -163,7 +189,8 @@ routing:
     request_comparison: interpret_comparison
     interpret_comparison: request_tdbb_before
     review_tdbb: summarize_tdbb
-    summarize_tdbb: END
+    summarize_tdbb: analyze_nce_root_cause
+    analyze_nce_root_cause: END
   conditions:
     - from: parse_trend_request
       when: "trend_filters.start_date == null"
@@ -193,8 +220,11 @@ approvals:
     decision_field: tdbb_explanation_requested
     title: Review the TDBB overview
     description: >
-      The TDBB overview is shown as soon as the runs complete. Approving asks
-      the agent to explain the budget changes.
+      The TDBB overview is shown as soon as the runs complete, alongside the
+      fingerprint, EExy and fingerprint-residual wafer maps. Approving asks
+      the agent to explain the budget changes and to correlate the typed
+      observation (e.g. a bigger wafer-edge residual) with the TDBB change,
+      suggesting evidence-grounded next steps.
 ---
 
 # OPO performance and TDBB comparison (v4)
@@ -209,10 +239,14 @@ approvals:
    same scope and window, then run TDBB with default settings (10par, AVG
    and W2W) on all lots before and after it. Show the TDBB overview (NCE and
    CE wafer, field and translation per context level: average, chuck to
-   chuck, lot to lot, wafer to wafer) as soon as the runs complete, then
-   explain the budget changes on request. The comparison localises the
-   change; it does not establish its cause.
-3. NCE root-cause analysis is not yet part of this workflow. The application
-   reserves fingerprint, EExy and fingerprint-residual views; they stay
-   placeholders until their table schemas are defined, and the agent must not
-   describe their contents.
+   chuck, lot to lot, wafer to wafer) as soon as the runs complete, alongside
+   the fingerprint, EExy and fingerprint-residual wafer maps (rendered by the
+   application from the same before/after TDBB run maps). The comparison
+   localises the change; it does not establish its cause.
+3. At the same step, the analyst also describes an observation about the
+   wafer maps (e.g. a bigger wafer-edge residual). Approving asks the agent
+   to explain the TDBB budget changes and to correlate the observation with
+   the TDBB change and the residual's center-versus-edge wafer radius bands,
+   suggesting evidence-grounded next steps (inspect the edge-weighted
+   fingerprint, set up a new control model, simulate it in shadow mode).
+   This is a temporal correlation, not a confirmed cause.

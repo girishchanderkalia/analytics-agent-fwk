@@ -32,6 +32,13 @@ concepts:
     description: >
       Before/after change in each TDBB budget and the largest increase.
 
+  nce_root_cause:
+    owner: OPO Monitoring application
+    description: >
+      A temporal correlation between a TDBB budget change and the NCE
+      fingerprint-residual's center-versus-edge wafer radial profile. Localises
+      where the residual change is concentrated; does not establish causation.
+
 evidence_labels:
   trend_filters:
     description: Filters extracted from the analyst request.
@@ -68,6 +75,13 @@ evidence_labels:
     description: >
       Analyst-facing summary of the TDBB comparison, including the largest
       relative budget increase.
+
+  nce_root_cause_analysis:
+    description: >
+      Model correlation between the TDBB budget change and the
+      fingerprint-residual (nce_wafer) radial profile (center versus edge
+      wafer bands), grounded only in tdbb_before_run and tdbb_after_run, with
+      evidence-grounded next actions. A correlation, not a confirmed cause.
 ---
 
 # OPO Monitoring Knowledge Model

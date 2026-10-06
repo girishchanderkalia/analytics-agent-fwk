@@ -241,6 +241,14 @@ class TdbbPeriod(StrictModel):
     budgets: list[TdbbBudget] = Field(
         description="Budget overview for this period, one entry per metric/context cell."
     )
+    radial_profile: dict[str, list[dict[str, Any]]] = Field(
+        default_factory=dict,
+        description=(
+            "Center-vs-edge wafer-radius bands (nm, |mean|+3sigma) for the wafer-level "
+            "metrics (ce_wafer, nce_wafer) at the average context, keyed by '<metric>.average'. "
+            "Used only for NCE root-cause analysis, not the TDBB overview."
+        ),
+    )
 
 
 class TdbbMapPoint(StrictModel):

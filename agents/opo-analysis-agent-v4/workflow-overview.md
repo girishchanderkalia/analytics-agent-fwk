@@ -14,8 +14,8 @@
 | Step | Analyst types or clicks in the UI | UI renders (from workflow state) |
 |---|---|---|
 | 1 | "Show OPO performance of product AAA2, layer OV_NO_ID2 on scanner GW021 since 17 Aug" | X and Y trend chart from Foundation data and a model-generated follow-up question when the evidence contains a clear step |
-| 2 | Confirms or edits "I observe a jump from 1 Sep 2026 to 16 Sep 2026..." and clicks **Run TDBB** | TDBB overview grid, wafer/field maps and budget data from the two Foundation runs |
-| 3 | Clicks **Explain changes** | The model's evidence-grounded summary of the two Foundation results |
+| 2 | Confirms or edits "I observe a jump from 1 Sep 2026 to 16 Sep 2026..." and clicks **Run TDBB** | TDBB overview grid, wafer/field maps and budget data from the two Foundation runs, plus the fingerprint, EExy and fingerprint-residual wafer maps |
+| 3 | Types an NCE observation (e.g. "the wafer NCE in average gets bigger after 1 Sep") and clicks **Explain changes** | The model's evidence-grounded TDBB summary, followed by a correlation between the observation and the TDBB change with recommended next actions |
 
 ## 3. Flow and separation
 
@@ -265,7 +265,10 @@ values come from Analytics Foundation TDBB processing, not from the model.
 Example result on the mock data: NCE - Wafer - Average X rises from 0.75 to
 1.52 nm (+103%), so the jump sits in non-correctable error.
 
-## 8. Next iteration
+## 8. NCE root-cause views
 
-NCE root-cause views (fingerprint, EExy, fingerprint residuals) are
-placeholders until their table schemas are defined.
+Fingerprint, EExy and fingerprint-residual wafer maps are rendered by the
+application UI directly from the same before/after `run_tdbb` maps already
+used for the TDBB overview (`ce_wafer.average`, `ce_field.average` and
+`nce_wafer.average` respectively) - no separate model call or Foundation
+endpoint. The model does not describe their contents.

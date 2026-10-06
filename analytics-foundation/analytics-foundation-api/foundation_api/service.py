@@ -63,7 +63,7 @@ class FoundationService:
   for name,runs in selected.items():
    runs.sort(key=lambda run:run["lot_start"])
    processed=process_period(runs,q.chuck_ids)
-   periods.append(TdbbPeriod(period=name,start_date=bounds[name][0].isoformat(),end_date=bounds[name][1].isoformat(),run_ids=[run["run_id"] for run in runs],lot_count=processed["lot_count"],wafer_count=processed["wafer_count"],budgets=[TdbbBudget(**b) for b in processed["budgets"]]))
+   periods.append(TdbbPeriod(period=name,start_date=bounds[name][0].isoformat(),end_date=bounds[name][1].isoformat(),run_ids=[run["run_id"] for run in runs],lot_count=processed["lot_count"],wafer_count=processed["wafer_count"],budgets=[TdbbBudget(**b) for b in processed["budgets"]],radial_profile=processed["radial_profile"]))
    maps.extend(TdbbMap(budget=budget,period=name,level=level,points=[TdbbMapPoint(**p) for p in points]) for budget,levels in processed["maps"].items() for level,points in levels.items())
   return TdbbRunResult(status="COMPLETED",change_date=q.change_date,settings=TdbbSettings(model_step=q.model_step,context_levels=list(q.context_levels),budgets=list(BUDGETS)),periods=periods,maps=maps)
  def compare_tdbb_runs(self,q:TdbbCompareRequest)->TdbbCompareResult:

@@ -28,6 +28,7 @@ conversation:
   suggested_prompts:
     - Show OPO performance of product AAA2, layer OV_NO_ID2 on scanner GW021 since 17 Aug.
     - I observe a jump from 1 Sep to 17 Sep and want to know what changed in OPO.
+    - I observe that the wafer NCE in average gets bigger after 1 Sep. What could cause this change?
 
 context:
   accepted:
@@ -137,6 +138,30 @@ models:
         type: string_list
         default: []
         description: Limitations supported by the returned TDBB evidence.
+
+  NceRootCauseAnalysis:
+    fields:
+      message:
+        type: string
+        default: ""
+        description: >
+          Evidence-grounded explanation of where the NCE change is concentrated
+          (metric, context level, and center-versus-edge wafer radius band),
+          using only the supplied TDBB budget and radial-profile numbers.
+      correlated_evidence:
+        type: string_list
+        default: []
+        description: >
+          The specific supplied values that support the correlation (e.g. a
+          named budget's before/after numbers, or a center/edge band delta).
+      recommended_next_actions:
+        type: string_list
+        default: []
+        description: Evidence-grounded next steps, not automatically executed.
+      limitations:
+        type: string_list
+        default: []
+        description: Limitations of this root-cause analysis.
 
   ChangeSuggestion:
     fields:
@@ -337,6 +362,37 @@ prompts:
     request the period after the change. Do not answer from memory or invent
     TDBB values. Return a concise placeholder TdbbModelAnalysis after the tool
     call; the returned tool evidence is the source of truth.
+
+  nce_root_cause_analysis: |
+    The analyst observed the TDBB comparison and typed root_cause_request, an
+    observation or question about the NCE change (for example: the wafer NCE
+    in average gets bigger after 1 Sep, what could cause this). Answer using
+    only the supplied before/after TDBB budgets and radial_profile bands.
+
+    First localise the change: compare nce_wafer.average (non-correctable
+    residual) against ce_wafer.average (correctable fingerprint) before and
+    after the change date. When nce_wafer.average rose sharply while
+    ce_wafer.average stayed roughly flat, say so explicitly - this means the
+    change is not an exposure-correction (fingerprint) issue.
+
+    Then inspect radial_profile for nce_wafer.average: compare the center and
+    edge band m3s values before and after. When the edge band's increase is
+    proportionally larger than the center band's, state that the residual
+    growth concentrates near the wafer edge, in the same before/after window
+    as the analyst's observation. Treat this as a temporal correlation with
+    the OPO trend jump, not a proven cause.
+
+    recommended_next_actions must contain, in this order, only these three
+    evidence-motivated next steps, each one short sentence: (1) inspect the
+    edge-weighted fingerprint/exposure process around
+    comparison_scope.change_date for a bigger edge component, naming the
+    edge-band numbers found; (2) propose setting up a new control model that
+    captures the edge-weighted residual pattern; (3) propose simulating that
+    new control model in shadow mode before enabling it in production. Do not
+    add other actions.
+
+    Do not claim the correlation is a confirmed root cause. Do not invent
+    budgets, bands, or numbers beyond what is supplied.
 
   detection_scope: |
     Interpret the analyst's outlier request within the established trend filters.

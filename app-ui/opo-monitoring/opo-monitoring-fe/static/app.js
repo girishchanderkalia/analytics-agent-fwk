@@ -259,6 +259,7 @@ function renderTdbb(evidence) {
     Plotly.purge(bars);
     Plotly.purge(maps);
     select.innerHTML = "";
+    NCE_VIEWS.forEach((view) => Plotly.purge(document.getElementById(view.plotId)));
     return;
   }
   const [before, after] = ["before", "after"].map((name) => tdbbRun.periods.find((p) => p.period === name));
@@ -275,6 +276,31 @@ function renderTdbb(evidence) {
   select.value = choose || mapped[0]?.budget || "";
   select.onchange = () => drawTdbbMaps(select.value);
   drawTdbbMaps(select.value);
+  renderNceViews();
+}
+
+// NCE root-cause panels: fixed budgets reused from the same before/after TDBB maps, not a
+// separate dataset. Fingerprint = ce_wafer (correctable wafer-level translation/mag/rotation),
+// EExy = ce_field spread across true per-point locations (correctable field-level exposure
+// corrections), Fingerprint residual = nce_wafer (non-correctable leftover) - the budget that
+// actually carries the Sep-1 jump, matching the TDBB overview story above.
+const NCE_VIEWS = [
+  { budget: "ce_wafer.average", plotId: "fingerprint-plot" },
+  { budget: "ce_field.average", plotId: "eexy-plot" },
+  { budget: "nce_wafer.average", plotId: "residual-plot" },
+];
+
+function renderNceViews() {
+  const available = NCE_VIEWS.filter(({ budget }) => tdbbRun?.maps.some((m) => m.budget === budget));
+  NCE_VIEWS.filter((view) => !available.includes(view)).forEach(({ plotId }) => Plotly.purge(document.getElementById(plotId)));
+  if (!available.length) return;
+  // First pass measures each panel's own color scale; the second pass redraws all three with
+  // one shared scale (and a single visible legend, on the last panel) so colors are directly
+  // comparable across Fingerprint/EExy/Fingerprint residual, instead of 3 unrelated scales.
+  const colorMax = Math.max(...available.map(({ budget, plotId }) => drawTdbbMaps(budget, plotId, { compact: true })));
+  available.forEach(({ budget, plotId }, index) => {
+    drawTdbbMaps(budget, plotId, { compact: true, colorMax, showColorbar: index === available.length - 1 });
+  });
 }
 
 // Mirrors the TDBB Overview: metrics as columns, context levels as rows, X/Y bars before vs after.
@@ -384,9 +410,9 @@ function gridLineShapes(suffix, boundariesX, boundariesY, clipRadius) {
 // CE-Field's intrafield formula is linear and symmetric about the field center, so averaging it
 // per field (not per intrafield position) always cancels to exactly zero - that map carries no
 // signal, so fall back to the intrafield "field" view for any budget where that happens.
-function drawTdbbMaps(budget) {
-  const plot = document.getElementById("tdbb-maps");
-  if (!tdbbRun || !budget) return;
+function drawTdbbMaps(budget, plotId = "tdbb-maps", { compact = false, colorMax: colorMaxOverride, showColorbar = true } = {}) {
+  const plot = document.getElementById(plotId);
+  if (!tdbbRun || !budget) return 0;
   const magnitude = (p) => Math.max(p.m3s_x ?? 0, p.m3s_y ?? 0);
   const mapFor = (l, period) => tdbbRun.maps.find((m) => m.budget === budget && m.level === l && m.period === period)?.points || [];
   const levels = tdbbRun.maps.filter((m) => m.budget === budget).map((m) => m.level);
@@ -395,7 +421,7 @@ function drawTdbbMaps(budget) {
   const level = levels.includes("wafer") && waferHasSignal ? "wafer" : levels.includes("field") ? "field" : levels[0] || "wafer";
   const panels = [[level, "before"], [level, "after"]];
   const all = panels.flatMap(([l, period]) => mapFor(l, period));
-  const colorMax = Math.max(...all.map(magnitude), 0.001);
+  const colorMax = colorMaxOverride ?? Math.max(...all.map(magnitude), 0.001);
   const longest = () => Math.max(...all.map((p) => Math.hypot(p.dx, p.dy)), 1e-6);
   const target = { wafer: 14, field: 4 };
   let scale = target[level] / longest();
@@ -451,9 +477,10 @@ function drawTdbbMaps(budget) {
     const points = mapFor(l, period);
     layout[`xaxis${suffix}`] = { domain: [index * 0.5 + 0.01, index * 0.5 + 0.45], range: [-range, range], visible: false, fixedrange: true, constrain: "domain" };
     layout[`yaxis${suffix}`] = { domain: [0, 0.92], range: [-range, range], visible: false, fixedrange: true, scaleanchor: `x${suffix}`, constrain: "domain" };
+    const label = compact ? period[0].toUpperCase() + period.slice(1) : `${l === "wafer" ? "Wafer" : "Field"} \u00b7 ${period}`;
     layout.annotations.push({
       xref: "paper", yref: "paper", x: index * 0.5 + 0.23, y: 1, showarrow: false,
-      text: `<b>${l === "wafer" ? "Wafer" : "Field"} \u00b7 ${period}</b>`, font: { color: "#e4e8ee", size: 11 },
+      text: `<b>${label}</b>`, font: { color: "#e4e8ee", size: 11 },
     });
     if (l === "wafer") {
       layout.shapes.push(...gridLineShapes(suffix, fieldBoundaries(points.map((p) => p.x)), fieldBoundaries(points.map((p) => p.y)), waferRadius));
@@ -486,7 +513,7 @@ function drawTdbbMaps(budget) {
         cmin: 0,
         cmax: colorMax,
         colorscale: "Viridis",
-        showscale: index === 1,
+        showscale: index === 1 && showColorbar,
         colorbar: { title: { text: "3\u03c3 nm", side: "right" }, thickness: 10, len: 0.9 },
       },
       hovertemplate: "(%{x:.1f}, %{y:.1f}) mm<br>mean %{customdata[0]:.3f} / %{customdata[1]:.3f} nm<br>|m|+3\u03c3 X %{customdata[2]:.2f} Y %{customdata[3]:.2f} nm<extra></extra>",
@@ -516,6 +543,11 @@ function drawTdbbMaps(budget) {
   });
   plot.style.height = `${layout.height}px`;
   Plotly.react(plot, traces, layout, PLOT_CONFIG);
+  // Re-measure the container: a prior draw while this div was display:none (e.g. the NCE
+  // panel before step 3) leaves Plotly's internal size stale, which overflows into sibling
+  // grid cells once the container becomes visible - resize forces it to match the real size.
+  Plotly.Plots.resize(plot);
+  return colorMax;
 }
 
 async function loadTrends() {
@@ -588,6 +620,35 @@ function renderStructuredFindings(summary) {
     <section><div class="finding-label">Recommended next actions</div><ul>${list(summary.recommended_next_actions)}</ul></section>
     <section><div class="finding-label">Alternative explanations</div><ul>${list(summary.alternative_explanations)}</ul></section>
   </div>`;
+}
+
+// Shown once as soon as tdbb_summary/nce_root_cause_analysis appear in evidence, not gated on
+// final conversation status - the investigate_root_cause approval now follows summarize_tdbb,
+// so a "completed"-only check would hide this message behind that later gate.
+function renderTdbbSummaryMessage(evidence) {
+  if (timeline.querySelector('[data-node="tdbb-summary"]')) return;
+  const summary = evidence.tdbb_summary;
+  const limits = (summary.limitations || []).map((item) => `<li>${escapeHtml(item)}</li>`).join("");
+  const node = addNode("msg agent", `<span class="badge ready">TDBB comparison</span>
+    ${renderMarkdown(summary.message || "")}
+    ${evidence.tdbb_comparison?.headline ? `<p><strong>${escapeHtml(evidence.tdbb_comparison.headline)}</strong></p>` : ""}
+    ${limits ? `<ul>${limits}</ul>` : ""}`);
+  node.dataset.node = "tdbb-summary";
+}
+
+function renderNceRootCauseMessage(evidence) {
+  if (timeline.querySelector('[data-node="nce-root-cause"]')) return;
+  const analysis = evidence.nce_root_cause_analysis;
+  const list = (items) => (items || []).map((item) => `<li>${escapeHtml(item)}</li>`).join("");
+  const evidenceItems = list(analysis.correlated_evidence);
+  const actions = list(analysis.recommended_next_actions);
+  const limits = list(analysis.limitations);
+  const node = addNode("msg agent", `<span class="badge ready">NCE root-cause correlation</span>
+    ${renderMarkdown(analysis.message || "")}
+    ${evidenceItems ? `<p><strong>Correlated evidence</strong></p><ul>${evidenceItems}</ul>` : ""}
+    ${actions ? `<p><strong>Recommended next actions</strong></p><ul>${actions}</ul>` : ""}
+    ${limits ? `<p><strong>Limitations</strong></p><ul>${limits}</ul>` : ""}`);
+  node.dataset.node = "nce-root-cause";
 }
 
 function renderFindingsPanel(summary) {
@@ -1192,7 +1253,14 @@ function handleResponse(runtime) {
       evidence.tdbb_run = {
         settings: beforeRun.settings,
         periods: [beforePeriod, afterPeriod],
-        maps: [...(beforeRun.maps || []), ...(afterRun.maps || [])],
+        // Each run already covers the full before/after split internally (both tagged
+        // "before" and "after"), so a naive concatenation lets a map lookup's .find() match
+        // beforeRun's OWN "after" half instead of afterRun's true "after" data - keep only
+        // the half each run is actually meant to contribute, matching beforePeriod/afterPeriod.
+        maps: [
+          ...(beforeRun.maps || []).filter((m) => m.period === "before"),
+          ...(afterRun.maps || []).filter((m) => m.period === "after"),
+        ],
       };
     }
   }
@@ -1200,7 +1268,10 @@ function handleResponse(runtime) {
   document.querySelector(".wafer-panel").hidden = isV4;
   tdbbPanel.hidden = !isV4 || !evidence.comparison_scope;
   document.getElementById("tdbb-views").hidden = !isV4;
-  ncePanel.hidden = !isV4 || !evidence.tdbb_run;
+  // Fingerprint/EExy/residual wafer maps are step-3 evidence (the root-cause correlation),
+  // not shown alongside the step-2 TDBB bars - revealed once that analysis exists.
+  const ncePanelWasHidden = ncePanel.hidden;
+  ncePanel.hidden = !isV4 || !evidence.nce_root_cause_analysis;
   if (evidence.trend_series) {
     trendSeries = Array.isArray(evidence.trend_series)
       ? evidence.trend_series
@@ -1222,20 +1293,26 @@ function handleResponse(runtime) {
   renderWaferMap(evidence);
   renderEvidence(evidence);
 
+  // Scroll to the step-3 wafer maps only on the transition into view, not on every re-render.
+  // Plain synchronous call (not requestAnimationFrame): the plot containers' heights are
+  // already set synchronously above via Plotly.react, and rAF can be throttled/paused
+  // indefinitely in a backgrounded/non-visible tab, silently dropping the scroll.
+  if (ncePanelWasHidden && !ncePanel.hidden) {
+    ncePanel.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
   if (isV4) {
+    // Rendered as soon as each becomes available, independent of the review_tdbb approval
+    // that produces both (tdbb_summary and nce_root_cause_analysis land in the same resume),
+    // so the analyst sees both messages together, not gated behind a later step.
+    if (evidence.tdbb_summary) renderTdbbSummaryMessage(evidence);
+    if (evidence.nce_root_cause_analysis) renderNceRootCauseMessage(evidence);
     if (runtime.approvalRequest) {
       renderGate(runtime.approvalRequest);
       return;
     }
     interactionPanel.hidden = true;
-    if (runtime.status === "completed" && evidence.tdbb_summary) {
-      const summary = evidence.tdbb_summary;
-      const limits = (summary.limitations || []).map((item) => `<li>${escapeHtml(item)}</li>`).join("");
-      addNode("msg agent", `<span class="badge ready">TDBB comparison</span>
-        ${renderMarkdown(summary.message || "")}
-        ${evidence.tdbb_comparison?.headline ? `<p><strong>${escapeHtml(evidence.tdbb_comparison.headline)}</strong></p>` : ""}
-        ${limits ? `<ul>${limits}</ul>` : ""}`);
-    } else if (runtime.status === "completed" && evidence.comparison_scope && !evidence.comparison_scope.change_date) {
+    if (runtime.status === "completed" && evidence.comparison_scope && !evidence.comparison_scope.change_date) {
       addNode("msg agent", `<p>No change date could be used within the analysed window. ${escapeHtml(evidence.comparison_scope.interpretation || "")}</p>`);
     } else if (runtime.status === "cancelled") {
       addNode("msg agent", "<p>Finished without TDBB analysis.</p>");

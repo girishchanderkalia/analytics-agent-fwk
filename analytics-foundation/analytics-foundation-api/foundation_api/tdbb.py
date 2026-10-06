@@ -31,6 +31,12 @@ CONTEXTS = (
 )
 BUDGETS = tuple(f"{metric}.{context}" for context, _ in CONTEXTS for metric, _ in METRICS)
 _MAP_LEVELS = {"nce_wafer": "wafer", "ce_wafer": "wafer", "nce_field": "field", "ce_field": "field"}
+# Center-vs-edge wafer radius split, used only for the NCE root-cause step: the synthetic
+# residual's edge roll-off term grows as (radius/150mm)^4, so a change concentrated at the
+# edge (vs. a uniform wafer-wide shift) is visible by comparing these two bands' m3s before
+# and after a step - the correctable (ce_wafer) fingerprint has no such term and stays flat.
+EDGE_RADIUS_THRESHOLD_MM = 100.0
+_RADIAL_PROFILE_METRICS = ("ce_wafer", "nce_wafer")
 # Field metrics also get a second map positioned at each field's own center across the wafer
 # (that field's own average, not the intrafield pattern shared by all fields), so the "field"
 # budgets can be viewed on a wafer-shaped map too. Keyed by the pseudo metric name below; these
@@ -224,6 +230,10 @@ def process_period(runs: Iterable[Mapping[str, Any]], chuck_ids: Iterable[str] =
         "lot_count": lot_count,
         "wafer_count": wafer_count,
         "budgets": summary,
+        "radial_profile": {
+            f"{metric}.average": _radial_profile(maps[(metric, "average")])
+            for metric in _RADIAL_PROFILE_METRICS
+        },
         "maps": {
             f"{metric}.{context}": {
                 **{_MAP_LEVELS[metric]: _map_points(maps[(metric, context)], use_rms=context != "average")},
@@ -234,6 +244,19 @@ def process_period(runs: Iterable[Mapping[str, Any]], chuck_ids: Iterable[str] =
         },
     }
 
+
+def _radial_profile(locations: Mapping[tuple[float, float], _Stats]) -> list[dict[str, Any]]:
+    """Merge per-location stats into a center/edge wafer-radius band (nm, |mean|+3sigma)."""
+
+    bands: dict[str, _Stats] = {"center": _Stats(), "edge": _Stats()}
+    for (x, y), stats in locations.items():
+        band = bands["edge" if math.hypot(x, y) >= EDGE_RADIUS_THRESHOLD_MM else "center"]
+        band.n += stats.n
+        band.sx += stats.sx
+        band.sxx += stats.sxx
+        band.sy += stats.sy
+        band.syy += stats.syy
+    return [{"band": name, **dict(zip(("x_m3s", "y_m3s"), stats.m3s()))} for name, stats in bands.items()]
 
 def run_rows(run: Mapping[str, Any], tables: Iterable[str] = TABLES) -> dict[str, list[dict[str, Any]]]:
     """Return one run's rows in the real TDBB table schema."""

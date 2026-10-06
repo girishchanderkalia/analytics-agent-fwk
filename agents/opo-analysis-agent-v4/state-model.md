@@ -104,6 +104,23 @@ fields:
     default: null
     description: Analyst-facing summary of the TDBB comparison.
 
+  root_cause_request:
+    type: string
+    default: ""
+    description: Analyst's observation or question about a possible NCE root cause.
+
+  root_cause_requested:
+    type: boolean
+    default: false
+    description: Whether the analyst asked for NCE root-cause analysis after reviewing TDBB.
+
+  nce_root_cause_analysis:
+    type: object
+    default: null
+    description: >
+      Model correlation between the TDBB change and the NCE fingerprint-residual
+      radial profile (center versus edge), with evidence-grounded next actions.
+
   detection_scope:
     type: object
     default: {}

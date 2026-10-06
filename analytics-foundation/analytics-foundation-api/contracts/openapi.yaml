@@ -635,6 +635,22 @@ components:
               sigma_x: {type: number, nullable: true, description: "Component sigma, nm; combine across components in quadrature (RSS)."}
               sigma_y: {type: number, nullable: true}
             additionalProperties: false
+        radial_profile:
+          type: object
+          description: >
+            Center-vs-edge wafer-radius bands (nm, |mean|+3sigma) for the wafer-level
+            metrics (ce_wafer, nce_wafer) at the average context, keyed by "<metric>.average".
+            Used only for NCE root-cause analysis, not the TDBB overview.
+          additionalProperties:
+            type: array
+            items:
+              type: object
+              required: [band, x_m3s, y_m3s]
+              properties:
+                band: {type: string, enum: [center, edge]}
+                x_m3s: {type: number, nullable: true}
+                y_m3s: {type: number, nullable: true}
+              additionalProperties: false
       additionalProperties: false
     TdbbMap:
       type: object

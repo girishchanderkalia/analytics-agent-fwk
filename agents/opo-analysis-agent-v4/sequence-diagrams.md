@@ -29,10 +29,20 @@ sequenceDiagram
     Foundation-->>Runtime: Run IDs, budgets and wafer/field maps per period
     Runtime->>OPO: Compare budgets
     OPO-->>Runtime: Deltas and largest increase
+    Runtime-->>UI: TDBB evidence (budgets, wafer/field maps)
+    UI-->>Analyst: Budget bars, wafer/field maps, and fingerprint, EExy and
+       fingerprint-residual wafer maps (same TDBB run data) - asks the
+       analyst to review and describe an NCE observation
+
+    Analyst->>UI: Describe an NCE observation (e.g. bigger edge residual after the change)
+    UI->>Runtime: Resume (approves explaining TDBB and the observation together)
     Runtime->>Runtime: Summarize TDBB comparison
-    Runtime-->>UI: TDBB evidence and message
-    UI-->>Analyst: Budget bars, wafer/field maps and message
+    Runtime->>Runtime: Compare nce_wafer vs ce_wafer budgets and the residual's center/edge radial bands
+    Runtime-->>UI: TDBB summary, correlation message and recommended next actions
+    UI-->>Analyst: TDBB summary, then root-cause correlation and next steps
+       (inspect edge fingerprint, new control model, shadow-mode simulation)
 ```
 
 The comparison localises the change to TDBB budgets; it does not establish a
-cause.
+cause. The root-cause step is a temporal correlation between the TDBB change
+and the NCE residual's radial pattern, not a confirmed cause.

@@ -41,6 +41,7 @@ class TdbbCompareResult(StrictModel):
     before:TdbbPeriodSummary;after:TdbbPeriodSummary;budgets:list[TdbbBudgetDelta];largest_increase:TdbbLargestIncrease|None=None;headline:str
 class TdbbPeriod(StrictModel):
     period:Literal["before","after"];start_date:str;end_date:str;run_ids:list[str];lot_count:int=Field(ge=0);wafer_count:int=Field(ge=0);budgets:list[TdbbBudget]
+    radial_profile:dict[str,list[dict[str,Any]]]=Field(default_factory=dict)
 class TdbbMapPoint(StrictModel): x:float;y:float;dx:float;dy:float;m3s_x:float|None=None;m3s_y:float|None=None
 class TdbbMap(StrictModel): budget:str;period:Literal["before","after"];level:Literal["wafer","field"];points:list[TdbbMapPoint]
 class TdbbRunResult(StrictModel):

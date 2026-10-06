@@ -55,20 +55,23 @@
       <section id="nce-panel" class="tdbb-panel" hidden>
         <div class="chart-head">
           <h3>NCE analysis</h3>
-          <span class="chart-note">Placeholders &middot; table schemas pending</span>
+          <span class="chart-note">Mock wafer maps · reused from the same before/after TDBB runs</span>
         </div>
         <div class="tdbb-views nce-views">
           <div class="tdbb-view">
             <h4>Fingerprint</h4>
-            <p class="placeholder-note">Plot pending: fingerprint table schema not yet defined.</p>
+            <p>Correctable wafer-level pattern (translation / magnification / rotation), before vs after.</p>
+            <div id="fingerprint-plot" class="plot"></div>
           </div>
           <div class="tdbb-view">
             <h4>EExy</h4>
-            <p class="placeholder-note">Plot pending: EExy table schema not yet defined.</p>
+            <p>Correctable field-level exposure corrections spread across the wafer, before vs after.</p>
+            <div id="eexy-plot" class="plot"></div>
           </div>
           <div class="tdbb-view">
             <h4>Fingerprint residuals</h4>
-            <p class="placeholder-note">Plot pending: fingerprint residual table schema not yet defined.</p>
+            <p>Non-correctable residual left after the fingerprint model, before vs after.</p>
+            <div id="residual-plot" class="plot"></div>
           </div>
         </div>
       </section>
@@ -129,7 +132,7 @@
 
   <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
   <script src="/static/bff-client.js?v=6"></script>
-  <script src="/static/app.js?v=50"></script>
+  <script src="/static/app.js?v=57"></script>
 </body>
 
 </html>

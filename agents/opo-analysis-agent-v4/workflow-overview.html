@@ -421,12 +421,12 @@ code {
 <tr>
 <td>2</td>
 <td>Confirms or edits &quot;I observe a jump from 1 Sep 2026 to 16 Sep 2026...&quot; and clicks <strong>Run TDBB</strong></td>
-<td>TDBB overview grid, wafer/field maps and budget data from the two Foundation runs</td>
+<td>TDBB overview grid, wafer/field maps and budget data from the two Foundation runs, plus the fingerprint, EExy and fingerprint-residual wafer maps</td>
 </tr>
 <tr>
 <td>3</td>
-<td>Clicks <strong>Explain changes</strong></td>
-<td>The model's evidence-grounded summary of the two Foundation results</td>
+<td>Types an NCE observation (e.g. &quot;the wafer NCE in average gets bigger after 1 Sep&quot;) and clicks <strong>Explain changes</strong></td>
+<td>The model's evidence-grounded TDBB summary, followed by a correlation between the observation and the TDBB change with recommended next actions</td>
 </tr>
 </tbody>
 </table>
@@ -675,9 +675,12 @@ interpretation; it does not calculate a canonical TDBB comparison.</p>
 values come from Analytics Foundation TDBB processing, not from the model.</p>
 <p>Example result on the mock data: NCE - Wafer - Average X rises from 0.75 to
 1.52 nm (+103%), so the jump sits in non-correctable error.</p>
-<h2 id="8-next-iteration">8. Next iteration</h2>
-<p>NCE root-cause views (fingerprint, EExy, fingerprint residuals) are
-placeholders until their table schemas are defined.</p>
+<h2 id="8-nce-root-cause-views">8. NCE root-cause views</h2>
+<p>Fingerprint, EExy and fingerprint-residual wafer maps are rendered by the
+application UI directly from the same before/after <code>run_tdbb</code> maps already
+used for the TDBB overview (<code>ce_wafer.average</code>, <code>ce_field.average</code> and
+<code>nce_wafer.average</code> respectively) - no separate model call or Foundation
+endpoint. The model does not describe their contents.</p>
 
 </body>
 </html>
