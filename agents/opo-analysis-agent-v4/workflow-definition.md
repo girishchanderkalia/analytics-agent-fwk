@@ -17,12 +17,16 @@ nodes:
       - conversation_context
     activity: Interpreting the requested OPO performance window
 
+  # Resolved by the application (BFF), which calls Analytics Foundation directly with
+  # trend_filters and resumes with trend_series; the runtime never calls Foundation here.
   - id: request_trend_evidence
-    type: capability
-    capability: data_query.read_trends
-    output_to: trend_series
-    inputs:
-      - trend_filters
+    type: approval
+    approval: request_trend_evidence
+    decision_field: trend_series
+    decision_fields:
+      trend_series: trend_series
+    payload:
+      trend_filters: ${state.trend_filters}
     activity: Reading OPO performance trends
 
   - id: request_tdbb_before
@@ -225,6 +229,15 @@ approvals:
       the agent to explain the budget changes and to correlate the typed
       observation (e.g. a bigger wafer-edge residual) with the TDBB change,
       suggesting evidence-grounded next steps.
+
+  - id: request_trend_evidence
+    required: true
+    decision_field: trend_series
+    title: Supply Foundation trend evidence
+    description: >
+      Not shown to the analyst. The application resolves this automatically:
+      it calls Analytics Foundation query_trends with trend_filters and
+      resumes the conversation with the resulting trend_series.
 ---
 
 # OPO performance and TDBB comparison (v4)

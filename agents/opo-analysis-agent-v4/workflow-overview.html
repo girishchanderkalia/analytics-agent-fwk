@@ -380,29 +380,30 @@ code {
 <tr>
 <td><strong>Application</strong></td>
 <td>OPO Monitoring browser UI + BFF</td>
-<td>Transports chat requests, queries Foundation directly for deterministic chart data, and renders charts, tables, and messages</td>
-<td>Call the model or MCP directly; execute agent workflows; own Foundation TDBB calculations</td>
+<td>Transports chat requests, calls Analytics Foundation <code>query_trends</code> directly once the runtime has parsed <code>trend_filters</code>, and renders charts, tables, and messages from the returned conversation state</td>
+<td>Call the model directly; execute agent workflows; own Foundation TDBB calculations</td>
 </tr>
 <tr>
 <td><strong>Agent Framework</strong></td>
 <td>Domain-neutral LangGraph runtime, model gateway, and governed MCP interface</td>
-<td>Executes generic agent-definition nodes, pauses for decisions, persists state, calls external models through the gateway, and mediates model-to-MCP calls</td>
-<td>Contain OPO rules, application logic, or Foundation data semantics</td>
+<td>Executes generic agent-definition nodes — model steps that call the model gateway, and deterministic capability steps that call governed MCP tools directly from workflow state — pauses for approvals (including handing <code>trend_filters</code> to the application), and persists state</td>
+<td>Contain OPO rules, application logic, or Foundation data semantics; let the model choose when to query Foundation; call Foundation <code>query_trends</code> itself</td>
 </tr>
 <tr>
 <td><strong>Model</strong></td>
 <td>Language model</td>
-<td>Turns text and supplied Foundation evidence into <strong>JSON</strong> matching a fixed schema</td>
-<td>Read data independently, calculate raw deltas, draw, decide</td>
+<td>Turns text and the Foundation evidence already placed in workflow state into <strong>JSON</strong> matching a fixed schema</td>
+<td>Read data independently, decide when to query Foundation, calculate raw deltas, draw</td>
 </tr>
 <tr>
 <td><strong>Analytics Foundation</strong></td>
 <td>Data platform</td>
-<td>Trend queries and TDBB processing</td>
+<td>Trend queries (called directly by the Application) and TDBB processing (called through MCP by the Agent Framework)</td>
 <td>Interpret or summarize</td>
 </tr>
 </tbody>
 </table>
+<p>In this workflow, <code>run_tdbb</code> is a <strong>deterministic capability node</strong> declared in the workflow graph, not a tool call the model chooses to make: it runs automatically, right after the preceding model step, using a request built from already-parsed state (<code>comparison_scope</code>). <code>query_trends</code>, by contrast, is resolved by the Application: the runtime pauses immediately after parsing <code>trend_filters</code> (an approval/interrupt node, <code>request_trend_evidence</code>), the BFF calls Analytics Foundation directly with those filters, and resumes the conversation with the resulting <code>trend_series</code> — this pause/resume is transparent to the analyst, never shown as an approval gate. The model never decides whether or when to fetch evidence in either case.</p>
 <h2 id="2-analyst-interaction-what-the-ui-renders">2. Analyst interaction (what the UI renders)</h2>
 <table>
 <thead>
@@ -439,46 +440,44 @@ code {
   participant Foundation as Analytics Foundation
   participant External as External model
 
-  Analyst->>App: Request deterministic chart data
-  App->>Foundation: Query Foundation REST API
-  Foundation-->>App: Return chart data
-  App-->>Analyst: Render deterministic chart
-
-  Analyst->>App: Enter OPO investigation question
+  Analyst->>App: Ask for OPO performance (product, layer, scanner, since a date)
   App->>Runtime: Start conversation
   Runtime->>External: Request TrendFilters JSON
-  External-->>Runtime: Return TrendFilters
-  Runtime->>External: Ask model whether trend evidence is needed
-  External-->>Runtime: Request query_trends through MCP
-  Runtime->>MCP: Execute model-requested query_trends
-  MCP->>Foundation: Query trend data
-  Foundation-->>MCP: Return trend series
-  MCP-->>Runtime: Return model-requested trend evidence
-  Runtime->>External: Provide trend evidence
-  External-->>Runtime: Return interpretation and answer data
-  Runtime-->>App: Return conversation state and change suggestion
-  App-->>Analyst: Render response and approval prompt
+  External-->>Runtime: Return TrendFilters (parse_trend_request)
+  Runtime-->>App: Pause with trend_filters, not shown to the analyst (request_trend_evidence)
+  App->>Foundation: Call query_trends directly with trend_filters
+  Foundation-->>App: Return trend series
+  App->>Runtime: Resume conversation with trend_series
+  Runtime->>External: Request ChangeSuggestion from the trend series
+  External-->>Runtime: Return suggested change date and prefilled question (suggest_change)
+  Runtime-->>App: Return conversation state (filters, trend series, suggestion)
+  App-->>Analyst: Render the X/Y trend chart and the approval prompt
 
-  Analyst->>App: Confirm or edit the change question
-  App->>Runtime: Resume conversation
+  Analyst->>App: Confirm or edit the change question, click "Run TDBB"
+  App->>Runtime: Resume conversation (comparison_requested = true)
   Runtime->>External: Request ComparisonScope JSON
-  External-->>Runtime: Return change date
-  Runtime->>External: Request before-period analysis
-  External-->>Runtime: Request before period
-  Runtime->>MCP: Call run_tdbb for before period
+  External-->>Runtime: Return change date (interpret_comparison)
+  Runtime->>MCP: Call run_tdbb for the before period (deterministic capability node)
   MCP->>Foundation: run_tdbb(before period)
   Foundation-->>MCP: Return before TDBB result
-  MCP-->>Runtime: Return before TDBB result
-  Runtime->>External: Request after-period analysis
-  External-->>Runtime: Request after period
-  Runtime->>MCP: Call run_tdbb for after period
+  MCP-->>Runtime: Return before TDBB result (request_tdbb_before)
+  Runtime->>MCP: Call run_tdbb for the after period (deterministic capability node)
   MCP->>Foundation: run_tdbb(after period)
   Foundation-->>MCP: Return after TDBB result
-  MCP-->>Runtime: Return after TDBB result
+  MCP-->>Runtime: Return after TDBB result (request_tdbb_after)
   Runtime->>External: Provide both TDBB results for analysis
-  External-->>Runtime: Return TdbbModelAnalysis JSON
+  External-->>Runtime: Return TdbbModelAnalysis JSON (analyze_tdbb)
   Runtime-->>App: Return TDBB state and model analysis
-  App-->>Analyst: Render TDBB overview, maps, and analysis
+  App-->>Analyst: Render TDBB overview, maps, and analysis, then ask for an NCE observation
+
+  Analyst->>App: Describe an NCE observation, click "Explain changes"
+  App->>Runtime: Resume conversation (tdbb_explanation_requested = true)
+  Runtime->>External: Request TdbbSummary JSON
+  External-->>Runtime: Return budget-by-budget summary (summarize_tdbb)
+  Runtime->>External: Request NceRootCauseAnalysis JSON
+  External-->>Runtime: Return correlation and recommended next actions (analyze_nce_root_cause)
+  Runtime-->>App: Return summary and root-cause analysis
+  App-->>Analyst: Render the TDBB summary, then the root-cause correlation and next steps
 </div></code></pre>
 <p>There are three deployable entities: the Application (browser UI and BFF), the
 domain-neutral Agent Framework (runtime, model gateway, and governed MCP), and
@@ -486,23 +485,38 @@ Analytics Foundation. External model providers are called through the Agent
 Framework model gateway and are not part of the application deployment. The
 agent definition owns OPO-specific prompts, schemas, routing, approvals, and
 guardrails; the framework only executes those generic definition constructs.
-The BFF calls the Agent Framework chat interface and nothing in the Agent
-Framework calls back into the BFF. For deterministic chart rendering, the BFF
-calls the Analytics Foundation REST API directly. For agent workflows, the
-framework mediates model-to-MCP calls; MCP is not a separate application data
-store. For TDBB, Analytics Foundation provides <code>run_tdbb</code> for one requested
-period at a time. The model requests the before and after runs through MCP and
-analyzes the two returned results.</p>
+The BFF calls the Agent Framework chat interface, and nothing in the Agent
+Framework calls back into the BFF, except that the BFF itself calls Analytics
+Foundation directly to resolve the <code>request_trend_evidence</code> pause. Within this
+agent workflow, <code>run_tdbb</code> is declared as a deterministic capability node
+(<code>workflow-definition.md</code> marks it <code>type: capability</code>): the framework calls it
+directly, building the request from state already produced by the preceding
+model step (<code>comparison_scope</code>). <code>query_trends</code> is declared as an approval/
+interrupt node (<code>type: approval</code>) instead: the runtime pauses right after
+<code>parse_trend_request</code> with <code>trend_filters</code> as the payload, the BFF calls
+Analytics Foundation itself and resumes with <code>trend_series</code>, and the BFF
+resolves this automatically (by <code>approval_id</code>) before it ever reaches the
+analyst-facing UI. The model is never asked whether or when to fetch evidence
+and never calls <code>query_trends</code> or <code>run_tdbb</code> itself; it only runs at the
+<code>model</code>-type nodes that interpret the analyst's text or summarize the
+evidence already placed in state. For TDBB, Analytics Foundation provides
+<code>run_tdbb</code> for one requested period at a time, so the framework calls it twice
+(before, then after) and the model analyzes the two returned results;
+Foundation does not perform the comparison itself.</p>
 <h2 id="4-what-is-asked-from-the-model-and-what-it-returns">4. What is asked from the model and what it returns</h2>
 <p>The Application supplies the analyst question through the BFF. The Agent
 Framework executes the v4 agent definition, builds model prompts, invokes the
-model, and mediates its read-only MCP calls. The model decides when it needs
-Foundation evidence and requests that evidence through MCP. The model receives
-selected workflow state and governed Foundation evidence, then must reply with
-JSON matching a declared schema. Foundation owns TDBB processing and returns the
-numeric results for each requested run; the model interprets the two results
-and analyzes their difference. Example exchanges from the mock data run:</p>
-<p><strong>Call 1: read filters</strong> (prompt <code>trend_filters</code>, schema <code>TrendFilters</code>)
+model at each <code>model</code>-type node, separately executes <code>capability</code>-type nodes
+by calling governed MCP tools directly from workflow state, and pauses at
+<code>approval</code>-type nodes (including <code>request_trend_evidence</code>, which the BFF
+resolves automatically rather than showing to the analyst). The model never
+decides when to fetch Foundation evidence; it only receives whatever evidence
+the framework has already placed in state by the time its node runs, and must
+reply with JSON matching a declared schema. Foundation owns TDBB processing
+and returns the numeric results for each requested run; the model interprets
+the two results and analyzes their difference. Example exchanges from the
+mock data run, in workflow order:</p>
+<p><strong>1. (model, <code>parse_trend_request</code>): read filters</strong> (prompt <code>trend_filters</code>, schema <code>TrendFilters</code>)
 Example payload sent to the model:</p>
 <pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
   <span class="hljs-attr">&quot;question&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Show OPO performance of product AAA2, layer OV_NO_ID2 on scanner GW021 since 17 Aug.&quot;</span><span class="hljs-punctuation">,</span>
@@ -525,7 +539,35 @@ Example payload sent to the model:</p>
   <span class="hljs-attr">&quot;outliers_requested&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">false</span></span>
 <span class="hljs-punctuation">}</span>
 </div></code></pre>
-<p><strong>Call 2: request trend evidence</strong> (prompt <code>trend_evidence</code>, tool <code>query_trends</code>)
+<p><strong>2. (application-resolved approval, <code>request_trend_evidence</code>): query trend data</strong> (Foundation endpoint <code>query_trends</code>, called by the BFF)</p>
+<p>This step only runs once <code>trend_filters</code> exists from step 1. The runtime
+pauses with <code>trend_filters</code> as the interrupt payload — the model is not
+involved and makes no request. The BFF detects this specific <code>approval_id</code>,
+calls Analytics Foundation <code>query_trends</code> itself with those filters, and
+resumes the conversation with the result, without ever surfacing it to the
+analyst as an approval:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;start_date&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;2026-08-17&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;end_date&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;2026-09-16&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;product_ids&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-string">&quot;AAA2&quot;</span><span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;layer_ids&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-string">&quot;OV_NO_ID2&quot;</span><span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;exposure_equipment_ids&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-string">&quot;GW021&quot;</span><span class="hljs-punctuation">]</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Foundation returns the trend series, which the BFF passes back to the runtime
+as <code>trend_series</code> on resume. A following model step suggests a change date
+from that evidence.</p>
+<p><strong>3. (model, <code>suggest_change</code>): suggest a change date</strong> (prompt <code>change_suggestion</code>, schema <code>ChangeSuggestion</code>)
+Inputs are <code>trend_filters</code> and the <code>trend_series</code> evidence from step 2:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;change_date&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;2026-09-01&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;question&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;I observe a jump from 1 Sep 2026. What changed in OPO?&quot;</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>The application renders the trend chart together with this prefilled
+follow-up question at the <code>request_comparison</code> approval gate. The analyst
+confirms or edits it and clicks <strong>Run TDBB</strong>.</p>
+<p><strong>4. (model, <code>interpret_comparison</code>): read change date</strong> (prompt <code>comparison_scope</code>, schema <code>ComparisonScope</code>)
 Example payload sent to the model:</p>
 <pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
   <span class="hljs-attr">&quot;comparison_request&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;I observe a jump from 1 Sep 2026 to 16 Sep 2026. I want to know what changed in OPO.&quot;</span><span class="hljs-punctuation">,</span>
@@ -535,6 +577,9 @@ Example payload sent to the model:</p>
     <span class="hljs-attr">&quot;product_ids&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-string">&quot;AAA2&quot;</span><span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
     <span class="hljs-attr">&quot;layer_ids&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-string">&quot;OV_NO_ID2&quot;</span><span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
     <span class="hljs-attr">&quot;exposure_equipment_ids&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-string">&quot;GW021&quot;</span><span class="hljs-punctuation">]</span>
+  <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;change_suggestion&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">&quot;change_date&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;2026-09-01&quot;</span>
   <span class="hljs-punctuation">}</span>
 <span class="hljs-punctuation">}</span>
 </div></code></pre>
@@ -544,33 +589,16 @@ Example payload sent to the model:</p>
   <span class="hljs-attr">&quot;interpretation&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;The analyst observed a jump from 1 Sep 2026 and asks what changed in OPO.&quot;</span>
 <span class="hljs-punctuation">}</span>
 </div></code></pre>
-<p>After receiving the parsed filters, the model requests trend evidence through
-MCP. The Agent Framework validates and mediates the request; it does not issue
-an unsolicited trend query.</p>
-<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
-  <span class="hljs-attr">&quot;start_date&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;2026-08-17&quot;</span><span class="hljs-punctuation">,</span>
-  <span class="hljs-attr">&quot;end_date&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;2026-09-16&quot;</span><span class="hljs-punctuation">,</span>
-  <span class="hljs-attr">&quot;product_ids&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-string">&quot;AAA2&quot;</span><span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
-  <span class="hljs-attr">&quot;layer_ids&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-string">&quot;OV_NO_ID2&quot;</span><span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
-  <span class="hljs-attr">&quot;exposure_equipment_ids&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-string">&quot;GW021&quot;</span><span class="hljs-punctuation">]</span>
-<span class="hljs-punctuation">}</span>
-</div></code></pre>
-<p>Foundation returns the trend series requested by the model, and the model
-returns the extracted filters while the runtime stores the returned series in
-<code>trend_series</code>. A following model step suggests a change date from that
-evidence.</p>
-<p><strong>Call 3: read change date</strong> (prompt <code>comparison_scope</code>, schema <code>ComparisonScope</code>)</p>
-<p><strong>Call 4: create before/after TDBB runs for model analysis</strong> (tool <code>run_tdbb</code>)</p>
-<p>The Agent Framework mediates two model-to-MCP requests. The model asks MCP to
-create one run for the before period and one run for the after period. Each
-Foundation response contains the TDBB result for that requested period. The
-model receives both governed results and analyzes the difference; Foundation
-does not perform a separate comparison call.</p>
+<p><strong>5. (deterministic capability, <code>request_tdbb_before</code> then <code>request_tdbb_after</code>): create before/after TDBB runs</strong> (capabilities <code>processing.run_tdbb_before</code> / <code>processing.run_tdbb_after</code>, tool <code>run_tdbb</code>)</p>
+<p>Once <code>comparison_scope.change_date</code> exists from step 4, the framework issues
+two separate <code>run_tdbb</code> calls directly from state — approval for this
+side-effecting operation was already granted at the <code>request_comparison</code>
+gate (after step 3), so neither call asks the model or the analyst again:</p>
 <p>Before-period request:</p>
 <pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
   <span class="hljs-attr">&quot;start_date&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;2026-08-17&quot;</span><span class="hljs-punctuation">,</span>
-  <span class="hljs-attr">&quot;end_date&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;2026-08-31&quot;</span><span class="hljs-punctuation">,</span>
-  <span class="hljs-attr">&quot;change_date&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;2026-08-31&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;end_date&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;2026-09-01&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;change_date&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;2026-09-01&quot;</span><span class="hljs-punctuation">,</span>
   <span class="hljs-attr">&quot;product_ids&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-string">&quot;AAA2&quot;</span><span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
   <span class="hljs-attr">&quot;layer_ids&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-string">&quot;OV_NO_ID2&quot;</span><span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
   <span class="hljs-attr">&quot;exposure_equipment_ids&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-string">&quot;GW021&quot;</span><span class="hljs-punctuation">]</span>
@@ -578,25 +606,40 @@ does not perform a separate comparison call.</p>
 </div></code></pre>
 <p>After-period request:</p>
 <pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
-  <span class="hljs-attr">&quot;start_date&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;2026-09-01&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;start_date&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;2026-08-17&quot;</span><span class="hljs-punctuation">,</span>
   <span class="hljs-attr">&quot;end_date&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;2026-09-16&quot;</span><span class="hljs-punctuation">,</span>
-  <span class="hljs-attr">&quot;change_date&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;2026-09-16&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;change_date&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;2026-09-01&quot;</span><span class="hljs-punctuation">,</span>
   <span class="hljs-attr">&quot;product_ids&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-string">&quot;AAA2&quot;</span><span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
   <span class="hljs-attr">&quot;layer_ids&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-string">&quot;OV_NO_ID2&quot;</span><span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
   <span class="hljs-attr">&quot;exposure_equipment_ids&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-string">&quot;GW021&quot;</span><span class="hljs-punctuation">]</span>
 <span class="hljs-punctuation">}</span>
 </div></code></pre>
-<p>The model then returns <code>TdbbModelAnalysis</code> JSON in <code>tdbb_model_analysis</code>.</p>
-<p><strong>Call 5: write summary</strong> (prompt <code>tdbb_summary</code>, schema <code>TdbbSummary</code>)
+<p>Each Foundation response contains the TDBB result (budgets plus wafer/field
+maps) for that requested period only; Foundation does not perform a separate
+comparison call.</p>
+<p><strong>6. (model, <code>analyze_tdbb</code>): analyze the two runs</strong> (prompt <code>tdbb_model_analysis</code>, schema <code>TdbbModelAnalysis</code>)
+Inputs are <code>comparison_scope</code> and the budget/period data from both TDBB runs:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;message&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;NCE - Wafer - Average is the largest mover, X 0.75 -&gt; 1.52 nm (+103%); CE - Wafer - Average stayed roughly flat, so the change is non-correctable.&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;largest_change&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;NCE - Wafer - Average X +102.7% (0.75 -&gt; 1.52 nm)&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;limitations&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-string">&quot;TDBB localises the change; it does not establish its cause.&quot;</span><span class="hljs-punctuation">]</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>The application renders the TDBB overview, budget bars, and fingerprint/EExy/
+fingerprint-residual wafer maps as soon as this step completes, at the
+<code>review_tdbb</code> approval gate. The analyst types an NCE observation and clicks
+<strong>Explain changes</strong>.</p>
+<p><strong>7. (model, <code>summarize_tdbb</code>): write a summary</strong> (prompt <code>tdbb_summary</code>, schema <code>TdbbSummary</code>)
 Example payload sent to the model:</p>
 <pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
   <span class="hljs-attr">&quot;comparison_scope&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
     <span class="hljs-attr">&quot;change_date&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;2026-09-01&quot;</span>
   <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
-  <span class="hljs-attr">&quot;tdbb_runs&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
-    <span class="hljs-punctuation">{</span><span class="hljs-attr">&quot;period&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;before&quot;</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">&quot;budgets&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-punctuation">{</span><span class="hljs-attr">&quot;budget&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;nce_wafer.average&quot;</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">&quot;x_m3s&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">0.75</span><span class="hljs-punctuation">}</span><span class="hljs-punctuation">]</span><span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
-    <span class="hljs-punctuation">{</span><span class="hljs-attr">&quot;period&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;after&quot;</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">&quot;budgets&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-punctuation">{</span><span class="hljs-attr">&quot;budget&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;nce_wafer.average&quot;</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">&quot;x_m3s&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">1.52</span><span class="hljs-punctuation">}</span><span class="hljs-punctuation">]</span><span class="hljs-punctuation">}</span>
-  <span class="hljs-punctuation">]</span>
+  <span class="hljs-attr">&quot;tdbb_model_analysis&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">&quot;largest_change&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;NCE - Wafer - Average X +102.7% (0.75 -&gt; 1.52 nm)&quot;</span>
+  <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;before&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span><span class="hljs-attr">&quot;periods&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-punctuation">{</span><span class="hljs-attr">&quot;budget&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;nce_wafer.average&quot;</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">&quot;x_m3s&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">0.75</span><span class="hljs-punctuation">}</span><span class="hljs-punctuation">]</span><span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;after&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span><span class="hljs-attr">&quot;periods&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-punctuation">{</span><span class="hljs-attr">&quot;budget&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;nce_wafer.average&quot;</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">&quot;x_m3s&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">1.52</span><span class="hljs-punctuation">}</span><span class="hljs-punctuation">]</span><span class="hljs-punctuation">}</span>
 <span class="hljs-punctuation">}</span>
 </div></code></pre>
 <p>Expected model response:</p>
@@ -606,13 +649,27 @@ Example payload sent to the model:</p>
   <span class="hljs-attr">&quot;limitations&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-string">&quot;TDBB localises the change; it does not establish its cause.&quot;</span><span class="hljs-punctuation">]</span>
 <span class="hljs-punctuation">}</span>
 </div></code></pre>
+<p><strong>8. (model, <code>analyze_nce_root_cause</code>): correlate the observation</strong> (prompt <code>nce_root_cause_analysis</code>, schema <code>NceRootCauseAnalysis</code>)
+Inputs are <code>comparison_scope</code>, the analyst's typed <code>root_cause_request</code>, and
+the <code>radial_profile</code> bands from both TDBB runs:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;message&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;nce_wafer.average rose sharply (0.75 -&gt; 1.52 nm) while ce_wafer.average stayed flat, so the change is not an exposure-correction issue. The edge band&#x27;s increase is proportionally larger than the center band&#x27;s, so the residual growth concentrates near the wafer edge in the same window as the observed jump.&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;correlated_evidence&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-string">&quot;nce_wafer.average X 0.75 -&gt; 1.52 nm&quot;</span><span class="hljs-punctuation">,</span> <span class="hljs-string">&quot;edge band m3s rose more than center band m3s&quot;</span><span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;recommended_next_actions&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+    <span class="hljs-string">&quot;Inspect the edge-weighted fingerprint/exposure process around 2026-09-01 for a bigger edge component.&quot;</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-string">&quot;Set up a new control model that captures the edge-weighted residual pattern.&quot;</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-string">&quot;Simulate that new control model in shadow mode before enabling it in production.&quot;</span>
+  <span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;limitations&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-string">&quot;This is a temporal correlation, not a confirmed root cause.&quot;</span><span class="hljs-punctuation">]</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
 <p>The agent definition supplies the date interpretation, approval, and evidence
 guardrails. The UI renders the Foundation run results and the model's
 interpretation; it does not calculate a canonical TDBB comparison.</p>
 <h2 id="5-what-the-model-does-not-do">5. What the model does not do</h2>
 <ul>
-<li>No data access outside governed MCP tools: all model evidence comes from Analytics Foundation.</li>
-<li>No independent data access or application-owned TDBB comparison: the model requests Foundation evidence through MCP and analyzes the two returned runs.</li>
+<li>No data access outside evidence already placed in state: all evidence the model sees comes from Analytics Foundation, fetched by either the BFF (<code>query_trends</code>) or the framework (<code>run_tdbb</code>).</li>
+<li>No independent data access or application-owned TDBB comparison: <code>run_tdbb</code> is a deterministic capability node the framework calls directly, and <code>query_trends</code> is resolved by the BFF at an application-facing pause; the model only analyzes evidence already in state, it never requests either.</li>
 <li>No rendering: every chart, table and message is drawn by the application UI.</li>
 <li>No final decisions: the application checks every date, and the analyst approves before TDBB runs.</li>
 <li>No root causes: the summary says where the change sits, not why.</li>

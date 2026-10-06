@@ -4,28 +4,6 @@ version: "4.0"
 kind: tools-and-capabilities
 
 capabilities:
-  - id: data_query.read_trends
-    operation: query_trends
-    server: analytics-foundation
-    tool: query_trends
-    owner: Analytics Foundation
-    version: "1"
-    permissions:
-      - query:trends:read
-    side_effect: false
-    approval_required: false
-    request:
-      days: ${state.trend_filters.lookback_days}
-      start_date: ${state.trend_filters.start_date}
-      end_date: ${state.trend_filters.end_date}
-      lot_ids: ${state.trend_filters.lot_ids}
-      product_ids: ${state.trend_filters.product_ids}
-      layer_ids: ${state.trend_filters.layer_ids}
-      exposure_equipment_ids: ${state.trend_filters.exposure_equipment_ids}
-      chuck_ids: ${state.trend_filters.chuck_ids}
-    result:
-      trend_series: ${result.series}
-
   - id: processing.run_tdbb
     operation: run_tdbb
     server: analytics-foundation
@@ -96,11 +74,16 @@ capabilities:
 
 # V4 data boundaries
 
-The model extracts the trend filters and requests `query_trends` through the
-read-only Analytics Foundation MCP tool. TDBB runs through Analytics
-Foundation with its default settings (10par, AVG and W2W). After approval, the
-model requests one `run_tdbb` result for each period through MCP and analyzes
-the two returned results. There is no application-owned MCP service and no
+The model extracts the trend filters; `query_trends` is not an MCP capability
+in v4. Instead, `request_trend_evidence` is an approval/interrupt node: the
+runtime pauses with `trend_filters` as its payload, the application (BFF)
+calls Analytics Foundation `query_trends` directly with those filters, and
+resumes the conversation with the resulting `trend_series`; this is resolved
+automatically by the BFF and never shown to the analyst as an approval. TDBB
+still runs through Analytics Foundation with its default settings (10par, AVG
+and W2W) as an MCP capability: after the analyst approves, the model requests
+one `run_tdbb` result for each period through MCP and analyzes the two
+returned results. There is no application-owned MCP service and no
 `compare_tdbb_runs` call in v4.
 
 Example request:
