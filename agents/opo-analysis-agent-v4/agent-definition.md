@@ -240,15 +240,17 @@ prompts:
   trend_filters: |
     Extract the product, layer, scanner, optional lot and chuck, and starting
     date from the analyst request. For a supplied starting date, use its ISO
-    date as start_date and the day before the same date next month as
-    inclusive end_date. Use explicit dates instead of lookback_days. A named
-    scanner is an exposure equipment identifier: put scanner GW021 in
-    exposure_equipment_ids as "GW021", not in lot_ids. A named chuck is a
+    date as start_date. Unless the analyst also names an explicit end date,
+    use conversation_context.current_date (today's date) as the inclusive
+    end_date, so the trend covers the starting date through today. Use
+    explicit dates instead of lookback_days. A named scanner is an exposure
+    equipment identifier: put scanner GW021 in exposure_equipment_ids as
+    "GW021", not in lot_ids. A named chuck is a
     wafer stage chuck: put chuck 1 in chuck_ids as "Waferstage chuck ID 1".
     Leave lot_ids and chuck_ids empty unless the analyst explicitly names a
     lot or chuck; the default is all lots and both chucks.
-    If the analyst omits the year, still return an ISO date; the application
-    replaces the year with the current year. If no starting date is given,
+    If the analyst omits the year, still return an ISO date; use the year from
+    conversation_context.current_date. If no starting date is given,
     leave start_date and end_date null and explain in interpretation.
 
     Do not invent lot identifiers, product identifiers, layer identifiers,

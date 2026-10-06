@@ -10,6 +10,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import threading
+from datetime import datetime, timezone
 from time import perf_counter
 from typing import Any
 from uuid import uuid4
@@ -234,12 +235,18 @@ class LangGraphConversationService:
             name: schema.get("default")
             for name, schema in properties.items()
         }
+        # current_date is server-authoritative so every agent can ground
+        # relative dates without each caller having to supply it.
+        conversation_context = {
+            **command.application_context,
+            "current_date": datetime.now(timezone.utc).date().isoformat(),
+        }
         state.update(
             {
                 "conversation_id": conversation_id,
                 "question": command.message.strip(),
                 "user_id": command.user_id,
-                "conversation_context": dict(command.application_context),
+                "conversation_context": conversation_context,
             }
         )
         return {key: value for key, value in state.items() if key in properties}

@@ -113,30 +113,6 @@ function availableTrendScopes() {
   }));
 }
 
-// Series are grouped per lot, so pick the product/layer/scanner scope with the most wafers.
-function v4StarterPrompt() {
-  const scopes = new Map();
-  (availableTrendSeries || []).forEach((series) => {
-    const scanner = series.exposure_equipment_id || series.machine;
-    if (!series.product || !series.layer_id || !scanner || !series.points?.length) return;
-    const key = `${series.product}\u0000${series.layer_id}\u0000${scanner}`;
-    const scope = scopes.get(key) || { product: series.product, layer: series.layer_id, scanner, dates: [] };
-    scope.dates.push(...series.points.map((point) => String(point.date).slice(0, 10)));
-    scopes.set(key, scope);
-  });
-  const observed = [...scopes.values()].sort((left, right) => right.dates.length - left.dates.length)[0];
-  if (!observed) return "Show OPO performance by product, layer, and scanner since a date";
-  const first = new Date(`${observed.dates.sort()[0]}T00:00:00Z`);
-  const since = new Date(Date.UTC(first.getUTCFullYear(), first.getUTCMonth(), 17))
-    .toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" });
-  return `Show OPO performance of product ${observed.product}, layer ${observed.layer} on scanner ${observed.scanner} since ${since} ${first.getUTCFullYear()}`;
-}
-
-function starterPrompt(agentId) {
-  if (agentId === V4_AGENT) return v4StarterPrompt();
-  return "Show trends";
-}
-
 // Every workflow step renders the same two overlay KPIs, never per-machine series.
 // The outliers schema is a free-form object_list: the model emits either a
 // grouped { points: [[date, x, y], ...] } shape or a single { timestamp, value } point.
@@ -248,6 +224,9 @@ function drawV3Trend(series, changeDate) {
     margin: { ...PLOT_LAYOUT.margin, t: 28 },
     showlegend: true,
     legend: { orientation: "h", x: 0, y: 1.1 },
+    // Force a full x-axis autorange on every redraw: Plotly.react otherwise keeps
+    // any zoom/pan the analyst left on the previous (possibly narrower) dataset.
+    xaxis: { ...PLOT_LAYOUT.xaxis, autorange: true },
     yaxis: axis("X |m|+3\u03c3 (nm)", [0.54, 1]),
     yaxis2: axis("Y |m|+3\u03c3 (nm)", [0, 0.46]),
     shapes: changeDate ? [{
@@ -545,7 +524,6 @@ async function loadTrends() {
     availableTrendSeries = trendSeries;
     drawPlot(null, null);
     if (isScopedAgent(selectedAgentId())) {
-      messageInput.value = starterPrompt(selectedAgentId());
       Plotly.purge(document.getElementById("trend-plot"));
     }
     const points = trendSeries.reduce((total, series) => total + series.points.length, 0);
@@ -1231,9 +1209,8 @@ function handleResponse(runtime) {
   else if (isV4) trendSeries = [];
   if (isV4) {
     const filters = evidence.trend_filters || {};
-    // Show the suggested change date's line as soon as suggest_change runs, not only once the
-    // analyst confirms it in comparison_scope (a later workflow step).
-    const changeDate = evidence.comparison_scope?.change_date ?? evidence.change_suggestion?.change_date;
+    // Only draw the change-date line once the analyst has confirmed it via comparison_scope.
+    const changeDate = evidence.comparison_scope?.change_date;
     const wafers = drawV3Trend(trendSeries, changeDate);
     document.getElementById("chart-note").textContent = filters.start_date
       ? `${filters.start_date} to ${filters.end_date || "?"} \u00b7 ${wafers} wafers \u00b7 overlay X / Y (nm)`
@@ -1405,14 +1382,10 @@ async function loadAgents() {
         .join("")
     : "<option>No agents registered</option>";
   agentSelect.disabled = busy || !registeredAgents.length;
-  if (availableTrendSeries && selectedAgentId()) {
-    messageInput.value = starterPrompt(selectedAgentId());
-  }
 }
 
 agentSelect.addEventListener("change", () => {
   const isV4 = isScopedAgent(selectedAgentId());
-  messageInput.value = starterPrompt(selectedAgentId());
   document.querySelector(".wafer-panel").hidden = isV4;
   tdbbPanel.hidden = true;
   ncePanel.hidden = true;

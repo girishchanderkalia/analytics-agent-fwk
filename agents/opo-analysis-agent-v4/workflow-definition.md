@@ -87,7 +87,6 @@ nodes:
         name: comparison_request
         label: Your question (include the change date)
         type: text
-        value: ${state.change_suggestion.question}
     activity: Waiting for the analyst to identify the OPO change
 
   - id: interpret_comparison
