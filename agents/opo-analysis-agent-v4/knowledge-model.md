@@ -5,6 +5,7 @@ kind: knowledge-model
 
 # `concepts` is a glossary for the agent development team; it is validated but
 # not injected into prompts. `evidence_labels` is the single source of truth
+
 # for data semantics: each key MUST match a declared state-model.md field, and
 # the runtime injects an entry into a model node's prompt only when that node
 # actually reads or writes the field (see workflow-definition.md inputs /
