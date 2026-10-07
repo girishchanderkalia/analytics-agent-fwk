@@ -12,6 +12,8 @@ const panelResizer = document.getElementById("panel-resizer");
 const agentSelect = document.getElementById("agent-select");
 const tdbbPanel = document.getElementById("tdbb-panel");
 const ncePanel = document.getElementById("nce-panel");
+const nceLegend = document.getElementById("nce-legend");
+const nceLegendMax = document.getElementById("nce-legend-max");
 const V4_AGENT = "opo-analysis-agent-v4";
 const selectedAgentId = () => registeredAgents[agentSelect.selectedIndex]?.agentId;
 const isScopedAgent = (agentId) => agentId === V4_AGENT;
@@ -293,13 +295,19 @@ const NCE_VIEWS = [
 function renderNceViews() {
   const available = NCE_VIEWS.filter(({ budget }) => tdbbRun?.maps.some((m) => m.budget === budget));
   NCE_VIEWS.filter((view) => !available.includes(view)).forEach(({ plotId }) => Plotly.purge(document.getElementById(plotId)));
+  nceLegend.hidden = !available.length;
   if (!available.length) return;
   // First pass measures each panel's own color scale; the second pass redraws all three with
-  // one shared scale (and a single visible legend, on the last panel) so colors are directly
-  // comparable across Fingerprint/EExy/Fingerprint residual, instead of 3 unrelated scales.
+  // one shared scale. The legend itself is a standalone HTML element (not a Plotly colorbar
+  // embedded in one of the three cards), so it can be centered against the whole NCE analysis
+  // section instead of being stuck inside whichever single card's own plot canvas drew it.
   const colorMax = Math.max(...available.map(({ budget, plotId }) => drawTdbbMaps(budget, plotId, { compact: true })));
-  available.forEach(({ budget, plotId }, index) => {
-    drawTdbbMaps(budget, plotId, { compact: true, colorMax, showColorbar: index === available.length - 1 });
+  nceLegendMax.textContent = colorMax.toFixed(2);
+  available.forEach(({ budget, plotId }) => {
+    // eexy-plot's card spans the full row width (CSS .tdbb-overview) - a taller plot lets its
+    // circles keep growing with that extra width instead of staying capped at the shared height.
+    const height = plotId === "eexy-plot" ? 520 : 360;
+    drawTdbbMaps(budget, plotId, { compact: true, colorMax, showColorbar: false, height });
   });
 }
 
@@ -410,7 +418,7 @@ function gridLineShapes(suffix, boundariesX, boundariesY, clipRadius) {
 // CE-Field's intrafield formula is linear and symmetric about the field center, so averaging it
 // per field (not per intrafield position) always cancels to exactly zero - that map carries no
 // signal, so fall back to the intrafield "field" view for any budget where that happens.
-function drawTdbbMaps(budget, plotId = "tdbb-maps", { compact = false, colorMax: colorMaxOverride, showColorbar = true } = {}) {
+function drawTdbbMaps(budget, plotId = "tdbb-maps", { compact = false, colorMax: colorMaxOverride, showColorbar = true, height = 360 } = {}) {
   const plot = document.getElementById(plotId);
   if (!tdbbRun || !budget) return 0;
   const magnitude = (p) => Math.max(p.m3s_x ?? 0, p.m3s_y ?? 0);
@@ -465,8 +473,12 @@ function drawTdbbMaps(budget, plotId = "tdbb-maps", { compact = false, colorMax:
     paper_bgcolor: "rgba(0,0,0,0)",
     plot_bgcolor: "rgba(0,0,0,0)",
     font: { color: "#8b97a8", size: 11 },
-    margin: { l: 8, r: 8, t: 22, b: 8 },
-    height: 320,
+    // The 90px right margin is only needed when this plot draws its own Plotly colorbar -
+    // reserving it unconditionally was stealing plotting width from the NCE panels, which
+    // render a standalone HTML legend instead and show no colorbar here (equal-aspect circles
+    // are width-capped by domain width, so that stolen width - not height - was the real cap).
+    margin: { l: 8, r: showColorbar ? 90 : 12, t: 22, b: 8 },
+    height,
     showlegend: false,
     hovermode: "closest",
     annotations: [],
@@ -475,11 +487,11 @@ function drawTdbbMaps(budget, plotId = "tdbb-maps", { compact = false, colorMax:
   panels.forEach(([l, period], index) => {
     const suffix = index ? index + 1 : "";
     const points = mapFor(l, period);
-    layout[`xaxis${suffix}`] = { domain: [index * 0.5 + 0.01, index * 0.5 + 0.45], range: [-range, range], visible: false, fixedrange: true, constrain: "domain" };
+    layout[`xaxis${suffix}`] = { domain: [index * 0.5 + 0.015, index * 0.5 + 0.485], range: [-range, range], visible: false, fixedrange: true, constrain: "domain" };
     layout[`yaxis${suffix}`] = { domain: [0, 0.92], range: [-range, range], visible: false, fixedrange: true, scaleanchor: `x${suffix}`, constrain: "domain" };
     const label = compact ? period[0].toUpperCase() + period.slice(1) : `${l === "wafer" ? "Wafer" : "Field"} \u00b7 ${period}`;
     layout.annotations.push({
-      xref: "paper", yref: "paper", x: index * 0.5 + 0.23, y: 1, showarrow: false,
+      xref: "paper", yref: "paper", x: index * 0.5 + 0.25, y: 1, showarrow: false,
       text: `<b>${label}</b>`, font: { color: "#e4e8ee", size: 11 },
     });
     if (l === "wafer") {
@@ -496,6 +508,9 @@ function drawTdbbMaps(budget, plotId = "tdbb-maps", { compact = false, colorMax:
       yaxis: `y${suffix}`,
       x: points.flatMap((p) => [p.x, p.x + p.dx * scale, null]),
       y: points.flatMap((p) => [p.y, p.y + p.dy * scale, null]),
+      // Same fixed width on every panel - varying it by point count would make panels with
+      // genuinely denser data (e.g. EExy's per-point intrafield view) look artificially
+      // different in scale from sparser ones, which breaks a fair visual comparison between them.
       line: { color: "#e4e8ee", width: 1.2 },
       hoverinfo: "skip",
     });
@@ -508,13 +523,24 @@ function drawTdbbMaps(budget, plotId = "tdbb-maps", { compact = false, colorMax:
       y: points.map((p) => p.y),
       customdata: points.map((p) => [p.dx, p.dy, p.m3s_x, p.m3s_y]),
       marker: {
-        size: level === "wafer" ? 3 : 5,
+        size: 4,
         color: points.map(magnitude),
         cmin: 0,
         cmax: colorMax,
         colorscale: "Viridis",
         showscale: index === 1 && showColorbar,
-        colorbar: { title: { text: "3\u03c3 nm", side: "right" }, thickness: 10, len: 0.9 },
+        // x:1.02 previously landed past paper's valid [0,1] range and got clipped. Anchoring
+        // the bar's RIGHT edge at the paper boundary makes it grow leftward into the reserved
+        // right margin instead, keeping it outside both wafer maps and clear of the card edge.
+        colorbar: {
+          title: { text: "3\u03c3 nm", side: "right" },
+          thickness: 10,
+          len: 0.8,
+          x: 1,
+          xanchor: "right",
+          y: 0.46,
+          yanchor: "middle",
+        },
       },
       hovertemplate: "(%{x:.1f}, %{y:.1f}) mm<br>mean %{customdata[0]:.3f} / %{customdata[1]:.3f} nm<br>|m|+3\u03c3 X %{customdata[2]:.2f} Y %{customdata[3]:.2f} nm<extra></extra>",
     });
@@ -529,8 +555,11 @@ function drawTdbbMaps(budget, plotId = "tdbb-maps", { compact = false, colorMax:
       x: arrowPoints.map((p) => p.x + p.dx * scale),
       y: arrowPoints.map((p) => p.y + p.dy * scale),
       marker: {
-        symbol: "arrow",
-        size: level === "wafer" ? 9 : 11,
+        // Plotly's "arrow" symbol is a thin open chevron - at small sizes, next to the base
+        // dot, it reads as a single bent flag/checkmark rather than a clear arrowhead. A solid
+        // triangle (rotated the same way via marker.angle) gives an unambiguous point + direction.
+        symbol: "triangle-up",
+        size: 9,
         angle: arrowPoints.map((p) => (Math.atan2(p.dx, p.dy) * 180) / Math.PI),
         color: arrowPoints.map(magnitude),
         cmin: 0,
@@ -704,6 +733,17 @@ function previewWafersForCandidate(candidate) {
   renderWaferMap({ wafer_rows: scoped, anomalous_wafers: lastAnomalousWafers });
 }
 
+// Shows a visible message instead of silently blocking the gate on an empty required field.
+function showGateInputError(gateNode, inputEl, message) {
+  inputEl.focus();
+  inputEl.classList.add("invalid");
+  gateNode.querySelector(".gate-error")?.remove();
+  gateNode.querySelector(".gate-actions").insertAdjacentHTML(
+    "beforebegin",
+    `<p class="gate-error">${escapeHtml(message)}</p>`,
+  );
+}
+
 function renderGate(request) {
   const payload = request.payload || {};
   const candidates = payload.detected_outliers || [];
@@ -748,7 +788,7 @@ function renderGate(request) {
   const input = field?.name
     ? `<label class="gate-input-label" for="gate-input">${escapeHtml(field.label || field.name)}</label>
        <input id="gate-input" type="${field.type === "number" ? "number" : "text"}" step="any"
-         value="${escapeHtml(field.value ?? "")}" autocomplete="off" />`
+         placeholder="${escapeHtml(field.placeholder || "")}" autocomplete="off" />`
     : "";
 
   interactionPanel.hidden = false;
@@ -761,8 +801,8 @@ function renderGate(request) {
       ${actionSelector}
       ${input}
       <div class="gate-actions">
-        <button data-action="approve"${actionOptions ? " disabled" : ""}>${escapeHtml(payload.approve_label || "Approve")}</button>
-        <button data-action="reject" class="reject">${escapeHtml(payload.reject_label || "Reject")}</button>
+        <button type="button" data-action="approve"${actionOptions ? " disabled" : ""}>${escapeHtml(payload.approve_label || "Approve")}</button>
+        <button type="button" data-action="reject" class="reject">${escapeHtml(payload.reject_label || "Reject")}</button>
       </div>
     </div>`;
 
@@ -783,6 +823,10 @@ function renderGate(request) {
   actionSelect?.addEventListener("change", () => {
     gate.querySelector('[data-action="approve"]').disabled = !actionSelect.value;
   });
+  gate.querySelector("#gate-input")?.addEventListener("input", (event) => {
+    event.target.classList.remove("invalid");
+    gate.querySelector(".gate-error")?.remove();
+  });
   gate.querySelector('[data-action="approve"]').onclick = () => {
     const select = gate.querySelector("#outlier-select");
     const values = {};
@@ -790,23 +834,25 @@ function renderGate(request) {
     if (actionSelect) values.selected_action = actionSelect.value;
     if (inputEl) {
       const raw = inputEl.value.trim();
+      const required = field.required !== false;
+      if (required && !raw) {
+        showGateInputError(gate, inputEl, `Enter "${field.label || field.name}" before continuing.`);
+        return;
+      }
       if (field.type === "number") {
-        const number = Number(raw);
-        if (!raw || !Number.isFinite(number)) {
-          inputEl.focus();
-          inputEl.classList.add("invalid");
-          return;
+        if (raw) {
+          const number = Number(raw);
+          if (!Number.isFinite(number)) {
+            showGateInputError(gate, inputEl, `Enter a valid number for "${field.label || field.name}".`);
+            return;
+          }
+          values[field.name] = number;
         }
-        values[field.name] = number;
       } else {
-        if (!raw) {
-          inputEl.focus();
-          inputEl.classList.add("invalid");
-          return;
-        }
         values[field.name] = raw;
       }
     }
+    gate.querySelector(".gate-error")?.remove();
     resolveGate(gate, "Approved", {
       approved: true,
       selectedOutlierId: select?.value ?? null,

@@ -91,6 +91,8 @@ nodes:
         name: comparison_request
         label: Your question (include the change date)
         type: text
+        placeholder: Enter a date here if you want to change the suggested one
+        required: false
     activity: Waiting for the analyst to identify the OPO change
 
   - id: interpret_comparison

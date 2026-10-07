@@ -645,8 +645,52 @@ tr.anomalous td {
   display: none;
 }
 
-.nce-views {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+/* .nce-views now uses the base .tdbb-views fixed 2-column grid (not auto-fit) so it always
+   wraps at exactly 2 cards per row regardless of screen width - EExy spans both columns via
+   .tdbb-overview on its own card, landing alone on row 2. */
+
+
+.nce-body {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  margin-top: 14px;
+}
+
+.nce-body .nce-views {
+  flex: 1;
+  margin-top: 0;
+}
+
+.nce-legend {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.nce-legend[hidden] {
+  display: none;
+}
+
+.nce-legend-tick {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.nce-legend-bar {
+  width: 10px;
+  height: 220px;
+  border-radius: 2px;
+  background: linear-gradient(to top, #440154, #3b528b, #21918c, #5ec962, #fde725);
+}
+
+.nce-legend-title {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  font-size: 11px;
+  color: var(--muted);
 }
 
 .tdbb-overview {

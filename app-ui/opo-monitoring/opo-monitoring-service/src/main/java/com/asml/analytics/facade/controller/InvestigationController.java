@@ -36,8 +36,10 @@ public class InvestigationController {
         return client.getConversation(conversationId);
     }
 
-    // The runtime pauses right after parsing trend filters so the application can supply
-    // Foundation trend evidence itself, resolved here instead of surfacing it to the analyst.
+    // The runtime pauses right after parsing trend filters so the application can
+    // supply
+    // Foundation trend evidence itself, resolved here instead of surfacing it to
+    // the analyst.
     private RuntimeResponse resolveTrendEvidence(RuntimeResponse response) {
         Map<String, Object> approvalRequest = response.approvalRequest();
         if (approvalRequest == null || !TREND_EVIDENCE_APPROVAL_ID.equals(approvalRequest.get("approval_id"))) {

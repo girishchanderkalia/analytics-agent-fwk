@@ -5,7 +5,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>OPO Monitoring UI</title>
-  <link rel="stylesheet" href="/static/styles.css?v=3" />
+  <link rel="stylesheet" href="/static/styles.css?v=9" />
 </head>
 
 <body>
@@ -57,21 +57,29 @@
           <h3>NCE analysis</h3>
           <span class="chart-note">Mock wafer maps · reused from the same before/after TDBB runs</span>
         </div>
-        <div class="tdbb-views nce-views">
-          <div class="tdbb-view">
-            <h4>Fingerprint</h4>
-            <p>Correctable wafer-level pattern (translation / magnification / rotation), before vs after.</p>
-            <div id="fingerprint-plot" class="plot"></div>
+        <div class="nce-body">
+          <div class="tdbb-views nce-views">
+            <div class="tdbb-view">
+              <h4>Fingerprint</h4>
+              <p>Correctable wafer-level pattern (translation / magnification / rotation), before vs after.</p>
+              <div id="fingerprint-plot" class="plot"></div>
+            </div>
+            <div class="tdbb-view">
+              <h4>Fingerprint residuals</h4>
+              <p>Non-correctable residual left after the fingerprint model, before vs after.</p>
+              <div id="residual-plot" class="plot"></div>
+            </div>
+            <div class="tdbb-view tdbb-overview">
+              <h4>EExy</h4>
+              <p>Correctable field-level exposure corrections spread across the wafer, before vs after.</p>
+              <div id="eexy-plot" class="plot"></div>
+            </div>
           </div>
-          <div class="tdbb-view">
-            <h4>EExy</h4>
-            <p>Correctable field-level exposure corrections spread across the wafer, before vs after.</p>
-            <div id="eexy-plot" class="plot"></div>
-          </div>
-          <div class="tdbb-view">
-            <h4>Fingerprint residuals</h4>
-            <p>Non-correctable residual left after the fingerprint model, before vs after.</p>
-            <div id="residual-plot" class="plot"></div>
+          <div id="nce-legend" class="nce-legend" hidden>
+            <span id="nce-legend-max" class="nce-legend-tick">2.00</span>
+            <div class="nce-legend-bar"></div>
+            <span class="nce-legend-tick">0</span>
+            <span class="nce-legend-title">3σ nm</span>
           </div>
         </div>
       </section>
@@ -132,7 +140,7 @@
 
   <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
   <script src="/static/bff-client.js?v=6"></script>
-  <script src="/static/app.js?v=57"></script>
+  <script src="/static/app.js?v=71"></script>
 </body>
 
 </html>
