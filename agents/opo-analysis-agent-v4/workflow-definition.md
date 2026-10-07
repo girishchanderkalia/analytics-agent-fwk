@@ -17,8 +17,6 @@ nodes:
       - conversation_context
     activity: Interpreting the requested OPO performance window
 
-  # Resolved by the application (BFF), which calls Analytics Foundation directly with
-  # trend_filters and resumes with trend_series; the runtime never calls Foundation here.
   - id: request_trend_evidence
     type: approval
     approval: request_trend_evidence
