@@ -48,6 +48,7 @@ def registration(workspace_id:str,registration_id:str,s=Depends(dep)):
 def wafers(r:WaferQueryRequest,s=Depends(dep)):
  try:return s.wafers(r)
  except WorkspaceNotFoundError as exc:raise HTTPException(404,str(exc)) from exc
+ except ValueError as exc:raise HTTPException(422,str(exc)) from exc
 @app.post("/tdbb/runs",response_model=TdbbRunResult,status_code=201)
 def run_tdbb(r:TdbbRunRequest,s=Depends(dep)):
  try:return s.run_tdbb(r)

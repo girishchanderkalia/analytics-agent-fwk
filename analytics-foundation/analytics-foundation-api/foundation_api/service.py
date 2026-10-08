@@ -135,6 +135,20 @@ class FoundationService:
   except KeyError as exc:raise RegistrationNotFoundError(rid) from exc
  def wafers(self,request):
   if request.workspace_id!="TREND_PREVIEW":self._workspace(request.workspace_id)
+  if "outlier_scopes" in request.filters:
+   rows=[];anomalous=[];seen=set()
+   scopes=request.filters["outlier_scopes"]
+   if not isinstance(scopes,list):raise ValueError("outlier_scopes must be a list")
+   for scope in scopes:
+    if not isinstance(scope,dict) or not scope.get("lot_id"):raise ValueError("Each outlier scope must identify a lot")
+    identity=(scope["lot_id"],scope.get("layer_id"),scope.get("exposure_equipment_id") or scope.get("machine"))
+    if identity in seen:continue
+    seen.add(identity)
+    filters={key:value for key,value in request.filters.items() if key!="outlier_scopes"}
+    filters.update({key:value for key,value in zip(("lot_id","layer_id","exposure_equipment_id"),identity) if value is not None})
+    result=self.wafers(WaferQueryRequest(workspace_id=request.workspace_id,table=request.table,filters=filters))
+    rows.extend(result.rows);anomalous.extend(result.anomalous_wafers)
+   return WaferQueryResponse(workspace_id=request.workspace_id,table=request.table,rows=rows,anomalous_wafers=list(dict.fromkeys(anomalous)))
   rows=[]
   for raw in self.repo.wafer_rows():
    row=_identified_wafer_row(raw)

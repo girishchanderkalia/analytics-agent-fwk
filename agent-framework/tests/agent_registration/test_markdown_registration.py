@@ -90,7 +90,7 @@ def test_fingerprint_is_stable_and_content_addressed(tmp_path: Path) -> None:
 
     assert fingerprint_markdown_package(copy) == fingerprint_markdown_package(AGENT)
 
-    workflow = copy / "workflow-definition.md"
+    workflow = copy / "agent.md"
     workflow.write_text(
         workflow.read_text(encoding="utf-8").replace(
             "Identifying candidate outliers",
@@ -104,10 +104,10 @@ def test_fingerprint_is_stable_and_content_addressed(tmp_path: Path) -> None:
 
 def test_untranslatable_package_is_refused(tmp_path: Path) -> None:
     copy = copy_agent(tmp_path)
-    capabilities = copy / "tools-and-capabilities.md"
+    capabilities = copy / "agent.md"
     capabilities.write_text(
         capabilities.read_text(encoding="utf-8").replace(
-            "    server: analytics-foundation\n    tool: query_trends\n",
+            "      server: analytics-foundation\n      tool: query_trends\n",
             "",
         ),
         encoding="utf-8",

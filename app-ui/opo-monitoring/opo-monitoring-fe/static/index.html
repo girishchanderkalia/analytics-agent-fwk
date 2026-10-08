@@ -5,7 +5,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>OPO Monitoring UI</title>
-  <link rel="stylesheet" href="/static/styles.css?v=10" />
+  <link rel="stylesheet" href="/static/styles.css?v=13" />
 </head>
 
 <body>
@@ -22,6 +22,7 @@
   </header>
 
   <main>
+    <section class="chart-workspace">
     <section class="timeline-pane">
       <section class="chart-panel">
         <div class="chart-head">
@@ -89,9 +90,17 @@
           <h3>Wafer map</h3>
           <span id="wafer-note" class="chart-note">No wafer data</span>
         </div>
-        <div id="wafer-plot" class="plot wafer-plot"></div>
+        <div class="wafer-map-viewport">
+          <div id="wafer-plot" class="plot wafer-plot"></div>
+        </div>
       </section>
 
+    </section>
+
+      <div id="wafer-map-scrollbar" class="wafer-map-scrollbar" role="region"
+        aria-label="Scroll wafer maps horizontally" tabindex="0" hidden>
+        <div id="wafer-map-scroll-track"></div>
+      </div>
     </section>
 
     <div id="panel-resizer" class="panel-resizer" title="Drag to resize"></div>
@@ -140,7 +149,7 @@
 
   <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
   <script src="/static/bff-client.js?v=6"></script>
-  <script src="/static/app.js?v=72"></script>
+  <script src="/static/app.js?v=79"></script>
 </body>
 
 </html>

@@ -194,7 +194,15 @@ body.resizing-panels * {
   user-select: none;
 }
 
+.chart-workspace {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
 .timeline-pane {
+  flex: 1;
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -791,6 +799,30 @@ tr.anomalous td {
 
 .wafer-plot {
   min-height: 320px;
+}
+
+.wafer-map-viewport {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.wafer-map-scrollbar {
+  flex-shrink: 0;
+  margin: 0 22px;
+  z-index: 3;
+  height: 18px;
+  overflow-x: scroll;
+  overflow-y: hidden;
+  background: var(--panel);
+  scrollbar-color: var(--muted) var(--panel-2);
+}
+
+.wafer-map-scrollbar[hidden] {
+  display: none;
+}
+
+#wafer-map-scroll-track {
+  height: 1px;
 }
 
 .chart-head {

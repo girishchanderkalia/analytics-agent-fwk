@@ -5,6 +5,7 @@ import sys
 from pathlib import Path
 
 import pytest
+import yaml
 
 
 V3_ROOT = Path(__file__).resolve().parents[2]
@@ -162,28 +163,28 @@ def test_state_definition_is_available() -> None:
     bundle = load_agent_definition(OPO_AGENT_ROOT)
 
     assert bundle.state.kind == "state-model"
-    assert bundle.state.id == "opo-analysis-agent-v1-state"
+    assert bundle.state.id == "opo-analysis-agent-v1-state-model"
 
 
 def test_capability_definition_is_available() -> None:
     bundle = load_agent_definition(OPO_AGENT_ROOT)
 
     assert bundle.capabilities.kind == "tools-and-capabilities"
-    assert bundle.capabilities.id == "opo-analysis-agent-v1-capabilities"
+    assert bundle.capabilities.id == "opo-analysis-agent-v1-tools-and-capabilities"
 
 
 def test_knowledge_definition_is_available() -> None:
     bundle = load_agent_definition(OPO_AGENT_ROOT)
 
     assert bundle.knowledge.kind == "knowledge-model"
-    assert bundle.knowledge.id == "opo-analysis-agent-v1-knowledge"
+    assert bundle.knowledge.id == "opo-analysis-agent-v1-knowledge-model"
 
 
 def test_sequence_definition_is_available() -> None:
     bundle = load_agent_definition(OPO_AGENT_ROOT)
 
     assert bundle.sequences.kind == "sequence-diagrams"
-    assert bundle.sequences.id == "opo-analysis-agent-v1-sequences"
+    assert bundle.sequences.id == "opo-analysis-agent-v1-sequence-diagrams"
 
 
 def test_repository_discovers_opo_monitoring() -> None:
@@ -307,7 +308,14 @@ def test_missing_definition_file_is_rejected(
     tmp_path: Path,
 ) -> None:
     agent_directory = tmp_path / "opo-monitoring"
-    shutil.copytree(OPO_AGENT_ROOT, agent_directory)
+    agent_directory.mkdir()
+    bundle = load_agent_definition(OPO_AGENT_ROOT)
+    for filename, definition in bundle.definitions.items():
+        (agent_directory / filename).write_text(
+            "---\n" + yaml.safe_dump(definition.metadata) + "---\n" + definition.markdown,
+            encoding="utf-8",
+        )
+    assert load_agent_definition(agent_directory).agent_id == bundle.agent_id
 
     missing_file = agent_directory / "workflow-definition.md"
     missing_file.unlink()
@@ -325,7 +333,7 @@ def test_unknown_edge_source_is_rejected(
     target_agent = tmp_path / "opo-monitoring"
     shutil.copytree(OPO_AGENT_ROOT, target_agent)
 
-    workflow_path = target_agent / "workflow-definition.md"
+    workflow_path = target_agent / "agent.md"
 
     content = workflow_path.read_text(encoding="utf-8")
     content = content.replace(
@@ -348,7 +356,7 @@ def test_unknown_edge_destination_is_rejected(
     target_agent = tmp_path / "opo-monitoring"
     shutil.copytree(OPO_AGENT_ROOT, target_agent)
 
-    workflow_path = target_agent / "workflow-definition.md"
+    workflow_path = target_agent / "agent.md"
 
     content = workflow_path.read_text(encoding="utf-8")
     content = content.replace(

@@ -75,3 +75,6 @@ Legacy six-file packages remain supported. A package with `agent.md` uses the
 single-file format even if legacy files are also present. Register the finished
 package through `AGENT_MARKDOWN_PACKAGES`; local startup includes OPO v1 and v4.
 Adding a package does not change the application's currently selected agent.
+
+Both OPO packages use this single-file format. V1 retains explicit edges for its
+alternate threshold and follow-up paths; V4 derives its main path from step order.

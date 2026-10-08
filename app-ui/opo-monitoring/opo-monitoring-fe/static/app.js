@@ -51,6 +51,27 @@ function resizeChartsIfAny() {
   });
 }
 
+const waferMapViewport = document.querySelector(".wafer-map-viewport");
+const waferMapScrollbar = document.getElementById("wafer-map-scrollbar");
+const waferMapScrollTrack = document.getElementById("wafer-map-scroll-track");
+if (waferMapViewport && waferMapScrollbar && waferMapScrollTrack) {
+  const updateWaferScrollbar = () => {
+    waferMapScrollbar.style.width = `${waferMapViewport.clientWidth}px`;
+    waferMapScrollTrack.style.width = `${waferMapViewport.scrollWidth}px`;
+    waferMapScrollbar.hidden = waferMapViewport.scrollWidth <= waferMapViewport.clientWidth + 1;
+    waferMapScrollbar.scrollLeft = waferMapViewport.scrollLeft;
+  };
+  waferMapScrollbar.addEventListener("scroll", () => {
+    waferMapViewport.scrollLeft = waferMapScrollbar.scrollLeft;
+  });
+  waferMapViewport.addEventListener("scroll", () => {
+    waferMapScrollbar.scrollLeft = waferMapViewport.scrollLeft;
+  });
+  const waferScrollbarObserver = new ResizeObserver(updateWaferScrollbar);
+  waferScrollbarObserver.observe(waferMapViewport);
+  waferScrollbarObserver.observe(document.getElementById("wafer-plot"));
+}
+
 (function restoreEvidenceWidth() {
   const saved = Number(localStorage.getItem(EVIDENCE_WIDTH_KEY));
   if (saved) setEvidenceWidth(saved);
@@ -731,7 +752,7 @@ function previewWafersForCandidate(candidate) {
     row.exposure_equipment_id === candidate.machine
     && row.layer_id === candidate.layer_id
     && row.lot_id === candidate.lot_id);
-  renderWaferMap({ wafer_rows: scoped, anomalous_wafers: lastAnomalousWafers });
+  renderWaferMap({ wafer_rows: scoped, anomalous_wafers: lastAnomalousWafers }, { cachePreview: false });
 }
 
 // Shows a visible message instead of silently blocking the gate on an empty required field.
@@ -837,9 +858,9 @@ function renderGate(request) {
     const outlierSelect = interactionPanel.querySelector("#outlier-select");
     const candidateFor = (value) =>
       candidates.find((candidate, index) => (candidate.id ?? String(index)) === value);
-    previewWafersForCandidate(candidateFor(outlierSelect?.value) || candidates[0]);
+    renderWaferMap({ wafer_rows: lastWaferRows, anomalous_wafers: lastAnomalousWafers });
     outlierSelect?.addEventListener("change", () => {
-      previewWafersForCandidate(candidateFor(outlierSelect.value));
+        previewWafersForCandidate(candidateFor(outlierSelect.value));
     });
   }
 
@@ -1063,11 +1084,18 @@ function renderTrendChart(evidence) {
   const selected = selectedOutlier?.machine || null;
   const scope = effectiveScope(evidence);
   const outliers = evidence.outliers || [];
-  const hasAppliedRule = evidence.confirmed_threshold != null || outliers.length > 0;
+  const hasAppliedRule = evidence.confirmed_threshold != null || outliers.length > 0 || evidence.findings != null;
   // Once a specific candidate is selected, ring only that point - not the whole candidate set.
   drawPlot(hasAppliedRule ? (selectedOutlier ? [selectedOutlier] : outliers) : null, selected);
   if (!scope.mode) return;
   const rule = ruleLabel(scope);
+
+  if (!hasAppliedRule) {
+    note.textContent = scope.suggested_limit_value != null
+      ? `Suggested threshold: ${rule} \u00b7 awaiting confirmation`
+      : "Outlier detection has not completed";
+    return;
+  }
 
   if (!outliers.length) {
     note.textContent = `No points ${rule}`;
@@ -1085,7 +1113,7 @@ function renderTrendChart(evidence) {
      across ${outliers.length} series`;
 }
 
-function renderWaferMap(evidence) {
+function renderWaferMap(evidence, { cachePreview = true } = {}) {
   const plotEl = document.getElementById("wafer-plot");
   const noteEl = document.getElementById("wafer-note");
 
@@ -1094,7 +1122,7 @@ function renderWaferMap(evidence) {
   const rows = evidence.wafer_rows || [];
   // Keep the broadest (pre-approval) wafer preview around so the outlier dropdown
   // can show a live, candidate-scoped wafer map before the analyst approves anything.
-  if (rows.length) {
+  if (rows.length && cachePreview) {
     lastWaferRows = rows;
     lastAnomalousWafers = evidence.anomalous_wafers || [];
   }
@@ -1102,6 +1130,7 @@ function renderWaferMap(evidence) {
     noteEl.textContent = "No wafer data";
     Plotly.purge(plotEl);
     plotEl.style.height = "";
+    plotEl.style.minWidth = "";
     return;
   }
 
@@ -1119,17 +1148,40 @@ function renderWaferMap(evidence) {
 
   // Scale to the data instead of fixed constants, since a real wafer's field layout
   // and overlay magnitude can both be very different from the old mock's.
-  const maxCoordMagnitude = rows.reduce((max, row) => Math.max(max, Math.abs(trueX(row)), Math.abs(trueY(row))), 0);
+  const maxCoordMagnitude = rows.reduce((max, row) => {
+    const radius = Math.hypot(trueX(row), trueY(row));
+    return Number.isFinite(radius) ? Math.max(max, radius) : max;
+  }, 0);
   const WAFER_RADIUS = maxCoordMagnitude > 0 ? maxCoordMagnitude * 1.08 : 27;
   const AXIS_RANGE = WAFER_RADIUS * 1.15;
+  const overlayX = (row) => Number(row.overlay_x ?? NaN);
+  const overlayY = (row) => Number(row.overlay_y ?? NaN);
+  const validOverlay = (row) => row.overlay_valid_x !== false && row.overlay_valid_y !== false
+    && Number.isFinite(overlayX(row)) && Number.isFinite(overlayY(row))
+    && Number.isFinite(trueX(row)) && Number.isFinite(trueY(row));
+  const magnitude = (row) => Math.max(Math.abs(overlayX(row)), Math.abs(overlayY(row)));
+  const validRows = rows.filter(validOverlay);
+  const colorMax = validRows.reduce((max, row) => Math.max(max, magnitude(row)), 0.001);
   const maxOverlayMagnitude = rows.reduce((max, row) => {
-    const magnitude = Math.max(Math.abs(Number(row.overlay_x ?? 0)), Math.abs(Number(row.overlay_y ?? 0)));
-    return Number.isFinite(magnitude) ? Math.max(max, magnitude) : max;
+    const vectorLength = validOverlay(row) ? Math.hypot(overlayX(row), overlayY(row)) : 0;
+    return Math.max(max, vectorLength);
   }, 0);
   // Arrows are meant to fit within one reticle field's footprint, not scale with
   // the whole wafer radius, so target length is a fixed fraction of field spacing.
   const TARGET_VECTOR_LENGTH = 10;
-  const vectorScale = maxOverlayMagnitude > 0 ? TARGET_VECTOR_LENGTH / maxOverlayMagnitude : 1;
+  let vectorScale = maxOverlayMagnitude > 0 ? TARGET_VECTOR_LENGTH / maxOverlayMagnitude : 1;
+  const circleFit = (row) => {
+    const vectorX = overlayX(row) * vectorScale;
+    const vectorY = overlayY(row) * vectorScale;
+    const squaredLength = vectorX * vectorX + vectorY * vectorY;
+    if (squaredLength < 1e-12) return 1;
+    const projection = 2 * (trueX(row) * vectorX + trueY(row) * vectorY);
+    const offset = trueX(row) ** 2 + trueY(row) ** 2 - WAFER_RADIUS ** 2;
+    if (squaredLength + projection + offset <= 0) return 1;
+    return Math.max(0, Math.min(1,
+      (-projection + Math.sqrt(projection ** 2 - 4 * squaredLength * offset)) / (2 * squaredLength)));
+  };
+  vectorScale *= 0.99 * validRows.reduce((fit, row) => Math.min(fit, circleFit(row)), 1);
 
   // Index once because the broad outlier preview can contain tens of thousands of
   // points; repeatedly scanning all rows for every panel makes rendering quadratic.
@@ -1150,6 +1202,11 @@ function renderWaferMap(evidence) {
   const columns = Math.max(1, ...[...waferIdsPerLot.values()].map((ids) => ids.length));
   const gridRows = lotIds.length;
   const showVectors = lotIds.length === 1;
+  const rightMargin = validRows.length ? 110 : 8;
+  plotEl.style.minWidth = `${columns * 320 + 28 + rightMargin}px`;
+  const rowHeight = Math.max(360, Math.min(520, (plotEl.clientWidth - 28 - rightMargin) / columns + 50));
+  const plotHeight = gridRows * rowHeight + 20;
+  const rowPadding = 20 / (plotHeight - 20);
 
   const traces = [];
   const annotations = [];
@@ -1158,6 +1215,27 @@ function renderWaferMap(evidence) {
 
   lotIds.forEach((lotId, rowIndex) => {
     const waferIdsForLot = waferIdsPerLot.get(lotId);
+    const colorAxis = rowIndex === 0 ? "coloraxis" : `coloraxis${rowIndex + 1}`;
+    const yEnd = 1 - rowIndex / gridRows - rowPadding;
+    const yStart = 1 - (rowIndex + 1) / gridRows + rowPadding;
+    waferLayout[colorAxis] = {
+      cmin: 0,
+      cmax: colorMax,
+      colorscale: "Viridis",
+      showscale: waferIdsForLot.some((waferId) =>
+        (rowsByPanel.get(`${lotId}\u0000${waferId}`) || []).some(validOverlay)),
+      colorbar: {
+        title: { text: "max(|X|, |Y|)<br>nm", side: "top", font: { size: 10 } },
+        thickness: 10,
+        lenmode: "pixels",
+        len: Math.min(180, rowHeight * 0.6),
+        tickfont: { size: 10 },
+        x: 1.02,
+        xanchor: "left",
+        y: (yStart + yEnd) / 2,
+        yanchor: "middle",
+      },
+    };
     waferIdsForLot.forEach((waferId, colIndex) => {
       const panelIndex = rowIndex * columns + colIndex;
       const axisNumber = panelIndex + 1;
@@ -1169,31 +1247,39 @@ function renderWaferMap(evidence) {
       // A single lot's wafer has no duplicate sites, so every real point is plotted
       // as-is (no averaging) - averaging is only needed when multiple lots' samples
       // land on the same physical field/site, which doesn't happen within one lot.
-      const measurementX = panelRows.map(trueX);
-      const measurementY = panelRows.map(trueY);
-      const pointColors = panelRows.map((row) => {
-        const valid = row.overlay_valid_x !== false && row.overlay_valid_y !== false;
-        return valid && anomalySet.has(waferId) ? "#f85149" : valid ? "#4c9aff" : "#667085";
-      });
-      const pointText = panelRows.map((row) => `${lotId} \u00b7 ${waferId}`);
+      const validPoints = panelRows.filter(validOverlay);
+      const invalidPoints = panelRows.filter((row) => !validOverlay(row));
+      const arrowPoints = validPoints.filter((row) => Math.hypot(overlayX(row), overlayY(row)) > 1e-6);
 
       traces.push({
         type: showVectors ? "scattergl" : "scatter",
         mode: "markers",
-        x: measurementX,
-        y: measurementY,
+        x: validPoints.map(trueX),
+        y: validPoints.map(trueY),
         xaxis: axisRef,
         yaxis: yAxisRef,
-        marker: { size: 4, color: pointColors, opacity: 0.75 },
-        text: pointText,
-        hovertemplate: "%{text}<br>x=%{x:.2f}, y=%{y:.2f}<extra></extra>",
+        marker: { size: 4, color: validPoints.map(magnitude), coloraxis: colorAxis },
+        text: validPoints.map(() => `${lotId} \u00b7 ${waferId}`),
+        customdata: validPoints.map((row) => [overlayX(row), overlayY(row), magnitude(row)]),
+        hovertemplate: "%{text}<br>x=%{x:.2f}, y=%{y:.2f} mm<br>Overlay X %{customdata[0]:.3f} / Y %{customdata[1]:.3f} nm<br>max(|X|, |Y|) %{customdata[2]:.3f} nm<extra></extra>",
         showlegend: false,
       });
+      if (invalidPoints.length) {
+        traces.push({
+          type: "scatter",
+          mode: "markers",
+          x: invalidPoints.map(trueX),
+          y: invalidPoints.map(trueY),
+          xaxis: axisRef,
+          yaxis: yAxisRef,
+          marker: { size: 4, color: "#667085" },
+          hovertemplate: `${lotId} \u00b7 ${waferId}<br>Invalid or missing overlay<extra></extra>`,
+          showlegend: false,
+        });
+      }
 
       const xStart = colIndex / columns + 0.008;
       const xEnd = (colIndex + 1) / columns - 0.008;
-      const yEnd = 1 - rowIndex / gridRows - 0.05;
-      const yStart = 1 - (rowIndex + 1) / gridRows + 0.05;
       waferLayout[`xaxis${axisSuffix}`] = {
         domain: [xStart, xEnd],
         anchor: yAxisRef,
@@ -1202,11 +1288,14 @@ function renderWaferMap(evidence) {
         gridcolor: "#2a3441",
         showticklabels: false,
         fixedrange: true,
+        constrain: "domain",
       };
       waferLayout[`yaxis${axisSuffix}`] = {
         domain: [yStart, yEnd],
-        anchor: "free",
-        position: 0,
+        anchor: axisRef,
+        scaleanchor: axisRef,
+        scaleratio: 1,
+        constrain: "domain",
         range: [-AXIS_RANGE, AXIS_RANGE],
         zeroline: false,
         gridcolor: "#2a3441",
@@ -1234,36 +1323,37 @@ function renderWaferMap(evidence) {
       });
 
       if (showVectors) {
-        panelRows.forEach((row) => {
-          const px = trueX(row);
-          const py = trueY(row);
-          const ux = Number(row.overlay_x ?? 0);
-          const uy = Number(row.overlay_y ?? 0);
-          const valid = row.overlay_valid_x !== false && row.overlay_valid_y !== false;
-          if (!valid || !Number.isFinite(px) || !Number.isFinite(py) || (ux === 0 && uy === 0)) return;
-          annotations.push({
-            x: px + ux * vectorScale,
-            y: py + uy * vectorScale,
-            ax: px,
-            ay: py,
-            xref: axisRef,
-            yref: yAxisRef,
-            axref: axisRef,
-            ayref: yAxisRef,
-            showarrow: true,
-            arrowhead: 3,
-            arrowsize: 1.1,
-            arrowwidth: anomalySet.has(waferId) ? 2 : 1.5,
-            arrowcolor: anomalySet.has(waferId) ? "#f85149" : "#4c9aff",
-            text: "",
-          });
+        traces.push({
+          type: "scatter",
+          mode: "lines",
+          xaxis: axisRef,
+          yaxis: yAxisRef,
+          x: arrowPoints.flatMap((row) => [trueX(row), trueX(row) + overlayX(row) * vectorScale, null]),
+          y: arrowPoints.flatMap((row) => [trueY(row), trueY(row) + overlayY(row) * vectorScale, null]),
+          line: { color: "#e4e8ee", width: 1.2 },
+          hoverinfo: "skip",
+          showlegend: false,
+        }, {
+          type: "scatter",
+          mode: "markers",
+          xaxis: axisRef,
+          yaxis: yAxisRef,
+          x: arrowPoints.map((row) => trueX(row) + overlayX(row) * vectorScale),
+          y: arrowPoints.map((row) => trueY(row) + overlayY(row) * vectorScale),
+          marker: {
+            symbol: "triangle-up",
+            size: 9,
+            angle: arrowPoints.map((row) => Math.atan2(overlayX(row), overlayY(row)) * 180 / Math.PI),
+            color: arrowPoints.map(magnitude),
+            coloraxis: colorAxis,
+          },
+          hoverinfo: "skip",
+          showlegend: false,
         });
       }
     });
 
     // One rotated label per lot row, to the left of that row's wafer panels.
-    const yEnd = 1 - rowIndex / gridRows - 0.05;
-    const yStart = 1 - (rowIndex + 1) / gridRows + 0.05;
     annotations.push({
       x: -0.01,
       y: (yStart + yEnd) / 2,
@@ -1281,11 +1371,8 @@ function renderWaferMap(evidence) {
     grid: { rows: gridRows, columns, pattern: "independent" },
     paper_bgcolor: "rgba(0,0,0,0)",
     plot_bgcolor: "rgba(0,0,0,0)",
-    margin: { l: 28, r: 8, t: 12, b: 8 },
-    height: Math.max(
-      480,
-      gridRows * (showVectors ? 520 : Math.max(150, Math.min(360, Math.round(plotEl.clientWidth / columns))))
-    ),
+    margin: { l: 28, r: rightMargin, t: 12, b: 8 },
+    height: plotHeight,
     showlegend: false,
     hovermode: "closest",
     annotations,
@@ -1401,7 +1488,8 @@ function handleResponse(runtime) {
       && runtime.approvalRequest?.approval_id === "confirm_suggested_threshold";
     const badge = pending ? "Suggested limit" : scope.mode === "absolute" ? "Absolute limit" : "Per-machine baseline";
     const interpretation = evidence.trend_filters?.interpretation;
-    const html = `<strong>${badge}</strong>: marking points ${escapeHtml(ruleLabel(scope))}` +
+    const html = `<strong>${badge}</strong>: ${pending ? "proposed rule" : "marking points"} ${escapeHtml(ruleLabel(scope))}` +
+      (pending ? "<br>Awaiting threshold approval; outlier detection has not run." : "") +
       (interpretation ? `<br><span class="interpretation">${escapeHtml(interpretation)}</span>` : "");
     const existing = timeline.querySelector(".msg.status.rule");
     if (existing) existing.innerHTML = html;

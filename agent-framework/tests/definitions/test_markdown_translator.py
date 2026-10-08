@@ -6,6 +6,7 @@ import sys
 from pathlib import Path
 
 import pytest
+import yaml
 
 ROOT = Path(__file__).resolve().parents[3]
 AGENT_RUNTIME = ROOT / "agent-framework" / "agent-runtime"
@@ -51,8 +52,8 @@ def test_authored_node_types_map_to_framework_kinds(definition) -> None:
 def test_model_nodes_carry_prompt_contract_and_result(definition) -> None:
     config = node(definition, "parse_trend_request").config
 
-    assert config["prompt"] == "trend_filters"
-    assert config["output_contract"] == "TrendFilters"
+    assert config["prompt"] == "parse_trend_request"
+    assert config["output_contract"] == "parse_trend_request"
     assert config["result_key"] == "trend_filters"
 
 
@@ -63,6 +64,12 @@ def test_trend_model_binds_to_declared_foundation_tool(definition) -> None:
         "trend_series": "$.request_trend_evidence__result.series",
         "request_trend_evidence__result": None,
     }
+
+
+def test_wafer_preview_uses_highlighted_outlier_scopes(definition) -> None:
+    config = node(definition, "preview_wafers").config
+    assert config["arguments"]["filters"] == {"outlier_scopes": "$.outliers"}
+    assert node(definition, "preview_wafers__map").config["assignments"]["wafer_rows"] == "$.preview_wafers__result.rows"
 
 
 def test_downstream_edges_start_from_the_mapping_node(definition) -> None:
@@ -145,11 +152,62 @@ def test_state_model_becomes_a_json_schema(definition) -> None:
 
 def test_prompts_and_knowledge_are_carried_through(definition) -> None:
     assert {prompt.prompt_id for prompt in definition.prompts} == {
-        "trend_filters", "trend_evidence", "detection_scope",
-        "foundation_metadata", "wafer_evidence",
-        "spatial_pattern", "findings_summary",
+        "parse_trend_request", "interpret_detection_scope",
+        "classify_spatial_pattern", "summarize_findings",
     }
-    assert "Application-owned knowledge" in definition.knowledge[0]
+    assert "Runtime information is operational context" in definition.knowledge[0]
+
+
+def test_v1_domain_topics_are_explicitly_scoped(definition) -> None:
+    from bootstrap.langgraph_dependencies import PackagePromptProvider
+
+    provider = PackagePromptProvider(definition)
+    trend = provider.render("parse_trend_request", {})
+    detection = provider.render("interpret_detection_scope", {})
+    spatial = provider.render("classify_spatial_pattern", {})
+    findings = provider.render("summarize_findings", {})
+
+    assert "Domain knowledge (trends)" in trend
+    assert "Domain knowledge (outliers)" not in trend
+    assert "Domain knowledge (wafers)" not in trend
+    assert "Domain knowledge (outliers)" in detection
+    assert "Zero samples mean missing distribution evidence" in detection
+    assert "Domain knowledge (wafers)" in spatial
+    assert "Wafer records identified as anomalous" in spatial
+    for topic in ("trends", "outliers", "wafers"):
+        assert f"Domain knowledge ({topic})" in findings
+    for prompt in (trend, detection, spatial, findings):
+        assert "High confidence requires" in prompt
+
+
+def test_v1_filter_scope_is_owned_by_the_agent(definition) -> None:
+    from execution.output_rules import check_output
+    from langgraph_runtime.node_library import _model_input
+
+    config = node(definition, "parse_trend_request").config
+    state = {
+        "question": "show outliers",
+        "conversation_context": {
+            "current_date": "2026-10-08",
+            "available_trend_scopes": [{"product": "Product4", "layer": "L4"}],
+            "selected_product_ids": ["Product4"],
+        },
+        "trend_series": [{"product": "Product4"}],
+    }
+    model_input = _model_input(config, state)
+    assert "show outliers" in model_input
+    assert "2026-10-08" in model_input
+    assert "Product4" not in model_input
+    assert "available_trend_scopes" not in model_input
+    rules = config["guardrails"]["rules"]
+    assert config["guardrails"]["on_failure"] == "stop"
+    assert check_output({"product_ids": ["Product4"]}, rules, state)
+    assert not check_output({"product_ids": [], "layer_ids": []}, rules, state)
+    assert not check_output(
+        {"product_ids": ["AAA2"], "layer_ids": ["OV_NO_ID2"]},
+        rules,
+        {"question": "show outliers for product AAA2 on layer OV_NO_ID2"},
+    )
 
 
 def test_declared_tools_are_deduplicated(definition) -> None:
@@ -164,25 +222,25 @@ def test_declared_tools_are_deduplicated(definition) -> None:
 
 def test_contracts_stay_available_for_the_contract_provider(definition) -> None:
     assert set(definition.metadata["models"]) == {
-        "SpatialPattern",
-        "TrendFilters", "DetectionScope", "FindingsSummary",
+        "parse_trend_request", "interpret_detection_scope",
+        "classify_spatial_pattern", "summarize_findings",
     }
 
 
-def test_undeclared_capability_reference_is_rejected(tmp_path) -> None:
+def test_invalid_inline_capability_is_rejected(tmp_path) -> None:
     import shutil
+    from execution.definition_loader import split_front_matter
 
     target = tmp_path / "agent"
     shutil.copytree(AGENT, target)
-    workflow = target / "workflow-definition.md"
+    workflow = target / "agent.md"
+    metadata, markdown = split_front_matter(workflow)
+    metadata["steps"][1]["capability"] = "missing"
     workflow.write_text(
-        workflow.read_text(encoding="utf-8").replace(
-            "data_query.read_trends",
-            "data_query.missing",
-        ),
+        "---\n" + yaml.safe_dump(metadata) + "---\n" + markdown,
         encoding="utf-8",
     )
 
     # Package validation rejects this before translation is reached.
-    with pytest.raises(ValueError, match="undeclared"):
+    with pytest.raises(ValueError, match="capability must be a mapping"):
         translate_markdown_agent(target)

@@ -69,7 +69,7 @@ class Client:
 
 
 def test_prompt_provider_appends_package_knowledge(definition) -> None:
-    rendered = PackagePromptProvider(definition).render("trend_filters", {})
+    rendered = PackagePromptProvider(definition).render("parse_trend_request", {})
 
     assert "Extract trend filters" in rendered
     assert "Application knowledge:" in rendered
@@ -150,7 +150,7 @@ def compiler(definition) -> NormalizedAgentCompiler:
 def test_contracts_come_from_the_authored_models(definition) -> None:
     provider = compiler(definition).dependencies(definition).contract_provider
 
-    contract = provider.get_contract("TrendFilters")
+    contract = provider.get_contract("parse_trend_request")
 
     assert "lookback_days" in contract.model_fields
 
@@ -216,8 +216,8 @@ def test_model_input_is_bounded_by_declared_fields(definition) -> None:
             "summarize",
             "model",
             {
-                "prompt": "findings_summary",
-                "output_contract": "FindingsSummary",
+                    "prompt": "summarize_findings",
+                    "output_contract": "summarize_findings",
                 "result_key": "findings",
                 "inputs": ["question", "outliers"],
             },
