@@ -39,11 +39,11 @@ def test_opo_agent_bundle_loads() -> None:
     assert bundle.display_name == "OPO Analysis Agent"
 
 
-def test_single_file_v5_loads_and_derives_state() -> None:
-    bundle = load_agent_definition(AGENT_REPOSITORY_ROOT / "opo-analysis-agent-v5")
+def test_single_file_v4_loads_and_derives_state() -> None:
+    bundle = load_agent_definition(AGENT_REPOSITORY_ROOT / "opo-analysis-agent-v4")
 
-    assert bundle.agent_id == "opo-analysis-agent-v5"
-    assert bundle.version == "V5"
+    assert bundle.agent_id == "opo-analysis-agent-v4"
+    assert bundle.version == "V4"
     assert bundle.workflow.metadata["entry_node"] == "parse_trend_request"
     fields = bundle.state.metadata["fields"]
     assert fields["trend_series"]["type"] == "object_list"
@@ -62,14 +62,15 @@ def test_template_loads_but_is_not_discovered() -> None:
     assert bundle.capabilities.metadata["capabilities"] == []
     assert "template" not in repository.list_agent_directories()
     assert not repository.contains("template")
-    assert repository.contains("opo-analysis-agent-v5")
+    assert repository.contains("opo-analysis-agent-v4")
+    assert not repository.contains("opo-analysis-agent-v5")
 
 
 def test_single_file_knowledge_is_explicitly_scoped() -> None:
     from bootstrap.langgraph_dependencies import PackagePromptProvider
     from definitions.markdown_translator import translate_markdown_agent
 
-    definition = translate_markdown_agent(AGENT_REPOSITORY_ROOT / "opo-analysis-agent-v5")
+    definition = translate_markdown_agent(AGENT_REPOSITORY_ROOT / "opo-analysis-agent-v4")
     provider = PackagePromptProvider(definition)
     trend = provider.render("parse_trend_request", {})
     tdbb = provider.render("analyze_tdbb", {})
@@ -84,24 +85,25 @@ def test_single_file_knowledge_is_explicitly_scoped() -> None:
     assert "Foundation before-period TDBB result" in radial
 
 
-def test_single_file_v5_preserves_v4_graph_and_tool_requests() -> None:
+def test_single_file_v4_preserves_workflow_and_application_contracts() -> None:
     from definitions.markdown_translator import translate_markdown_agent
 
-    previous = translate_markdown_agent(AGENT_REPOSITORY_ROOT / "opo-analysis-agent-v4")
-    current = translate_markdown_agent(AGENT_REPOSITORY_ROOT / "opo-analysis-agent-v5")
-
-    assert current.graph.edges == previous.graph.edges
-    old_nodes = {node.node_id: node for node in previous.graph.nodes}
-    new_nodes = {node.node_id: node for node in current.graph.nodes}
-    assert old_nodes.keys() == new_nodes.keys()
-    for node_id, old_node in old_nodes.items():
-        new_node = new_nodes[node_id]
-        assert new_node.kind == old_node.kind
-        if old_node.kind in {"tool", "transform"}:
-            assert new_node.config == old_node.config
-        if old_node.kind == "interrupt":
-            for key in ("approval_id", "result_key", "decision_fields"):
-                assert new_node.config[key] == old_node.config[key]
+    definition = translate_markdown_agent(AGENT_REPOSITORY_ROOT / "opo-analysis-agent-v4")
+    nodes = {node.node_id: node for node in definition.graph.nodes}
+    assert len(nodes) == 13
+    assert len(definition.graph.edges) == 17
+    assert nodes["request_comparison"].config["approval_id"] == "request_tdbb_comparison"
+    assert nodes["request_comparison"].config["decision_fields"] == {
+        "comparison_requested": "approved", "comparison_request": "comparison_request",
+    }
+    assert nodes["review_tdbb"].config["approval_id"] == "review_tdbb_results"
+    assert nodes["review_tdbb"].config["decision_fields"] == {
+        "tdbb_explanation_requested": "approved",
+        "root_cause_requested": "approved",
+        "root_cause_request": "root_cause_request",
+    }
+    assert nodes["request_tdbb_before"].config["arguments"]["end_date"] == "$.comparison_scope.change_date"
+    assert nodes["request_tdbb_after"].config["arguments"]["end_date"] == "$.trend_filters.end_date"
 
 
 def test_single_file_unknown_knowledge_topic_is_rejected(tmp_path: Path) -> None:
@@ -122,7 +124,7 @@ def test_single_file_prompt_preview(capsys) -> None:
     from execution.definition_loader import main
 
     assert main([
-        str(AGENT_REPOSITORY_ROOT / "opo-analysis-agent-v5"),
+        str(AGENT_REPOSITORY_ROOT / "opo-analysis-agent-v4"),
         "--preview-step", "analyze_nce_root_cause",
     ]) == 0
     output = capsys.readouterr().out

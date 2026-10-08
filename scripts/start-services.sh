@@ -74,7 +74,7 @@ export RUNTIME_SERVICE_BASE_URL="${RUNTIME_SERVICE_BASE_URL:-http://127.0.0.1:$R
 export SERVER_PORT="$BFF_PORT"
 export AGENT_RUNTIME_REPOSITORY_ROOT="${AGENT_RUNTIME_REPOSITORY_ROOT:-$(cygpath -w "$ROOT_DIR")}"
 export AGENT_APPLICATION_ID="${AGENT_APPLICATION_ID:-opo-monitoring}"
-export AGENT_MARKDOWN_PACKAGES="${AGENT_MARKDOWN_PACKAGES:-$(cygpath -w "$ROOT_DIR/agents/opo-analysis-agent-v1");$(cygpath -w "$ROOT_DIR/agents/opo-analysis-agent-v4");$(cygpath -w "$ROOT_DIR/agents/opo-analysis-agent-v5")}";
+export AGENT_MARKDOWN_PACKAGES="${AGENT_MARKDOWN_PACKAGES:-$(cygpath -w "$ROOT_DIR/agents/opo-analysis-agent-v1");$(cygpath -w "$ROOT_DIR/agents/opo-analysis-agent-v4")}";
 
 # Windows Python uses semicolon-separated PYTHONPATH entries.
 export PYTHONPATH="$(cygpath -w "$ROOT_DIR");$(cygpath -w "$ROOT_DIR/analytics-foundation/analytics-foundation-api");$(cygpath -w "$ROOT_DIR/analytics-foundation/analytics-foundation-mcp/src");$(cygpath -w "$ROOT_DIR/analytics-foundation/analytics-foundation-client/src");$(cygpath -w "$ROOT_DIR/agent-framework/agent-runtime")${PYTHONPATH:+;$PYTHONPATH}"

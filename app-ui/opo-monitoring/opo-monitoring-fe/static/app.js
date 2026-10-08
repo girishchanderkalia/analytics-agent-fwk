@@ -15,14 +15,14 @@ const ncePanel = document.getElementById("nce-panel");
 const nceLegend = document.getElementById("nce-legend");
 const nceLegendMax = document.getElementById("nce-legend-max");
 const V4_AGENT = "opo-analysis-agent-v4";
-const V5_AGENT = "opo-analysis-agent-v5";
 const selectedAgentId = () => registeredAgents[agentSelect.selectedIndex]?.agentId;
-const isScopedAgent = (agentId) => agentId === V4_AGENT || agentId === V5_AGENT;
+const isScopedAgent = (agentId) => agentId === V4_AGENT;
 
 let conversationId = null;
 let conversationVersion = null;
 let busy = false;
 let registeredAgents = [];
+let gateDetailsObserver = null;
 
 function setRightPanelCollapsed(collapsed) {
   mainLayout.classList.toggle("right-panel-collapsed", collapsed);
@@ -746,6 +746,7 @@ function showGateInputError(gateNode, inputEl, message) {
 }
 
 function renderGate(request) {
+  gateDetailsObserver?.disconnect();
   const payload = request.payload || {};
   const candidates = payload.detected_outliers || [];
   const selected = payload.selected_outlier;
@@ -753,8 +754,12 @@ function renderGate(request) {
     .filter(([, value]) => value !== null && value !== undefined && value !== "");
 
   const detail = details.length
-    ? details.map(([label, value]) => `<div class="kv"><span>${escapeHtml(label)}</span><span>${
-        escapeHtml(Array.isArray(value) ? value.join(", ") : value)}</span></div>`).join("")
+    ? details.map(([label, value], index) => `<div class="kv"><span>${escapeHtml(label)}</span>
+      <div class="gate-detail-value"><span class="gate-detail-text" id="gate-detail-${index}">${
+        escapeHtml(Array.isArray(value) ? value.join(", ") : value)}</span>
+        <button type="button" class="gate-detail-toggle" aria-expanded="false"
+        aria-controls="gate-detail-${index}" hidden>Show more</button>
+      </div></div>`).join("")
     : selected
       ? `Most extreme: <code>${escapeHtml(selected.machine)}</code> /
        <code>${escapeHtml(selected.product)}</code> &mdash;
@@ -806,6 +811,25 @@ function renderGate(request) {
         <button type="button" data-action="reject" class="reject">${escapeHtml(payload.reject_label || "Reject")}</button>
       </div>
     </div>`;
+
+  gateDetailsObserver = new ResizeObserver((entries) => {
+    for (const { target } of entries) {
+      const toggle = target.parentElement.querySelector(".gate-detail-toggle");
+      if (toggle.getAttribute("aria-expanded") === "false") {
+        toggle.hidden = target.scrollHeight <= target.clientHeight + 1;
+      }
+    }
+  });
+  for (const text of interactionPanel.querySelectorAll(".gate-detail-text")) {
+    const toggle = text.parentElement.querySelector(".gate-detail-toggle");
+    toggle.onclick = () => {
+      const expanded = toggle.getAttribute("aria-expanded") !== "true";
+      toggle.setAttribute("aria-expanded", String(expanded));
+      toggle.textContent = expanded ? "Show less" : "Show more";
+      text.classList.toggle("expanded", expanded);
+    };
+    gateDetailsObserver.observe(text);
+  }
 
   // Keep every candidate circled while the user is still choosing which one to investigate.
   if (candidates.length) {

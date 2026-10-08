@@ -64,7 +64,7 @@ From the repository root in PowerShell:
 $env:PYTHONPATH = "$PWD;$PWD/agent-framework/agent-runtime"
 python -m execution.definition_loader agents/template
 python -m execution.definition_loader agents/template --preview-step answer_question
-python -m execution.definition_loader agents/opo-analysis-agent-v5 --preview-step analyze_nce_root_cause
+python -m execution.definition_loader agents/opo-analysis-agent-v4 --preview-step analyze_nce_root_cause
 ```
 
 The preview shows the composed prompt, evidence bindings and authored output fields.
@@ -73,5 +73,5 @@ rendered in the preview. Review them with execution traces when validating behav
 
 Legacy six-file packages remain supported. A package with `agent.md` uses the
 single-file format even if legacy files are also present. Register the finished
-package through `AGENT_MARKDOWN_PACKAGES`; local startup includes OPO v1, v4 and v5.
+package through `AGENT_MARKDOWN_PACKAGES`; local startup includes OPO v1 and v4.
 Adding a package does not change the application's currently selected agent.

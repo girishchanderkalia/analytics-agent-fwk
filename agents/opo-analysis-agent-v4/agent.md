@@ -1,8 +1,8 @@
 ---
-id: opo-analysis-agent-v5
-version: "V5"
+id: opo-analysis-agent-v4
+version: "V4"
 kind: agent
-display_name: OPO Analysis Agent V5
+display_name: OPO Analysis Agent V4
 description: >
   Shows scoped overlay X/Y trends, compares TDBB evidence before and after an
   analyst-observed change, and localises supported NCE residual changes.
@@ -357,9 +357,9 @@ routing:
     - {from: review_tdbb, when: "tdbb_explanation_requested == false", to: END}
 ---
 
-# OPO Analysis Agent V5
+# OPO Analysis Agent V4
 
-Single-file successor to v4. Step order defines the normal execution path;
+Consolidated single-file agent replacing the legacy v4 bundle. Step order defines the normal execution path;
 only early-exit conditions are explicit. Domain knowledge is model-facing:
 `always` reaches every model step and named topics reach only selecting steps.
 

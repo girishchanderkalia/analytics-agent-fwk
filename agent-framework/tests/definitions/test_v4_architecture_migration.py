@@ -58,15 +58,15 @@ def test_v4_uses_governed_foundation_tools_only():
     nodes = {node.node_id: node for node in definition.graph.nodes}
 
     assert {tool.server for tool in definition.tools} == {"analytics-foundation"}
-    assert {tool.name for tool in definition.tools} == {"query_trends", "run_tdbb"}
+    assert {tool.name for tool in definition.tools} == {"run_tdbb"}
     assert "read_trends" not in nodes
     assert "compare_tdbb" not in nodes
-    assert nodes["request_trend_evidence"].kind == "tool"
-    assert nodes["request_trend_evidence"].config["tool"] == "query_trends"
-    assert nodes["request_trend_evidence__map"].config["assignments"] == {
-        "trend_series": "$.request_trend_evidence__result.series",
-        "request_trend_evidence__result": None,
+    assert nodes["request_trend_evidence"].kind == "interrupt"
+    assert nodes["request_trend_evidence"].config["approval_id"] == "request_trend_evidence"
+    assert nodes["request_trend_evidence"].config["decision_fields"] == {
+        "trend_series": "trend_series",
     }
+    assert "request_trend_evidence__map" not in nodes
     assert nodes["request_tdbb_before"].kind == "tool"
     assert nodes["request_tdbb_after"].kind == "tool"
     assert nodes["request_tdbb_before__map"].config["assignments"] == {
@@ -88,3 +88,5 @@ def test_default_startup_has_three_deployables_and_v4_only():
     for package in ("opo-analysis-agent-v1", "opo-analysis-agent-v4"):
         assert f"agents/{package}" in startup
         assert f"agents/{package}" in local_deploy
+    assert "agents/opo-analysis-agent-v5" not in startup
+    assert "agents/opo-analysis-agent-v5" not in local_deploy

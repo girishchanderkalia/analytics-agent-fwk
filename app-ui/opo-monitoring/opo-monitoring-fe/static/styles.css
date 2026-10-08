@@ -431,6 +431,46 @@ main.right-panel-collapsed .panel-toggle {
   color: var(--text);
 }
 
+.gate-detail-value {
+  flex: 1;
+  min-width: 0;
+  text-align: right;
+}
+
+.gate-detail-text {
+  display: -webkit-box;
+  font-family: var(--mono);
+  font-size: 12px;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 5;
+  line-clamp: 5;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  line-height: 1.5;
+}
+
+.gate-detail-text.expanded {
+  display: block;
+  -webkit-line-clamp: unset;
+  line-clamp: unset;
+}
+
+.gate-detail-toggle {
+  padding: 4px 0;
+  margin-top: 3px;
+  border: 0;
+  background: transparent;
+  color: var(--accent);
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.gate-detail-toggle[hidden] {
+  display: none;
+}
+
 .gate-actions {
   display: flex;
   gap: 9px;
