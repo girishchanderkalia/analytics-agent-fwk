@@ -195,7 +195,11 @@ function drawPlot(outliers, selectedMachine) {
       if (!Number.isFinite(Number(kpiValue))) return;
       rings.x.push(date);
       rings.y.push(Number(kpiValue));
-      rings.text.push(`${item.machine} / ${item.product}`);
+      rings.text.push([
+        `Lot ID: ${escapeHtml(item.lot_id ?? "Not available")}`,
+        `Machine ID: ${escapeHtml(item.exposure_equipment_id ?? item.machine ?? "Not available")}`,
+        `Product: ${escapeHtml(item.product ?? "Not available")}`,
+      ].join("<br>"));
     });
   });
 
@@ -795,7 +799,7 @@ function renderGate(request) {
           return `<option value="${escapeHtml(candidateId)}"${
           selected?.id && candidate.id === selected.id ? " selected" : ""
         }>
-          ${escapeHtml(candidate.machine)} / ${escapeHtml(candidate.product)} —
+          ${escapeHtml(candidate.lot_id ?? "Not available")} / ${escapeHtml(candidate.exposure_equipment_id ?? candidate.machine ?? "Not available")} / ${escapeHtml(candidate.product ?? "Not available")} —
           ${escapeHtml(candidate.kpi_value)} absolute OPO KPI (${escapeHtml(candidate.date)})
         </option>`;
         }).join("")}</select>`
