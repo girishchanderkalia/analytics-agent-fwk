@@ -60,13 +60,13 @@ else
 fi
 export PYTHON_BIN
 
-packages="$(cygpath -w "$ROOT_DIR/agents/opo-analysis-agent-v1");$(cygpath -w "$ROOT_DIR/agents/opo-analysis-agent-v4")"
+packages="$(cygpath -w "$ROOT_DIR/agents/opo-analysis-agent-v1");$(cygpath -w "$ROOT_DIR/agents/opo-analysis-agent-v4");$(cygpath -w "$ROOT_DIR/agents/opo-analysis-agent-v5")"
 if [[ -n "$EXTRA_AGENTS" ]]; then
   IFS=';' read -r -a extra_dirs <<< "$EXTRA_AGENTS"
   for dir in "${extra_dirs[@]}"; do
     [[ -z "$dir" ]] && continue
-    if [[ ! -f "$dir/agent-definition.md" ]]; then
-      echo "ERROR: Not an agent package (missing agent-definition.md): $dir" >&2
+    if [[ ! -f "$dir/agent-definition.md" && ! -f "$dir/agent.md" ]]; then
+      echo "ERROR: Not an agent package (missing agent.md or agent-definition.md): $dir" >&2
       exit 1
     fi
     packages+=";$(cygpath -w "$(cd "$dir" && pwd)")"

@@ -52,7 +52,8 @@ def fingerprint_markdown_package(definition_root: Path | str) -> str:
     root = Path(definition_root).expanduser().resolve()
     digest = sha256()
 
-    for filename in sorted(REQUIRED_DEFINITIONS):
+    filenames = ["agent.md"] if (root / "agent.md").is_file() else sorted(REQUIRED_DEFINITIONS)
+    for filename in filenames:
         path = root / filename
         try:
             content = path.read_text(encoding="utf-8")

@@ -15,8 +15,9 @@ const ncePanel = document.getElementById("nce-panel");
 const nceLegend = document.getElementById("nce-legend");
 const nceLegendMax = document.getElementById("nce-legend-max");
 const V4_AGENT = "opo-analysis-agent-v4";
+const V5_AGENT = "opo-analysis-agent-v5";
 const selectedAgentId = () => registeredAgents[agentSelect.selectedIndex]?.agentId;
-const isScopedAgent = (agentId) => agentId === V4_AGENT;
+const isScopedAgent = (agentId) => agentId === V4_AGENT || agentId === V5_AGENT;
 
 let conversationId = null;
 let conversationVersion = null;
@@ -1493,7 +1494,7 @@ document.getElementById("reopen-btn").onclick = async () => {
 async function loadAgents() {
   try {
     registeredAgents = (await window.OpoBff.listAgents()).filter(
-      (agent) => agent.agentId === "opo-analysis-agent-v1" || agent.agentId === V4_AGENT,
+      (agent) => agent.agentId === "opo-analysis-agent-v1" || isScopedAgent(agent.agentId),
     );
   } catch (err) {
     registeredAgents = [];

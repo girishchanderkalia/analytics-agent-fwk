@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterable
@@ -151,7 +152,10 @@ class AgentRepository:
             if not path.is_dir():
                 continue
 
-            if (path / "agent-definition.md").is_file():
+            if path.name != "template" and any(
+                (path / filename).is_file()
+                for filename in ("agent.md", "agent-definition.md")
+            ):
                 result.append(path.name)
 
         return sorted(result)
@@ -170,11 +174,10 @@ class AgentRepository:
         if not normalized_name:
             return False
 
-        return (
-            self.repository_directory
-            / normalized_name
-            / "agent-definition.md"
-        ).is_file()
+        return normalized_name != "template" and any(
+            (self.repository_directory / normalized_name / filename).is_file()
+            for filename in ("agent.md", "agent-definition.md")
+        )
 
     def load(
         self,
@@ -328,6 +331,15 @@ def load_agent_definition(
         )
 
     definitions: dict[str, MarkdownDefinition] = {}
+
+    if (agent_directory / "agent.md").is_file():
+        from execution.single_file_definition import expand_agent_definition
+
+        bundle = expand_agent_definition(
+            load_markdown_definition(agent_directory / "agent.md", "agent")
+        )
+        validate_agent_bundle(bundle)
+        return bundle
 
     for filename, expected_kind in REQUIRED_DEFINITIONS.items():
         definitions[filename] = load_markdown_definition(
@@ -511,7 +523,9 @@ def validate_capability_definition(
 
     capabilities = definition.metadata.get("capabilities")
 
-    if not isinstance(capabilities, list) or not capabilities:
+    if not isinstance(capabilities, list) or (
+        not capabilities and definition.path.name != "agent.md"
+    ):
         raise AgentDefinitionError(
             f"{definition.path} must declare capabilities"
         )
@@ -1044,6 +1058,11 @@ def build_argument_parser() -> argparse.ArgumentParser:
         ),
     )
 
+    parser.add_argument(
+        "--preview-step",
+        help="Show a model step's prompt, evidence bindings and structured output schema",
+    )
+
     return parser
 
 
@@ -1064,6 +1083,30 @@ def main(
         return 1
 
     print(format_bundle_summary(bundle))
+    if parsed.preview_step:
+        from bootstrap.langgraph_dependencies import PackagePromptProvider
+        from definitions.markdown_translator import translate_bundle
+
+        definition = translate_bundle(bundle)
+        node = next(
+            (
+                node for node in definition.graph.nodes
+                if node.node_id == parsed.preview_step and node.kind == "model"
+            ),
+            None,
+        )
+        if node is None:
+            print(f"INVALID: No model step {parsed.preview_step!r}")
+            return 1
+        print("\nModel prompt (runtime evidence values are not included):")
+        print(PackagePromptProvider(definition).render(node.config["prompt"], {}))
+        print("\nEvidence bindings:")
+        print(json.dumps({
+            "inputs": node.config.get("inputs", []),
+            "input_projection": node.config.get("input_projection", {}),
+        }, indent=2))
+        print("\nOutput fields:")
+        print(json.dumps(bundle.agent.metadata["models"][node.config["output_contract"]], indent=2))
     return 0
 
 

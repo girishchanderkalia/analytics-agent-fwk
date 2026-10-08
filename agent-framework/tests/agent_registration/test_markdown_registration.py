@@ -28,6 +28,31 @@ AGENT = ROOT / "agents" / "opo-analysis-agent-v1"
 APPLICATION = "opo-monitoring"
 
 
+def test_single_file_v5_registers_alongside_v4() -> None:
+    roots = [ROOT / "agents" / f"opo-analysis-agent-{version}" for version in ("v4", "v5")]
+    catalog, result = register_markdown_agents(
+        application_id=APPLICATION,
+        package_roots=roots,
+    )
+    assert len(result.registrations) == 2
+    assert catalog.contains(AgentRegistrationKey(APPLICATION, "opo-analysis-agent-v5", "V5"))
+
+
+def test_single_file_fingerprint_tracks_knowledge_changes(tmp_path: Path) -> None:
+    original = ROOT / "agents" / "opo-analysis-agent-v5"
+    target = tmp_path / "v5"
+    shutil.copytree(original, target)
+    assert fingerprint_markdown_package(target) == fingerprint_markdown_package(original)
+    document = target / "agent.md"
+    document.write_text(
+        document.read_text(encoding="utf-8").replace("Correlation", "Association").replace(
+            "Coincident changes", "Simultaneous changes"
+        ),
+        encoding="utf-8",
+    )
+    assert fingerprint_markdown_package(target) != fingerprint_markdown_package(original)
+
+
 def copy_agent(tmp_path: Path) -> Path:
     target = tmp_path / "agent"
     shutil.copytree(AGENT, target)
