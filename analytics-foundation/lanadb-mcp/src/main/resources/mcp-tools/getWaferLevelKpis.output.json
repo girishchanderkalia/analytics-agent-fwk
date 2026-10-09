@@ -1,0 +1,30 @@
+{
+  "type": "object",
+  "required": ["rows", "rowCount", "truncated"],
+  "properties": {
+    "rows": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["productId", "lotId", "layerId", "waferId", "chuckId", "measureProcessJobId",
+          "exposureEquipmentId", "measurementEquipmentId", "lotStart", "kpiValue1", "kpiValue2", "needsIngestion"],
+        "properties": {
+          "productId": {"type": ["string", "null"]},
+          "lotId": {"type": ["string", "null"]},
+          "layerId": {"type": ["string", "null"]},
+          "waferId": {"type": ["string", "null"]},
+          "chuckId": {"type": ["string", "null"]},
+          "measureProcessJobId": {"type": ["number", "null"]},
+          "exposureEquipmentId": {"type": ["string", "null"]},
+          "measurementEquipmentId": {"type": ["string", "null"]},
+          "lotStart": {"type": ["string", "null"], "format": "date-time"},
+          "kpiValue1": {"type": "number", "description": "Raw M3S X in nm, rounded to two decimals."},
+          "kpiValue2": {"type": "number", "description": "Raw M3S Y in nm, rounded to two decimals."},
+          "needsIngestion": {"type": "boolean", "description": "True when any dataset partition of the measurement is a proxy."}
+        }
+      }
+    },
+    "rowCount": {"type": "integer", "minimum": 0},
+    "truncated": {"type": "boolean", "description": "True when more rows matched than the server's row limit."}
+  }
+}

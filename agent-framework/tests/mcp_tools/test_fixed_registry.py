@@ -40,6 +40,8 @@ def test_foundation_operations_are_all_exposed() -> None:
 
     assert names == {
         "query_trends",
+        "query_trend_series",
+        "getWaferLevelKpis",
         "get_distribution_stats",
         "detect_outliers",
         "get_metadata",
@@ -51,9 +53,20 @@ def test_foundation_operations_are_all_exposed() -> None:
         "query_wafers",
         "run_tdbb",
         "compare_tdbb_runs",
+        "summarize_tdbb_evidence",
         "get_tdbb_run",
         "get_tdbb_data",
     }
+
+
+def test_jdbc_tool_is_on_the_foundation_surface() -> None:
+    names = {
+        tool.key.name
+        for tool in create_fixed_tool_registry().snapshot()
+        if tool.key.server == FOUNDATION_SERVER and tool.key.name == "getWaferLevelKpis"
+    }
+
+    assert names == {"getWaferLevelKpis"}
 
 
 def test_servers_are_fixed() -> None:

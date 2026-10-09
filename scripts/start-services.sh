@@ -56,6 +56,7 @@ fi
 
 FOUNDATION_PORT="${FOUNDATION_PORT:-8200}"
 FOUNDATION_MCP_PORT="${FOUNDATION_MCP_PORT:-8100}"
+LANADB_MCP_PORT="${LANADB_MCP_PORT:-8400}"
 RUNTIME_PORT="${RUNTIME_PORT:-8000}"
 BFF_PORT="${BFF_PORT:-8080}"
 
@@ -64,12 +65,21 @@ FOUNDATION_MCP_START_CMD="${FOUNDATION_MCP_START_CMD:-\"$PYTHON_BIN\" -m uvicorn
 RUNTIME_START_CMD="${RUNTIME_START_CMD:-\"$PYTHON_BIN\" -m uvicorn runtime_api.langgraph_main:app --host 127.0.0.1 --port $RUNTIME_PORT}"
 if [[ -n "$MAVEN_SETTINGS" ]]; then
   BFF_START_CMD="${BFF_START_CMD:-\"$MAVEN_BIN\" -s \"$MAVEN_SETTINGS\" -DskipTests spring-boot:run}"
+  LANADB_MCP_START_CMD="${LANADB_MCP_START_CMD:-SERVER_PORT=$LANADB_MCP_PORT \"$MAVEN_BIN\" -s \"$MAVEN_SETTINGS\" -DskipTests spring-boot:run}"
 else
   BFF_START_CMD="${BFF_START_CMD:-\"$MAVEN_BIN\" -DskipTests spring-boot:run}"
+  # SERVER_PORT is exported for the BFF; Spring would otherwise bind the adapter to it too.
+  LANADB_MCP_START_CMD="${LANADB_MCP_START_CMD:-SERVER_PORT=$LANADB_MCP_PORT \"$MAVEN_BIN\" -DskipTests spring-boot:run}"
 fi
 
 export ANALYTICS_FOUNDATION_BASE_URL="${ANALYTICS_FOUNDATION_BASE_URL:-http://127.0.0.1:$FOUNDATION_PORT}"
 export ANALYTICS_FOUNDATION_MCP_URL="${ANALYTICS_FOUNDATION_MCP_URL:-http://127.0.0.1:$FOUNDATION_MCP_PORT/mcp}"
+if [[ -z "${LANADB_JDBC_URL:-}" ]]; then
+  echo "ERROR: LANADB_JDBC_URL is not set; add the LanaDB connection to $ROOT_DIR/.env" >&2
+  exit 1
+fi
+export LANADB_MCP_PORT
+export LANADB_MCP_URL="${LANADB_MCP_URL:-http://127.0.0.1:$LANADB_MCP_PORT/mcp}"
 export RUNTIME_SERVICE_BASE_URL="${RUNTIME_SERVICE_BASE_URL:-http://127.0.0.1:$RUNTIME_PORT}"
 export SERVER_PORT="$BFF_PORT"
 export AGENT_RUNTIME_REPOSITORY_ROOT="${AGENT_RUNTIME_REPOSITORY_ROOT:-$(cygpath -w "$ROOT_DIR")}"
@@ -83,7 +93,7 @@ echo "Using Java:   $JAVA_EXE"
 echo "Using Python: $PYTHON_BIN"
 echo "Using Maven:  $MAVEN_BIN"
 
-required=(analytics-foundation/analytics-foundation-api analytics-foundation/analytics-foundation-mcp agent-framework/agent-runtime app-ui/opo-monitoring/opo-monitoring-service)
+required=(analytics-foundation/analytics-foundation-api analytics-foundation/analytics-foundation-mcp analytics-foundation/lanadb-mcp agent-framework/agent-runtime app-ui/opo-monitoring/opo-monitoring-service)
 for relative in "${required[@]}"; do
   if [[ ! -d "$ROOT_DIR/$relative" ]]; then
     echo "ERROR: Required directory not found: $ROOT_DIR/$relative" >&2
@@ -195,6 +205,8 @@ start_service "analytics-foundation" "$ROOT_DIR/analytics-foundation/analytics-f
 wait_for_get "Analytics Foundation API" "http://127.0.0.1:$FOUNDATION_PORT/health" "$LOG_DIR/analytics-foundation.log"
 start_service "analytics-foundation-mcp" "$ROOT_DIR/analytics-foundation/analytics-foundation-mcp" "$FOUNDATION_MCP_START_CMD"
 wait_for_mcp "Analytics Foundation MCP" "http://127.0.0.1:$FOUNDATION_MCP_PORT/mcp" "$LOG_DIR/analytics-foundation-mcp.log"
+start_service "lanadb-mcp" "$ROOT_DIR/analytics-foundation/lanadb-mcp" "$LANADB_MCP_START_CMD"
+wait_for_mcp "LanaDB MCP" "http://127.0.0.1:$LANADB_MCP_PORT/mcp" "$LOG_DIR/lanadb-mcp.log"
 start_service "agent-runtime" "$ROOT_DIR/agent-framework/agent-runtime" "$RUNTIME_START_CMD"
 wait_for_get "Agent Runtime" "http://127.0.0.1:$RUNTIME_PORT/health" "$LOG_DIR/agent-runtime.log"
 start_service "opo-bff" "$ROOT_DIR/app-ui/opo-monitoring/opo-monitoring-service" "$BFF_START_CMD"

@@ -1,8 +1,8 @@
 """The fixed MCP tool surface this framework exposes to agents.
 
-The framework serves Analytics Foundation, so the governed tool set is known
-at build time: there is no discovery and no dynamic registration. A package
-that references a tool outside this set fails to compile.
+The framework serves Analytics Foundation and LanaDB, so the governed tool set
+is known at build time: there is no discovery and no dynamic registration. A
+package that references a tool outside this set fails to compile.
 """
 
 from __future__ import annotations
@@ -18,7 +18,9 @@ OBJECT_SCHEMA: dict[str, object] = {"type": "object"}
 
 # Governed Analytics Foundation operations.
 FOUNDATION_TOOLS: tuple[tuple[str, str], ...] = (
-    ("query_trends", "Read OPO KPI trend series."),
+    ("query_trends", "Read mock wafer KPI rows using the LanaDB contract."),
+    ("query_trend_series", "Read legacy grouped OPO trend series."),
+    ("getWaferLevelKpis", "Read wafer level overlay KPIs over JDBC using the query_trends contract."),
     ("get_distribution_stats", "Read empirical KPI distribution statistics."),
     ("detect_outliers", "Deterministically find trend points violating a threshold."),
     ("get_metadata", "Read available dataset and table metadata."),
@@ -33,8 +35,13 @@ FOUNDATION_TOOLS: tuple[tuple[str, str], ...] = (
     ("query_wafers", "Read wafer-level evidence."),
     ("run_tdbb", "Run TDBB processing before and after a change date."),
     ("compare_tdbb_runs", "Compare completed TDBB runs by ID."),
+    ("summarize_tdbb_evidence", "Deterministically report TDBB and NCE evidence."),
     ("get_tdbb_run", "Read TDBB run metadata."),
     ("get_tdbb_data", "Read TDBB output rows of one run."),
+)
+
+SERVER_TOOLS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
+    (FOUNDATION_SERVER, FOUNDATION_TOOLS),
 )
 
 def create_fixed_tool_registry() -> McpToolRegistry:
@@ -47,7 +54,7 @@ def create_fixed_tool_registry() -> McpToolRegistry:
             description,
             OBJECT_SCHEMA,
         )
-        for server, tools in ((FOUNDATION_SERVER, FOUNDATION_TOOLS),)
+        for server, tools in SERVER_TOOLS
         for name, description in tools
     )
     return registry
@@ -56,4 +63,4 @@ def create_fixed_tool_registry() -> McpToolRegistry:
 def fixed_server_ids() -> tuple[str, ...]:
     """Return the MCP servers this framework talks to."""
 
-    return (FOUNDATION_SERVER,)
+    return tuple(server for server, _ in SERVER_TOOLS)

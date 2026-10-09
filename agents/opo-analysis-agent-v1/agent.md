@@ -182,7 +182,7 @@ steps:
     capability:
       operation: query_trends
       server: analytics-foundation
-      tool: query_trends
+      tool: query_trend_series
       owner: Analytics Foundation
       version: "1"
       permissions: [query:trends:read]

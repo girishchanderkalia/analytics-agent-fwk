@@ -47,12 +47,14 @@ def test_single_file_v4_loads_and_derives_state() -> None:
     assert bundle.version == "V4"
     assert bundle.workflow.metadata["entry_node"] == "parse_trend_request"
     fields = bundle.state.metadata["fields"]
-    assert fields["trend_series"]["type"] == "object_list"
+    assert fields["trend_rows"]["type"] == "object_list"
+    assert fields["trend_rows_truncated"]["type"] == "boolean"
+    assert "trend_series" not in fields
     assert fields["comparison_requested"]["type"] == "boolean"
     assert "tdbb_before_run" in fields
     assert "detection_scope" not in fields
-    assert len(bundle.agent.metadata["models"]) == 6
-    assert len(bundle.capabilities.metadata["capabilities"]) == 2
+    assert len(bundle.agent.metadata["models"]) == 3
+    assert len(bundle.capabilities.metadata["capabilities"]) == 6
 
 
 def test_template_loads_but_is_not_discovered() -> None:
@@ -74,16 +76,15 @@ def test_single_file_knowledge_is_explicitly_scoped() -> None:
     definition = translate_markdown_agent(AGENT_REPOSITORY_ROOT / "opo-analysis-agent-v4")
     provider = PackagePromptProvider(definition)
     trend = provider.render("parse_trend_request", {})
-    tdbb = provider.render("analyze_tdbb", {})
-    radial = provider.render("analyze_nce_root_cause", {})
+    change = provider.render("suggest_change", {})
 
     assert "Runtime status and conversation metadata" in trend
     assert "Domain knowledge (overlay)" in trend
     assert "Domain knowledge (tdbb)" not in trend
-    assert "Domain knowledge (tdbb)" in tdbb
-    assert "Domain knowledge (nce_radial)" not in tdbb
-    assert "Domain knowledge (nce_radial)" in radial
-    assert "Foundation before-period TDBB result" in radial
+    assert "Domain knowledge (overlay)" in change
+    assert "Domain knowledge (tdbb)" not in change
+    nodes = {node.node_id: node for node in definition.graph.nodes}
+    assert all(nodes[name].kind == "tool" for name in ("analyze_tdbb", "summarize_tdbb", "analyze_nce_root_cause"))
 
 
 def test_single_file_v4_preserves_workflow_and_application_contracts() -> None:
@@ -91,8 +92,9 @@ def test_single_file_v4_preserves_workflow_and_application_contracts() -> None:
 
     definition = translate_markdown_agent(AGENT_REPOSITORY_ROOT / "opo-analysis-agent-v4")
     nodes = {node.node_id: node for node in definition.graph.nodes}
-    assert len(nodes) == 13
-    assert len(definition.graph.edges) == 17
+    assert len(nodes) == 17
+    assert len(definition.graph.edges) == 21
+    assert "request_trend_evidence__map" in nodes
     assert nodes["request_comparison"].config["approval_id"] == "request_tdbb_comparison"
     assert nodes["request_comparison"].config["decision_fields"] == {
         "comparison_requested": "approved", "comparison_request": "comparison_request",
@@ -126,14 +128,14 @@ def test_single_file_prompt_preview(capsys) -> None:
 
     assert main([
         str(AGENT_REPOSITORY_ROOT / "opo-analysis-agent-v4"),
-        "--preview-step", "analyze_nce_root_cause",
+        "--preview-step", "suggest_change",
     ]) == 0
     output = capsys.readouterr().out
-    assert "Domain knowledge (nce_radial)" in output
+    assert "Domain knowledge (overlay)" in output
     assert "Application knowledge:" in output
     assert "Data semantics:" in output
-    assert "$.tdbb_before_run.periods" in output
-    assert "correlated_evidence" in output
+    assert "$.trend_rows" in output
+    assert "change_date" in output
     assert main([
         str(AGENT_REPOSITORY_ROOT / "template"), "--preview-step", "unknown",
     ]) == 1

@@ -39,6 +39,9 @@ class TrendPoint(StrictModel):
     lot_id: str | None = None
     wafer_id: str | None = None
     chuck_id: str | None = Field(default=None, description="Wafer stage chuck identifier.")
+    measure_process_job_id: float | None = None
+    measurement_equipment_id: str | None = None
+    needs_ingestion: bool = False
 
 
 class TrendSeries(StrictModel):

@@ -26,7 +26,7 @@ stop_one() {
   rm -f "$file"
 }
 
-for name in opo-bff agent-runtime analytics-foundation-mcp analytics-foundation; do
+for name in opo-bff agent-runtime lanadb-mcp analytics-foundation-mcp analytics-foundation; do
   stop_one "$name" "$PID_DIR/$name.pid"
 done
 

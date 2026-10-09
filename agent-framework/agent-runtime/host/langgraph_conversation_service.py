@@ -36,6 +36,8 @@ _PUBLIC_RESULT_FIELDS = frozenset({
     "question",
     "trend_filters",
     "trend_series",
+    "trend_rows",
+    "trend_rows_truncated",
     "change_suggestion",
     "comparison_requested",
     "comparison_request",

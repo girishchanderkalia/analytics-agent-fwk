@@ -223,6 +223,18 @@ function drawPlot(outliers, selectedMachine) {
   Plotly.react(plot, traces, { ...PLOT_LAYOUT, showlegend: true }, PLOT_CONFIG);
 }
 
+// LanaDB getWaferLevelKpis rows: kpiValue1/kpiValue2 are overlay X/Y at lot exposure start.
+function waferKpiPoint(row) {
+  return {
+    date: row.lotStart,
+    kpi_value: row.kpiValue1,
+    kpi_value_y: row.kpiValue2,
+    lot_id: row.lotId,
+    wafer_id: row.waferId,
+    chuck_id: row.chuckId,
+  };
+}
+
 // v3 plots overlay X and Y of the scoped wafers in stacked panels so neither hides the other.
 function drawV3Trend(series, changeDate) {
   const plot = document.getElementById("trend-plot");
@@ -1434,7 +1446,10 @@ function handleResponse(runtime) {
   // not shown alongside the step-2 TDBB bars - revealed once that analysis exists.
   const ncePanelWasHidden = ncePanel.hidden;
   ncePanel.hidden = !isV4 || !evidence.nce_root_cause_analysis;
-  if (evidence.trend_series) {
+  if (Array.isArray(evidence.trend_rows)) {
+    trendSeries = [{ points: evidence.trend_rows.map(waferKpiPoint) }];
+  }
+  else if (evidence.trend_series) {
     trendSeries = Array.isArray(evidence.trend_series)
       ? evidence.trend_series
       : evidence.trend_series.series || [];
@@ -1445,8 +1460,9 @@ function handleResponse(runtime) {
     // Only draw the change-date line once the analyst has confirmed it via comparison_scope.
     const changeDate = evidence.comparison_scope?.change_date;
     const wafers = drawV3Trend(trendSeries, changeDate);
+    const truncated = evidence.trend_rows_truncated ? " (truncated)" : "";
     document.getElementById("chart-note").textContent = filters.start_date
-      ? `${filters.start_date} to ${filters.end_date || "?"} \u00b7 ${wafers} wafers \u00b7 overlay X / Y (nm)`
+      ? `${filters.start_date} to ${filters.end_date || "?"} \u00b7 ${wafers} wafers${truncated} \u00b7 overlay X / Y (nm)`
       : "Start date needed";
     if (evidence.comparison_scope) renderTdbb(evidence);
   } else {

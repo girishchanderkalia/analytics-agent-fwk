@@ -39,8 +39,9 @@ knowledge:
     does not imply that its cause is known. Do not claim to execute recommended actions.
   topics:
     overlay: |
-      OPO trend rows contain per-wafer overlay X (kpi_value) and Y (kpi_value_y).
-      Both KPIs are |mean| + 3 sigma, expressed in nm, not plain means.
+      OPO trend rows use the LanaDB contract and contain per-wafer overlay X (kpiValue1)
+      and Y (kpiValue2), the raw measured M3S per wafer: |mean| + 3 sigma, expressed
+      in nm, not plain means. lotStart is the lot exposure start.
       A scanner is an exposure equipment identifier. Chuck 1 is represented as
       "Waferstage chuck ID 1". Empty lot/chuck filters mean all lots/both chucks.
       Relative or yearless dates must be grounded in supplied application dates.
@@ -77,6 +78,18 @@ state:
     type: object
     default: {}
     description: Application-supplied context, including current_date for date interpretation.
+  trend_rows:
+    type: object_list
+    default: []
+    description: Per-wafer overlay X/Y evidence in the LanaDB contract; not model-generated measurements.
+  trend_rows_truncated:
+    type: boolean
+    default: false
+    description: True when LanaDB matched more wafers than its row limit; trend_rows is then incomplete.
+  filter_validation:
+    type: object
+    default: {}
+    description: Source-grounding corrections applied to the parsed filters.
 
 steps:
   - id: parse_trend_request
@@ -96,6 +109,17 @@ steps:
       "Waferstage chuck ID 1". Leave lot_ids/chuck_ids empty unless explicitly named.
       If no starting date is supplied, leave start_date/end_date null and explain why.
       Use only the analyst request and supplied context; do not invent filter values.
+    guardrails:
+      report_to: filter_validation
+      retries: 1
+      on_failure: stop
+      rules:
+        - field: chuck_ids
+          rule: source_selection
+          source: $.question
+          aliases:
+            "Waferstage chuck ID 1": '\bchuck\s*(?:id\s*)?1\b'
+            "Waferstage chuck ID 2": '\bchuck\s*(?:id\s*)?2\b'
     output:
       lookback_days: {type: optional_int, default: null, description: Relative period only if explicitly named.}
       start_date: {type: optional_string, default: null, description: Inclusive ISO start date supplied by the analyst.}
@@ -109,32 +133,48 @@ steps:
       outliers_requested: {type: boolean, default: false, description: Whether the request explicitly asks for anomalies or thresholds.}
 
   - id: request_trend_evidence
-    type: approval
+    type: capability
+    output_to: trend_rows
+    inputs: [trend_filters]
     activity: Reading OPO performance trends
-    approval:
-      id: request_trend_evidence
-      required: true
-      title: Supply Foundation trend evidence
-      description: Application-resolved handoff; the BFF queries Foundation directly and resumes with trend rows.
-    payload:
-      trend_filters: ${state.trend_filters}
-    responses:
-      trend_series:
-        from: trend_series
-        type: object_list
-        default: []
-        description: Foundation per-wafer overlay X/Y evidence in nm; not model-generated measurements.
+    capability:
+      operation: read_wafer_kpis
+      server: analytics-foundation
+      tool: getWaferLevelKpis
+      owner: Analytics Foundation
+      version: "1"
+      permissions: [query:wafer_kpis:read]
+      side_effect: false
+      approval_required: false
+      request:
+        lotExposureStartFrom: ${state.trend_filters.start_date}
+        lotExposureStartTo: ${state.trend_filters.end_date}
+        productIds: ${state.trend_filters.product_ids}
+        layerIds: ${state.trend_filters.layer_ids}
+        exposureEquipmentIds: ${state.trend_filters.exposure_equipment_ids}
+        lotIds: ${state.trend_filters.lot_ids}
+        chuckIds: ${state.trend_filters.chuck_ids}
+      result:
+        trend_rows: ${result.rows}
+        trend_rows_truncated: ${result.truncated}
 
   - id: suggest_change
     type: model
     output_to: change_suggestion
     description: Suggested change date and follow-up question grounded in the trend evidence.
-    inputs: [trend_filters, trend_series]
     knowledge: [overlay]
+    input_projection:
+      trend_filters: $.trend_filters
+      trend_rows_truncated: $.trend_rows_truncated
+      trend_rows:
+        compact_list: $.trend_rows
+        fields: [lotStart, chuckId, kpiValue1, kpiValue2]
     activity: Suggesting when the OPO KPIs changed
     instructions: |
       Inspect the supplied trend evidence and suggest a visible change date only
       when a clear step is present. Do not invent a date or claim causality.
+      If trend_rows is empty, suggest no date. If trend_rows_truncated is true,
+      say the evidence is incomplete.
       Return a short prefilled follow-up question when a date is suggested.
     output:
       change_date: {type: optional_string, default: null, description: Evidence-supported ISO change date or null.}
@@ -240,28 +280,24 @@ steps:
         tdbb_after_run: ${result}
 
   - id: analyze_tdbb
-    type: model
+    type: capability
     output_to: tdbb_model_analysis
-    description: Model interpretation of the supplied Foundation budget evidence, not an independent measurement.
-    knowledge: [tdbb]
-    input_projection:
-      comparison_scope: $.comparison_scope
-      before:
-        change_date: $.tdbb_before_run.change_date
-        periods: $.tdbb_before_run.periods
-      after:
-        change_date: $.tdbb_after_run.change_date
-        periods: $.tdbb_after_run.periods
-    activity: Analyzing the two Foundation TDBB results
-    instructions: |
-      Explain where the observed change is concentrated using only supplied budgets.
-      Do not invent deltas or claim causation. Prefer Foundation-reported changes
-      where supplied; state limitations when the evidence lacks comparable values.
-      Return concise structured output.
-    output:
-      message: {type: string, default: "", description: Evidence-based interpretation of the before/after comparison.}
-      largest_change: {type: string, default: "", description: Largest supported budget increase with metric and axis.}
-      limitations: {type: string_list, default: [], description: Limitations supported by the evidence.}
+    description: Deterministic interpretation of selected Foundation budget evidence.
+    activity: Comparing the two Foundation TDBB results
+    capability:
+      operation: summarize_tdbb_evidence
+      server: analytics-foundation
+      tool: summarize_tdbb_evidence
+      version: "1"
+      permissions: [query:tdbb:read]
+      side_effect: false
+      approval_required: false
+      request:
+        before_periods: ${state.tdbb_before_run.periods}
+        after_periods: ${state.tdbb_after_run.periods}
+        section: overview
+      result:
+        tdbb_model_analysis: ${result}
 
   - id: review_tdbb
     type: approval
@@ -287,67 +323,44 @@ steps:
       root_cause_request: {from: root_cause_request, type: string, default: "", description: Analyst observation; not independently verified evidence.}
 
   - id: summarize_tdbb
-    type: model
+    type: capability
     output_to: tdbb_summary
-    description: Analyst-facing summary of the supplied TDBB budgets and supported changes.
-    knowledge: [tdbb]
-    input_projection:
-      comparison_scope: $.comparison_scope
-      tdbb_model_analysis: $.tdbb_model_analysis
-      before:
-        change_date: $.tdbb_before_run.change_date
-        periods: $.tdbb_before_run.periods
-      after:
-        change_date: $.tdbb_after_run.change_date
-        periods: $.tdbb_after_run.periods
+    description: Deterministic analyst-facing summary with four context-level bullets.
     activity: Summarizing the TDBB comparison
-    instructions: |
-      Summarize the supplied before/after results within the selected scope.
-      Start with one sentence on period dates, lots and wafers. Then give exactly
-      four markdown bullet lines in order: "- Average: ...", "- Chuck to chuck: ...",
-      "- Lot to lot: ...", "- Wafer to wafer: ...". In each bullet name metrics
-      whose X/Y value changed by more than 20%, with before/after nm values and
-      percentage change; otherwise write "no change above 20%". Use supplied
-      changes or calculate only from matching supplied before/after numbers.
-      Do not divide by a zero baseline. Report missing or non-comparable evidence
-      instead of asserting no change. Identify the largest supported relative increase.
-      Do not call budgets means, name root causes or imply that recommendations execute.
-    output:
-      message: {type: string, default: "", description: Short analyst-facing comparison with four context-level bullets.}
-      largest_change: {type: string, default: "", description: Largest relative increase with metric and axis plus before/after values.}
-      limitations: {type: string_list, default: [], description: Missing evidence and comparison limitations.}
+    capability:
+      operation: summarize_tdbb_evidence
+      server: analytics-foundation
+      tool: summarize_tdbb_evidence
+      version: "1"
+      permissions: [query:tdbb:read]
+      side_effect: false
+      approval_required: false
+      request:
+        before_periods: ${state.tdbb_before_run.periods}
+        after_periods: ${state.tdbb_after_run.periods}
+        section: summary
+      result:
+        tdbb_summary: ${result}
 
   - id: analyze_nce_root_cause
-    type: model
+    type: capability
     output_to: nce_root_cause_analysis
-    description: Correlation between supplied NCE budgets and radial profiles; not a confirmed root cause.
-    knowledge: [tdbb, nce_radial]
-    input_projection:
-      comparison_scope: $.comparison_scope
-      root_cause_request: $.root_cause_request
-      before:
-        periods: $.tdbb_before_run.periods
-      after:
-        periods: $.tdbb_after_run.periods
+    description: Deterministic correlation of NCE budgets and radial profiles; not a confirmed root cause.
     activity: Looking for a correlation between the TDBB change and the NCE residual pattern
-    instructions: |
-      Answer the analyst observation using only supplied budgets and radial_profile bands.
-      Compare nce_wafer.average with ce_wafer.average before and after the change.
-      If NCE rises while CE stays roughly flat, describe the concentration in the
-      non-correctable residual; do not categorically exclude exposure-process causes.
-      Compare center and edge band m3s values. State edge concentration only if
-      supported, and describe coincidence with the trend jump as temporal correlation.
-      If edge growth is supported, recommend in order: inspect the edge-weighted
-      fingerprint/exposure process around the change date using the actual band
-      numbers; propose a control model capturing that residual pattern; propose
-      shadow-mode simulation before production. These are recommendations, not actions.
-      When budgets or radial bands are missing, report limitations instead of
-      fabricating localisation or forcing an edge-specific recommendation.
-    output:
-      message: {type: string, default: "", description: Evidence-grounded localisation and correlation, not proven causation.}
-      correlated_evidence: {type: string_list, default: [], description: Exact supplied budget or radial-band values supporting the interpretation.}
-      recommended_next_actions: {type: string_list, default: [], description: Conditional evidence-grounded recommendations; never automatically executed.}
-      limitations: {type: string_list, default: [], description: Missing evidence and limits on causal interpretation.}
+    capability:
+      operation: summarize_tdbb_evidence
+      server: analytics-foundation
+      tool: summarize_tdbb_evidence
+      version: "1"
+      permissions: [query:tdbb:read]
+      side_effect: false
+      approval_required: false
+      request:
+        before_periods: ${state.tdbb_before_run.periods}
+        after_periods: ${state.tdbb_after_run.periods}
+        section: nce
+      result:
+        nce_root_cause_analysis: ${result}
 
 routing:
   conditions:
@@ -363,7 +376,9 @@ Consolidated single-file agent replacing the legacy v4 bundle. Step order define
 only early-exit conditions are explicit. Domain knowledge is model-facing:
 `always` reaches every model step and named topics reach only selecting steps.
 
-Trend evidence is supplied through the existing application/BFF handoff.
+Trend evidence uses the LanaDB contract through the Analytics Foundation MCP surface.
+Change only `tool` between `getWaferLevelKpis` (JDBC) and `query_trends` (mock).
 TDBB operations remain governed Foundation MCP calls after analyst approval.
-Raw maps stay available for the application, but model projections include
-only budgets and radial profiles. Dashboard Q&A is not part of this workflow.
+TDBB overview, four-context summary and NCE correlation are deterministic
+evidence-reporting tools. Raw maps stay available for the application.
+Dashboard Q&A is not part of this workflow.

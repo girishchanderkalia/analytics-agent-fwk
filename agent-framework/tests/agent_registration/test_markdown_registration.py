@@ -107,7 +107,7 @@ def test_untranslatable_package_is_refused(tmp_path: Path) -> None:
     capabilities = copy / "agent.md"
     capabilities.write_text(
         capabilities.read_text(encoding="utf-8").replace(
-            "      server: analytics-foundation\n      tool: query_trends\n",
+            "      server: analytics-foundation\n      tool: query_trend_series\n",
             "",
         ),
         encoding="utf-8",

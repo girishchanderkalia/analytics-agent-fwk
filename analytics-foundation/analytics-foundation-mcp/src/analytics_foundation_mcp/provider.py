@@ -1,12 +1,15 @@
-"""MCP tool backend using the shared Analytics Foundation HTTP client."""
+"""Stable MCP tools backed by mock Foundation HTTP APIs or the JDBC MCP adapter."""
 
 from __future__ import annotations
 
 from collections.abc import Mapping
+import os
 from typing import Any, Awaitable, Callable
 
+import httpx
 from analytics_foundation_client import (
     AnalyticsFoundationClient,
+    FoundationClientError,
     DatasetMetadata,
     DistributionStats,
     OutlierDetectionRequest,
@@ -31,12 +34,14 @@ from analytics_foundation_client import (
 
 from .errors import FoundationMcpToolNotFoundError
 from .types import FoundationMcpTool, FoundationMcpToolResult
+from .wafer_kpis import WaferLevelKpiRequest, WaferLevelKpiResult, mock_wafer_kpis
+from .tdbb_evidence import TdbbEvidenceRequest, TdbbEvidenceResult, summarize_tdbb_evidence
 
 Handler = Callable[[Mapping[str, Any]], Awaitable[Mapping[str, Any]]]
 
 
 class AnalyticsFoundationMcpToolProvider:
-    """Expose governed MCP tools backed only by Foundation HTTP APIs."""
+    """Expose a stable MCP surface over mock Foundation and JDBC-backed tools."""
 
     SERVER_ID = "analytics-foundation"
 
@@ -44,6 +49,8 @@ class AnalyticsFoundationMcpToolProvider:
         self._client = client
         self._handlers: dict[str, Handler] = {
             "query_trends": self._query_trends,
+            "query_trend_series": self._query_trend_series,
+            "getWaferLevelKpis": self._get_wafer_level_kpis,
             "get_distribution_stats": self._get_distribution_stats,
             "detect_outliers": self._detect_outliers,
             "get_metadata": self._get_metadata,
@@ -55,6 +62,7 @@ class AnalyticsFoundationMcpToolProvider:
             "query_wafers": self._query_wafers,
             "run_tdbb": self._run_tdbb,
             "compare_tdbb_runs": self._compare_tdbb_runs,
+            "summarize_tdbb_evidence": self._summarize_tdbb_evidence,
             "get_tdbb_run": self._get_tdbb_run,
             "get_tdbb_data": self._get_tdbb_data,
         }
@@ -78,8 +86,42 @@ class AnalyticsFoundationMcpToolProvider:
         return FoundationMcpToolResult(structured_content=content)
 
     async def _query_trends(self, values: Mapping[str, Any]) -> Mapping[str, Any]:
+        request = WaferLevelKpiRequest.model_validate(values)
+        result = await self._client.query_trends(TrendQueryRequest())
+        return mock_wafer_kpis(result.series, request, self._max_rows())
+
+    async def _query_trend_series(self, values: Mapping[str, Any]) -> Mapping[str, Any]:
         result = await self._client.query_trends(TrendQueryRequest.model_validate(values))
         return result.model_dump(mode="json")
+
+    async def _get_wafer_level_kpis(self, values: Mapping[str, Any]) -> Mapping[str, Any]:
+        WaferLevelKpiRequest.model_validate(values)
+        endpoint = os.getenv("LANADB_MCP_URL", "").strip()
+        if not endpoint:
+            raise FoundationClientError("JDBC MCP endpoint is not configured")
+        payload = {"jsonrpc": "2.0", "id": "wafer-kpis", "method": "tools/call",
+                   "params": {"name": "getWaferLevelKpis", "arguments": dict(values)}}
+        try:
+            async with httpx.AsyncClient(timeout=float(os.getenv("LANADB_MCP_TIMEOUT_SECONDS", "65"))) as client:
+                response = await client.post(endpoint, json=payload)
+                response.raise_for_status()
+                body = response.json()
+            if not isinstance(body, dict) or not isinstance(body.get("result", {}), dict):
+                raise FoundationClientError("JDBC wafer KPI tool returned an invalid response")
+            if body.get("error") or body.get("result", {}).get("isError"):
+                raise FoundationClientError("JDBC wafer KPI tool failed")
+            content = body["result"]["structuredContent"]
+            WaferLevelKpiResult.model_validate(content)
+            return content
+        except (httpx.HTTPError, KeyError, TypeError, ValueError) as exc:
+            raise FoundationClientError("JDBC wafer KPI tool is unavailable or returned an invalid response") from exc
+
+    @staticmethod
+    def _max_rows() -> int:
+        limit = int(os.getenv("LANADB_MAX_ROWS", "10000"))
+        if not 1 <= limit <= 100000:
+            raise ValueError("LANADB_MAX_ROWS must be between 1 and 100000")
+        return limit
 
     async def _get_distribution_stats(self, values: Mapping[str, Any]) -> Mapping[str, Any]:
         result = await self._client.get_distribution(TrendQueryRequest.model_validate(values))
@@ -141,6 +183,9 @@ class AnalyticsFoundationMcpToolProvider:
         result = await self._client.compare_tdbb_runs(TdbbCompareRequest.model_validate(values))
         return result.model_dump(mode="json")
 
+    async def _summarize_tdbb_evidence(self, values: Mapping[str, Any]) -> Mapping[str, Any]:
+        return summarize_tdbb_evidence(TdbbEvidenceRequest.model_validate(values)).model_dump(mode="json")
+
     async def _get_tdbb_run(self, values: Mapping[str, Any]) -> Mapping[str, Any]:
         run_id = _required_text(values, "run_id")
         _reject_extra(values, {"run_id"})
@@ -182,6 +227,13 @@ def _object_schema(properties: Mapping[str, Any], required: list[str] | None = N
         "required": list(required or []),
         "additionalProperties": False,
     }
+
+
+def _wafer_kpi_schema() -> dict[str, Any]:
+    schema = WaferLevelKpiRequest.model_json_schema()
+    schema["properties"]["lotExposureStartFrom"] = {"type": "string", "description": "ISO date (UTC day) or date-time with offset."}
+    schema["properties"]["lotExposureStartTo"] = {"type": ["string", "null"], "description": "Inclusive ISO date (whole UTC day) or date-time with offset; omit or null for no upper bound."}
+    return schema
 
 
 def _trend_schema() -> dict[str, Any]:
@@ -232,7 +284,9 @@ def _outlier_detection_schema() -> dict[str, Any]:
 def _tool_catalog() -> tuple[FoundationMcpTool, ...]:
     empty = _object_schema({})
     return (
-        FoundationMcpTool("query_trends", "1", "Query trend series: per-wafer overlay X (kpi_value) and Y (kpi_value_y) KPIs, each |mean| + 3 sigma in nm, grouped by machine, product, lot and layer.", _trend_schema(), TrendResponse.model_json_schema(), {"readOnlyHint": True}),
+        FoundationMcpTool("query_trends", "1", "Read mocked wafer overlay raw M3S X/Y KPIs in nm using the LanaDB contract.", _wafer_kpi_schema(), WaferLevelKpiResult.model_json_schema(), {"readOnlyHint": True}),
+        FoundationMcpTool("query_trend_series", "1", "Legacy grouped trend series for V1 workflows, with optional date or lookback filters.", _trend_schema(), TrendResponse.model_json_schema(), {"readOnlyHint": True}),
+        FoundationMcpTool("getWaferLevelKpis", "1", "Read wafer overlay raw M3S X/Y KPIs in nm from PostgreSQL over JDBC using the same contract as query_trends.", _wafer_kpi_schema(), WaferLevelKpiResult.model_json_schema(), {"readOnlyHint": True}),
         FoundationMcpTool("get_distribution_stats", "1", "Get trend distribution statistics (mean, stdev, p95, p99, empirical bell-curve range) for the same trend scope as query_trends.", _trend_schema(), DistributionStats.model_json_schema(), {"readOnlyHint": True}),
         FoundationMcpTool("detect_outliers", "1", "Deterministically find every trend point violating an absolute or per-series baseline threshold; returns each point with its baseline and the applied threshold.", _outlier_detection_schema(), OutlierDetectionResult.model_json_schema(), {"readOnlyHint": True}),
         FoundationMcpTool("get_metadata", "1", "Get the published trend and wafer dataset table names.", empty, DatasetMetadata.model_json_schema(), {"readOnlyHint": True}),
@@ -244,6 +298,7 @@ def _tool_catalog() -> tuple[FoundationMcpTool, ...]:
         FoundationMcpTool("query_wafers", "1", "Query wafer-level rows from a registered workspace table, including which wafers are flagged anomalous.", _object_schema({"workspace_id": {"type": "string"}, "table": {"type": "string"}, "filters": {"type": "object", "additionalProperties": True}}, ["workspace_id", "table"]), WaferQueryResponse.model_json_schema(), {"readOnlyHint": True}),
         FoundationMcpTool("run_tdbb", "1", "Request TDBB processing (10par model, AVG per lot and W2W per wafer context levels) for one period; returns the completed run's NCE and CE wafer/field/translation budgets, each |mean| + 3 sigma in nm, plus per-wafer/per-field maps.", _tdbb_schema(), TdbbRunResult.model_json_schema(), {"destructiveHint": False}),
         FoundationMcpTool("compare_tdbb_runs", "1", "Compare completed TDBB runs by ID and return Foundation-computed before/after budget deltas (nm and percent) and the largest relative increase.", _tdbb_compare_schema(), TdbbCompareResult.model_json_schema(), {"readOnlyHint": True}),
+        FoundationMcpTool("summarize_tdbb_evidence", "1", "Deterministically report selected before/after TDBB budgets and NCE radial evidence without model-generated measurements or causes.", TdbbEvidenceRequest.model_json_schema(), TdbbEvidenceResult.model_json_schema(), {"readOnlyHint": True, "idempotentHint": True}),
         FoundationMcpTool("get_tdbb_run", "1", "Get a completed TDBB run's metadata: model step, context levels, product/layer/equipment/lot scope and included wafers.", _object_schema({"run_id": {"type": "string"}}, ["run_id"]), TdbbRunInfo.model_json_schema(), {"readOnlyHint": True}),
         FoundationMcpTool("get_tdbb_data", "1", "Get a completed TDBB run's raw output rows for the requested tables (ce_wafer, ce_field, nce_wafer, nce_field).", _object_schema({"run_id": {"type": "string"}, "tables": {"type": "array", "items": {"type": "string", "enum": ["ce_wafer", "ce_field", "nce_wafer", "nce_field"]}}}, ["run_id"]), TdbbRunData.model_json_schema(), {"readOnlyHint": True}),
     )

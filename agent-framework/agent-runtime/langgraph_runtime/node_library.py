@@ -12,7 +12,7 @@ from copy import deepcopy
 from typing import Any
 
 from definitions import NormalizedNode
-from execution.output_rules import check_output
+from execution.output_rules import check_output, normalize_output
 from mcp_tools import AgentToolReference
 
 from .node_dependencies import StandardNodeDependencies
@@ -382,7 +382,9 @@ async def _apply_guardrails(
 ) -> dict[str, Any]:
     """Check declared rules, re-ask the model with the violations, and report the outcome."""
 
-    first = violations = check_output(result, guardrails["rules"], state)
+    first = check_output(result, guardrails["rules"], state)
+    result = normalize_output(result, guardrails["rules"], state)
+    violations = check_output(result, guardrails["rules"], state)
     attempts = 1
     while violations and attempts <= guardrails["retries"]:
         correction = dict(request)
@@ -397,6 +399,7 @@ async def _apply_guardrails(
                 result = result.model_dump(mode="python")
         except Exception as exc:
             raise NodeExecutionError(f"Model node {node_id!r} failed on guardrail retry") from exc
+        result = normalize_output(result, guardrails["rules"], state)
         violations = check_output(result, guardrails["rules"], state)
         attempts += 1
 
@@ -436,6 +439,19 @@ def _resolve_input_projection(
 ) -> dict[str, Any]:
     result: dict[str, Any] = {}
     for key, value in projection.items():
+        if isinstance(value, Mapping) and "select_item" in value:
+            source = _resolve_value(value["select_item"], state)
+            where = value.get("where", {})
+            if not isinstance(source, list) or not isinstance(where, Mapping) or not where:
+                raise NodeExecutionError(f"Projection {key!r} requires a list and non-empty where mapping")
+            matches = [item for item in source if isinstance(item, Mapping)
+                       and all(item.get(field) == expected for field, expected in where.items())]
+            if len(matches) != 1:
+                raise NodeExecutionError(f"Projection {key!r} expected exactly one matching item, got {len(matches)}")
+            fields = value.get("fields")
+            result[key] = ({field: deepcopy(matches[0].get(field)) for field in fields}
+                           if isinstance(fields, list) else deepcopy(matches[0]))
+            continue
         if isinstance(value, Mapping) and "compact_list" in value:
             source = _resolve_value(value["compact_list"], state)
             if not isinstance(source, list):

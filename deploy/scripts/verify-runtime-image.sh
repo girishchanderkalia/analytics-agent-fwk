@@ -15,6 +15,7 @@ required=(
   MODEL_GATEWAY_ENDPOINT
   MODEL_GATEWAY_MODEL
   ANALYTICS_FOUNDATION_MCP_URL
+  LANADB_MCP_URL
 )
 
 for name in "${required[@]}"; do
@@ -35,6 +36,7 @@ docker run --rm -d \
   -e MODEL_GATEWAY_MODEL \
   -e MODEL_GATEWAY_API_KEY \
   -e ANALYTICS_FOUNDATION_MCP_URL \
+  -e LANADB_MCP_URL \
   "${IMAGE_NAME}:${IMAGE_TAG}"
 
 python - <<PYTHON

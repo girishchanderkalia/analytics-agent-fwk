@@ -1,0 +1,45 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["lotExposureStartFrom"],
+  "properties": {
+    "lotExposureStartFrom": {
+      "type": "string",
+      "description": "Inclusive lower bound of lot exposure start: an ISO-8601 date (start of that UTC day), e.g. 2024-09-01, or a date-time with offset, e.g. 2024-09-01T06:00:00Z."
+    },
+    "lotExposureStartTo": {
+      "type": ["string", "null"],
+      "description": "Inclusive upper bound of lot exposure start: an ISO-8601 date (whole UTC day included), e.g. 2024-09-17, or a date-time with offset. Omit or null for no upper bound."
+    },
+    "productIds": {
+      "type": "array",
+      "items": {"type": ["string", "null"]},
+      "default": [],
+      "description": "Product ids. Empty means all products; a null element also matches a missing product id."
+    },
+    "layerIds": {
+      "type": "array",
+      "items": {"type": ["string", "null"]},
+      "default": [],
+      "description": "Key layer ids. Empty means all layers; a null element also matches a missing layer id."
+    },
+    "exposureEquipmentIds": {
+      "type": "array",
+      "items": {"type": ["string", "null"]},
+      "default": [],
+      "description": "Exposure scanner ids, e.g. GW021. Empty means all scanners; a null element also matches a missing id."
+    },
+    "lotIds": {
+      "type": "array",
+      "items": {"type": ["string", "null"]},
+      "default": [],
+      "description": "Key lot ids. Empty means all lots; a null element also matches a missing lot id."
+    },
+    "chuckIds": {
+      "type": "array",
+      "items": {"type": ["string", "null"]},
+      "default": [],
+      "description": "Wafer stage chuck ids, e.g. Chuck1. Empty means all chucks; a null element also matches a missing chuck id."
+    }
+  }
+}

@@ -13,6 +13,7 @@ import ast
 import json
 import operator
 import re
+from copy import deepcopy
 from collections.abc import Iterable, Mapping
 from datetime import date
 from typing import Any
@@ -32,6 +33,7 @@ RULE_TYPES = frozenset({
     "formula",
     "greatest_in",
     "matches",
+    "source_selection",
 })
 
 _NUMBER = re.compile(r"[-+]?\d+(?:\.\d+)?")
@@ -59,6 +61,7 @@ def validate_rule(rule: Mapping[str, Any], context: str) -> None:
         "formula": ("equals",),
         "greatest_in": ("source", "keys"),
         "matches": ("source",),
+        "source_selection": ("source", "aliases"),
     }.get(kind, ())
     missing = [name for name in required if name not in rule]
     if kind == "one_of" and not ({"values", "source"} & set(rule)):
@@ -67,6 +70,35 @@ def validate_rule(rule: Mapping[str, Any], context: str) -> None:
         missing.append("after or until")
     if missing:
         raise OutputRuleError(f"{context} rule {kind!r} requires {', '.join(missing)}")
+    if kind == "source_selection":
+        if not rule["field"].isidentifier() or not isinstance(rule["aliases"], Mapping):
+            raise OutputRuleError(f"{context} source_selection requires a top-level field and alias mapping")
+        for pattern in rule["aliases"].values():
+            if not isinstance(pattern, str) or not pattern:
+                raise OutputRuleError(f"{context} source_selection aliases must be non-empty regex strings")
+            try:
+                re.compile(pattern)
+            except re.error as exc:
+                raise OutputRuleError(f"{context} source_selection has an invalid regex") from exc
+
+
+def normalize_output(output: Mapping[str, Any], rules: Iterable[Mapping[str, Any]], state: Mapping[str, Any]) -> dict[str, Any]:
+    result = deepcopy(dict(output))
+    for rule in rules:
+        if rule["rule"] == "source_selection":
+            source = _param(rule["source"], result, state)
+            result[rule["field"]] = _source_values(source, rule["aliases"])
+    return result
+
+
+def _source_values(source: Any, aliases: Mapping[str, str]) -> list[str]:
+    text = source if isinstance(source, str) else ""
+    return [identifier for identifier, pattern in aliases.items() if re.search(pattern, text, re.IGNORECASE)]
+
+
+def _source_selection(value: Any, params: Mapping[str, Any], parent: Any) -> str | None:
+    expected = _source_values(params.get("source"), params["aliases"])
+    return None if value == expected else f"must use only source-selected values {expected!r}"
 
 
 def check_output(output: Mapping[str, Any], rules: Iterable[Mapping[str, Any]], state: Mapping[str, Any]) -> list[str]:
@@ -331,4 +363,5 @@ _CHECKS = {
     "formula": _formula,
     "greatest_in": _greatest_in,
     "matches": _matches,
+    "source_selection": _source_selection,
 }

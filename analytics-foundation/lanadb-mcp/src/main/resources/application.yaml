@@ -1,0 +1,27 @@
+spring:
+  application:
+    name: lanadb-mcp
+  config:
+    # Repository-root .env; exported environment variables take precedence.
+    import: optional:file:../../.env[.properties]
+  datasource:
+    url: ${LANADB_JDBC_URL}
+    username: ${LANADB_USERNAME}
+    password: ${LANADB_PASSWORD}
+    hikari:
+      read-only: true
+      maximum-pool-size: ${LANADB_POOL_SIZE:5}
+      connection-timeout: ${LANADB_CONNECT_TIMEOUT_MS:5000}
+      initialization-fail-timeout: -1
+  jdbc:
+    template:
+      query-timeout: ${LANADB_QUERY_TIMEOUT_SECONDS:60}s
+      fetch-size: 1000
+
+server:
+  address: ${LANADB_MCP_HOST:127.0.0.1}
+  port: ${LANADB_MCP_PORT:8400}
+
+lanadb:
+  schema: ${LANADB_SCHEMA:lisa}
+  max-rows: ${LANADB_MAX_ROWS:10000}

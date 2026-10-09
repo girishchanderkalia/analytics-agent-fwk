@@ -148,6 +148,61 @@ def test_model_input_projection_omits_large_evidence_fields() -> None:
     assert "nce" in result["analysis"]["input"]
 
 
+def test_source_selection_derives_filters_from_the_question_not_the_model() -> None:
+    from execution.output_rules import check_output, normalize_output, validate_rule
+
+    rule = {"field": "chuck_ids", "rule": "source_selection", "source": "$.question",
+        "aliases": {"Waferstage chuck ID 1": r"\bchuck\s*(?:id\s*)?1\b",
+            "Waferstage chuck ID 2": r"\bchuck\s*(?:id\s*)?2\b"}}
+    validate_rule(rule, "test")
+    output = {"chuck_ids": ["Waferstage chuck ID 1"], "product_ids": ["AAA2"]}
+    state = {"question": "Show OPO performance of product AAA2, layer OV_NO_ID2 on scanner GW021 since 17 Aug."}
+    assert check_output(output, [rule], state)
+    normalized = normalize_output(output, [rule], state)
+    assert normalized == {"chuck_ids": [], "product_ids": ["AAA2"]}
+    assert check_output(normalized, [rule], state) == []
+    assert output["chuck_ids"] == ["Waferstage chuck ID 1"]
+    assert normalize_output(output, [rule], {"question": "scanner GW021, chuck 1"})["chuck_ids"] == ["Waferstage chuck ID 1"]
+    assert normalize_output(output, [rule], {"question": "scanner GW021, chuck ID 2"})["chuck_ids"] == ["Waferstage chuck ID 2"]
+    assert normalize_output(output, [rule], {"question": "both chucks since 17 Aug"})["chuck_ids"] == []
+    assert normalize_output(output, [rule], {"question": "scanner GW021 on 1 Sep"})["chuck_ids"] == []
+
+
+def test_model_guardrails_correct_invented_filters_before_downstream_tools() -> None:
+    class InventedChuckModel:
+        def invoke_structured(self, **kwargs):
+            return {"chuck_ids": ["Waferstage chuck ID 1"], "product_ids": ["AAA2"]}
+
+    node = StandardNodeLibrary(dependencies(model_provider=InventedChuckModel())).create(NormalizedNode(
+        "parse", "model", {"prompt": "parse", "output_contract": "Filters", "result_key": "filters",
+                           "guardrails": {"report_to": "filter_validation", "retries": 1, "on_failure": "stop", "rules": [
+                               {"field": "chuck_ids", "rule": "source_selection", "source": "$.question",
+                                "aliases": {"Waferstage chuck ID 1": r"\bchuck\s*(?:id\s*)?1\b",
+                                            "Waferstage chuck ID 2": r"\bchuck\s*(?:id\s*)?2\b"}}]}}))
+    result = run(node, {"question": "Show OPO performance of product AAA2, layer OV_NO_ID2 on scanner GW021 since 17 Aug."})
+    assert result["filters"]["chuck_ids"] == []
+    assert result["filters"]["product_ids"] == ["AAA2"]
+    assert result["filter_validation"]["parse"]["status"] == "corrected"
+    assert result["filter_validation"]["parse"]["attempts"] == 1
+    explicit = run(node, {"question": "Show OPO for chuck ID 2"})
+    assert explicit["filters"]["chuck_ids"] == ["Waferstage chuck ID 2"]
+
+
+def test_model_projection_selects_only_the_named_period() -> None:
+    from langgraph_runtime.node_library import _resolve_input_projection
+
+    projection = {"after": {"select_item": "$.periods", "where": {"period": "after"},
+                            "fields": ["period", "lot_count", "budgets"]}}
+    periods = [{"period": "after", "lot_count": 60, "budgets": ["full-window"], "maps": ["large"]},
+               {"period": "before", "lot_count": 30, "budgets": ["before-window"]}]
+    assert _resolve_input_projection(projection, {"periods": periods}) == {
+        "after": {"period": "after", "lot_count": 60, "budgets": ["full-window"]}}
+    with pytest.raises(NodeExecutionError, match="exactly one"):
+        _resolve_input_projection(projection, {"periods": [periods[1]]})
+    with pytest.raises(NodeExecutionError, match="exactly one"):
+        _resolve_input_projection(projection, {"periods": [periods[0], periods[0]]})
+
+
 def test_model_input_projection_compacts_nested_points() -> None:
     class CapturingModel:
         def invoke_structured(self, **kwargs):

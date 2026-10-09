@@ -8,7 +8,9 @@ class TrendQueryRequest(StrictModel):
     lot_ids:list[str]=Field(default_factory=list);product_ids:list[str]=Field(default_factory=list)
     layer_ids:list[str]=Field(default_factory=list);exposure_equipment_ids:list[str]=Field(default_factory=list)
     chuck_ids:list[str]=Field(default_factory=list)
-class TrendPoint(StrictModel): date:str;kpi_value:float;kpi_value_y:float|None=None;lot_id:str|None=None;wafer_id:str|None=None;chuck_id:str|None=None
+class TrendPoint(StrictModel):
+    date:str;kpi_value:float;kpi_value_y:float|None=None;lot_id:str|None=None;wafer_id:str|None=None;chuck_id:str|None=None
+    measure_process_job_id:float|None=None;measurement_equipment_id:str|None=None;needs_ingestion:bool=False
 class TrendSeries(StrictModel):
     machine:str;product:str;lot_id:str|None=None;layer_id:str|None=None;exposure_equipment_id:str|None=None;points:list[TrendPoint]
 class TrendResponse(StrictModel): series:list[TrendSeries]

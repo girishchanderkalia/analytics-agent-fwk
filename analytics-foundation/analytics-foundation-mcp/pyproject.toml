@@ -9,6 +9,7 @@ description = "MCP tool backend for the Analytics Foundation API"
 requires-python = ">=3.13"
 dependencies = [
   "analytics-foundation-client>=0.1.0",
+  "httpx>=0.28,<1",
 ]
 
 [tool.setuptools.packages.find]

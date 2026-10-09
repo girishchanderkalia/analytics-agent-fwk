@@ -40,7 +40,7 @@ class FoundationService:
    value_y=row.get("kpiValue2")
    key=(machine,product,lot or None,layer or None)
    group=groups.setdefault(key,TrendSeries(machine=machine,product=product,lot_id=lot or None,layer_id=layer or None,exposure_equipment_id=machine,points=[]))
-   group.points.append(TrendPoint(date=dt.isoformat(),kpi_value=float(value),kpi_value_y=None if value_y is None else float(value_y),lot_id=lot or None,wafer_id=row.get("waferId") or row.get("wafer_id"),chuck_id=chuck))
+   group.points.append(TrendPoint(date=dt.isoformat(),kpi_value=float(value),kpi_value_y=None if value_y is None else float(value_y),lot_id=lot or None,wafer_id=row.get("waferId") or row.get("wafer_id"),chuck_id=chuck,measure_process_job_id=row.get("measureProcessJobId"),measurement_equipment_id=row.get("measurementEquipmentId"),needs_ingestion=bool(row.get("needsIngestion",False))))
   for group in groups.values():group.points.sort(key=lambda p:p.date)
   return TrendResponse(series=list(groups.values()))
  def _tdbb_runs(self):return {run["run_id"]:run for run in self.repo.tdbb_runs()}
