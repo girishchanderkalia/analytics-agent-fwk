@@ -1,7 +1,7 @@
 # Dashboard Q&A agent + agent-definition simplification — discussion summary
 
 Date: 2026-10-07
-Scope discussed: `agents/opo-analysis-agent-v4` (used as the concrete example throughout)
+Scope discussed: `agents/opo-analysis-agent` (used as the concrete example throughout)
 
 This document summarizes a design discussion covering two related topics: (1) whether/how an
 agent could let analysts ask free-form questions about the charts on the OPO Monitoring

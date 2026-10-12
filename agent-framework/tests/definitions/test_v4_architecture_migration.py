@@ -12,17 +12,17 @@ from bootstrap.markdown_agent_registration import register_markdown_agents
 from mcp_tools.fixed_registry import create_fixed_tool_registry
 
 
-V4 = ROOT / "agents" / "opo-analysis-agent-v4"
+V4 = ROOT / "agents" / "opo-analysis-agent"
 PACKAGES = (
-    ROOT / "agents" / "opo-analysis-agent-v1",
+    ROOT / "agents" / "opo-generic-agent",
     V4,
 )
 
 
 def test_all_opo_packages_load_with_governed_tools_only():
     expected = {
-        "opo-analysis-agent-v1": "V1",
-        "opo-analysis-agent-v4": "V4",
+        "opo-generic-agent": "V1",
+        "opo-analysis-agent": "V4",
     }
 
     for package in PACKAGES:
@@ -49,7 +49,7 @@ def test_all_opo_packages_register_as_distinct_versions():
 
     assert len(result.registrations) == 2
     assert {record.key.agent_id for record in result.registrations} == {
-        "opo-analysis-agent-v1", "opo-analysis-agent-v4",
+        "opo-generic-agent", "opo-analysis-agent",
     }
     assert len(catalog.list_for_application("opo-monitoring")) == 2
 
@@ -103,7 +103,7 @@ def test_default_startup_has_three_deployables_and_v4_only():
 
     assert "start_service \"opo-capability\"" not in startup
     assert "OPO_CAPABILITY_MCP_URL" not in startup
-    for package in ("opo-analysis-agent-v1", "opo-analysis-agent-v4"):
+    for package in ("opo-generic-agent", "opo-analysis-agent"):
         assert f"agents/{package}" in startup
         assert f"agents/{package}" in local_deploy
     assert "agents/opo-analysis-agent-v5" not in startup

@@ -64,7 +64,7 @@ From the repository root in PowerShell:
 $env:PYTHONPATH = "$PWD;$PWD/agent-framework/agent-runtime"
 python -m execution.definition_loader agents/template
 python -m execution.definition_loader agents/template --preview-step answer_question
-python -m execution.definition_loader agents/opo-analysis-agent-v4 --preview-step analyze_nce_root_cause
+python -m execution.definition_loader agents/opo-analysis-agent --preview-step suggest_change
 ```
 
 The preview shows the composed prompt, evidence bindings and authored output fields.

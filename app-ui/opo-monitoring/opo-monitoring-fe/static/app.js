@@ -14,9 +14,9 @@ const tdbbPanel = document.getElementById("tdbb-panel");
 const ncePanel = document.getElementById("nce-panel");
 const nceLegend = document.getElementById("nce-legend");
 const nceLegendMax = document.getElementById("nce-legend-max");
-const V4_AGENT = "opo-analysis-agent-v4";
+const V4_AGENT = "opo-analysis-agent";
 const selectedAgentId = () => registeredAgents[agentSelect.selectedIndex]?.agentId;
-const isScopedAgent = (agentId) => agentId === V4_AGENT;
+const isScopedAgent = (agentId) => agentId === V4_AGENT || agentId === "opo-analysis-agent-v4";
 
 let conversationId = null;
 let conversationVersion = null;
@@ -1626,15 +1626,15 @@ document.getElementById("reopen-btn").onclick = async () => {
 async function loadAgents() {
   try {
     registeredAgents = (await window.OpoBff.listAgents()).filter(
-      (agent) => agent.agentId === "opo-analysis-agent-v1" || isScopedAgent(agent.agentId),
-    );
+      (agent) => agent.agentId === "opo-generic-agent" || isScopedAgent(agent.agentId),
+    ).sort((left, right) => Number(isScopedAgent(left.agentId)) - Number(isScopedAgent(right.agentId)));
   } catch (err) {
     registeredAgents = [];
     agentSelect.title = `Could not load agents: ${err.message}`;
   }
   agentSelect.innerHTML = registeredAgents.length
     ? registeredAgents
-        .map((a) => `<option title="${escapeHtml(a.description)}">${escapeHtml(a.displayName || a.agentId)} (${escapeHtml(a.version)})</option>`)
+        .map((a) => `<option title="${escapeHtml(a.description)}">${escapeHtml(a.displayName || a.agentId)}</option>`)
         .join("")
     : "<option>No agents registered</option>";
   agentSelect.disabled = busy || !registeredAgents.length;

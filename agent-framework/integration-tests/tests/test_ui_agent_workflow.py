@@ -78,7 +78,7 @@ def test_v4_starter_prompt_uses_observed_product_layer_scanner_and_date(page: Pa
         re.compile(r"[1-9]\d* series .* [1-9]\d* points"), timeout=30_000
     )
     expect(page.locator("#agent-select")).to_be_enabled(timeout=30_000)
-    page.locator("#agent-select").select_option(label="OPO Analysis Agent (V4)")
+    page.locator("#agent-select").select_option(label="OPO Analysis Agent")
 
     prompt = page.locator("#message-input").input_value()
     match = re.fullmatch(
@@ -94,6 +94,15 @@ def test_v4_starter_prompt_uses_observed_product_layer_scanner_and_date(page: Pa
         and (item.get("exposure_equipment_id") or item["machine"]) == scanner
         for item in series
     )
+
+
+@pytest.mark.ui
+def test_agent_dropdown_has_versionless_generic_and_analysis_names(page: Page, settings):
+    open_ui(page, settings)
+    expect(page.locator("#agent-select")).to_be_enabled(timeout=30_000)
+    expect(page.locator("#agent-select option")).to_have_text([
+        "OPO Generic Agent", "OPO Analysis Agent",
+    ])
 
 
 @pytest.mark.ui

@@ -33,7 +33,7 @@ from mcp_tools.models import (  # noqa: E402
 )
 from mcp_tools.registry import McpToolRegistry  # noqa: E402
 
-AGENT = ROOT / "agents" / "opo-analysis-agent-v1"
+AGENT = ROOT / "agents" / "opo-generic-agent"
 
 SERVER = MCPServerRegistration(
     server_id="analytics-foundation",

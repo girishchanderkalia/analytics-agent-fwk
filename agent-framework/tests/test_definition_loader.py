@@ -11,7 +11,7 @@ import yaml
 V3_ROOT = Path(__file__).resolve().parents[2]
 AGENT_RUNTIME_ROOT = V3_ROOT / "agent-framework" / "agent-runtime"
 AGENT_REPOSITORY_ROOT = V3_ROOT / "agents"
-OPO_AGENT_ROOT = AGENT_REPOSITORY_ROOT / "opo-analysis-agent-v1"
+OPO_AGENT_ROOT = AGENT_REPOSITORY_ROOT / "opo-generic-agent"
 
 # Add agent-runtime to Python's module search path.
 # This must appear before importing execution.definition_loader.
@@ -35,15 +35,15 @@ def test_opo_agent_bundle_loads() -> None:
     bundle = load_agent_definition(OPO_AGENT_ROOT)
 
     assert isinstance(bundle, AgentDefinitionBundle)
-    assert bundle.agent_id == "opo-analysis-agent-v1"
+    assert bundle.agent_id == "opo-generic-agent"
     assert bundle.version == "V1"
-    assert bundle.display_name == "OPO Analysis Agent"
+    assert bundle.display_name == "OPO Generic Agent"
 
 
 def test_single_file_v4_loads_and_derives_state() -> None:
-    bundle = load_agent_definition(AGENT_REPOSITORY_ROOT / "opo-analysis-agent-v4")
+    bundle = load_agent_definition(AGENT_REPOSITORY_ROOT / "opo-analysis-agent")
 
-    assert bundle.agent_id == "opo-analysis-agent-v4"
+    assert bundle.agent_id == "opo-analysis-agent"
     assert bundle.version == "V4"
     assert bundle.workflow.metadata["entry_node"] == "parse_trend_request"
     fields = bundle.state.metadata["fields"]
@@ -65,7 +65,8 @@ def test_template_loads_but_is_not_discovered() -> None:
     assert bundle.capabilities.metadata["capabilities"] == []
     assert "template" not in repository.list_agent_directories()
     assert not repository.contains("template")
-    assert repository.contains("opo-analysis-agent-v4")
+    assert repository.contains("opo-analysis-agent")
+    assert not repository.contains("opo-analysis-agent-v4")
     assert not repository.contains("opo-analysis-agent-v5")
 
 
@@ -73,7 +74,7 @@ def test_single_file_knowledge_is_explicitly_scoped() -> None:
     from bootstrap.langgraph_dependencies import PackagePromptProvider
     from definitions.markdown_translator import translate_markdown_agent
 
-    definition = translate_markdown_agent(AGENT_REPOSITORY_ROOT / "opo-analysis-agent-v4")
+    definition = translate_markdown_agent(AGENT_REPOSITORY_ROOT / "opo-analysis-agent")
     provider = PackagePromptProvider(definition)
     trend = provider.render("parse_trend_request", {})
     change = provider.render("suggest_change", {})
@@ -90,7 +91,7 @@ def test_single_file_knowledge_is_explicitly_scoped() -> None:
 def test_single_file_v4_preserves_workflow_and_application_contracts() -> None:
     from definitions.markdown_translator import translate_markdown_agent
 
-    definition = translate_markdown_agent(AGENT_REPOSITORY_ROOT / "opo-analysis-agent-v4")
+    definition = translate_markdown_agent(AGENT_REPOSITORY_ROOT / "opo-analysis-agent")
     nodes = {node.node_id: node for node in definition.graph.nodes}
     assert len(nodes) == 17
     assert len(definition.graph.edges) == 21
@@ -127,7 +128,7 @@ def test_single_file_prompt_preview(capsys) -> None:
     from execution.definition_loader import main
 
     assert main([
-        str(AGENT_REPOSITORY_ROOT / "opo-analysis-agent-v4"),
+        str(AGENT_REPOSITORY_ROOT / "opo-analysis-agent"),
         "--preview-step", "suggest_change",
     ]) == 0
     output = capsys.readouterr().out
@@ -151,42 +152,42 @@ def test_agent_definition_is_available() -> None:
     bundle = load_agent_definition(OPO_AGENT_ROOT)
 
     assert bundle.agent.kind == "agent"
-    assert bundle.agent.id == "opo-analysis-agent-v1"
+    assert bundle.agent.id == "opo-generic-agent"
 
 
 def test_workflow_definition_is_available() -> None:
     bundle = load_agent_definition(OPO_AGENT_ROOT)
 
     assert bundle.workflow.kind == "workflow"
-    assert bundle.workflow.id == "opo-analysis-agent-v1-workflow"
+    assert bundle.workflow.id == "opo-generic-agent-workflow"
 
 
 def test_state_definition_is_available() -> None:
     bundle = load_agent_definition(OPO_AGENT_ROOT)
 
     assert bundle.state.kind == "state-model"
-    assert bundle.state.id == "opo-analysis-agent-v1-state-model"
+    assert bundle.state.id == "opo-generic-agent-state-model"
 
 
 def test_capability_definition_is_available() -> None:
     bundle = load_agent_definition(OPO_AGENT_ROOT)
 
     assert bundle.capabilities.kind == "tools-and-capabilities"
-    assert bundle.capabilities.id == "opo-analysis-agent-v1-tools-and-capabilities"
+    assert bundle.capabilities.id == "opo-generic-agent-tools-and-capabilities"
 
 
 def test_knowledge_definition_is_available() -> None:
     bundle = load_agent_definition(OPO_AGENT_ROOT)
 
     assert bundle.knowledge.kind == "knowledge-model"
-    assert bundle.knowledge.id == "opo-analysis-agent-v1-knowledge-model"
+    assert bundle.knowledge.id == "opo-generic-agent-knowledge-model"
 
 
 def test_sequence_definition_is_available() -> None:
     bundle = load_agent_definition(OPO_AGENT_ROOT)
 
     assert bundle.sequences.kind == "sequence-diagrams"
-    assert bundle.sequences.id == "opo-analysis-agent-v1-sequence-diagrams"
+    assert bundle.sequences.id == "opo-generic-agent-sequence-diagrams"
 
 
 def test_repository_discovers_opo_monitoring() -> None:
@@ -194,15 +195,15 @@ def test_repository_discovers_opo_monitoring() -> None:
 
     discovered_agents = repository.list_agent_directories()
 
-    assert "opo-analysis-agent-v1" in discovered_agents
+    assert "opo-generic-agent" in discovered_agents
 
 
 def test_repository_loads_agent_by_directory_name() -> None:
     repository = AgentRepository(AGENT_REPOSITORY_ROOT)
 
-    bundle = repository.load("opo-analysis-agent-v1")
+    bundle = repository.load("opo-generic-agent")
 
-    assert bundle.agent_id == "opo-analysis-agent-v1"
+    assert bundle.agent_id == "opo-generic-agent"
 
 
 def test_repository_loads_all_agents_by_agent_id() -> None:
@@ -210,8 +211,8 @@ def test_repository_loads_all_agents_by_agent_id() -> None:
 
     agents = repository.load_all()
 
-    assert "opo-analysis-agent-v1" in agents
-    assert agents["opo-analysis-agent-v1"].display_name == "OPO Analysis Agent"
+    assert "opo-generic-agent" in agents
+    assert agents["opo-generic-agent"].display_name == "OPO Generic Agent"
 
 
 def test_workflow_uses_supported_node_types() -> None:

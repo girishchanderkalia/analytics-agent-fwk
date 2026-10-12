@@ -1,8 +1,8 @@
 ---
-id: opo-analysis-agent-v1
+id: opo-generic-agent
 version: "V1"
 kind: agent
-display_name: OPO Analysis Agent
+display_name: OPO Generic Agent
 description: >
   Supports conversational investigation of OPO KPI trends, candidate
   outliers, and wafer-level evidence using governed Analytics Foundation capabilities.
@@ -557,7 +557,7 @@ routing:
     - {from: select_next_action, when: 'selected_action == "Analyze wafer spatial pattern"', to: classify_spatial_pattern}
 ---
 
-# OPO Analysis Agent V1
+# OPO Generic Agent
 
 Single-file definition for the existing trend, deterministic outlier detection,
 approved wafer investigation and optional spatial-classification workflow.

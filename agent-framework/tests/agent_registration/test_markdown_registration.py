@@ -24,22 +24,22 @@ from bootstrap.markdown_agent_registration import (  # noqa: E402
     register_markdown_agents_from_environment,
 )
 
-AGENT = ROOT / "agents" / "opo-analysis-agent-v1"
+AGENT = ROOT / "agents" / "opo-generic-agent"
 APPLICATION = "opo-monitoring"
 
 
 def test_single_file_v4_registers_alongside_v1() -> None:
-    roots = [ROOT / "agents" / f"opo-analysis-agent-{version}" for version in ("v1", "v4")]
+    roots = [ROOT / "agents" / "opo-generic-agent", ROOT / "agents" / "opo-analysis-agent"]
     catalog, result = register_markdown_agents(
         application_id=APPLICATION,
         package_roots=roots,
     )
     assert len(result.registrations) == 2
-    assert catalog.contains(AgentRegistrationKey(APPLICATION, "opo-analysis-agent-v4", "V4"))
+    assert catalog.contains(AgentRegistrationKey(APPLICATION, "opo-analysis-agent", "V4"))
 
 
 def test_single_file_fingerprint_tracks_knowledge_changes(tmp_path: Path) -> None:
-    original = ROOT / "agents" / "opo-analysis-agent-v4"
+    original = ROOT / "agents" / "opo-analysis-agent"
     target = tmp_path / "v4"
     shutil.copytree(original, target)
     assert fingerprint_markdown_package(target) == fingerprint_markdown_package(original)
@@ -67,7 +67,7 @@ def test_registration_reads_identity_from_the_package() -> None:
 
     record = result.registrations[0]
     assert record.key == AgentRegistrationKey(
-        APPLICATION, "opo-analysis-agent-v1", "V1"
+        APPLICATION, "opo-generic-agent", "V1"
     )
     assert record.definition_root == AGENT.resolve()
     assert catalog.contains(record.key)
