@@ -7,6 +7,16 @@ __pycache__
 .mypy_cache
 .ruff_cache
 runtime-data
+analytics-foundation/analytics-foundation-api/data/large_data
+analytics-foundation/analytics-foundation-api/data/scripts
+analytics-foundation/analytics-foundation-api/tests
+analytics-foundation/analytics-foundation-api/contracts
+analytics-foundation/analytics-foundation-api/target
+analytics-foundation/lanadb-mcp/target
+app-ui
+deploy
+docs
+scripts
 *.sqlite
 *.sqlite-shm
 *.sqlite-wal

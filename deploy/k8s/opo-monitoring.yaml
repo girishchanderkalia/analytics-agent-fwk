@@ -1,0 +1,95 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: opo-monitoring-config
+  namespace: ai-agent-fwk
+data:
+  RUNTIME_SERVICE_BASE_URL: http://application-agent-runtime:8000
+  ANALYTICS_FOUNDATION_BASE_URL: http://analytics-foundation-api:8200
+  UI_STATIC_LOCATION: file:/app/ui/static/
+  MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED: "true"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: opo-monitoring
+  namespace: ai-agent-fwk
+  labels:
+    app.kubernetes.io/name: opo-monitoring
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: opo-monitoring
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: opo-monitoring
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+      containers:
+        - name: bff
+          image: opo-monitoring:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: opo-monitoring-config
+          startupProbe:
+            httpGet:
+              path: /actuator/health
+              port: http
+            periodSeconds: 5
+            failureThreshold: 30
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: http
+            periodSeconds: 20
+            timeoutSeconds: 3
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: opo-monitoring
+  namespace: ai-agent-fwk
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: opo-monitoring
+  ports:
+    - name: http
+      port: 80
+      targetPort: http

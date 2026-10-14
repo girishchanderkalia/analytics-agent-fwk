@@ -1,0 +1,9 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+target/
+tests/
+contracts/
+data/large_data/
+data/scripts/

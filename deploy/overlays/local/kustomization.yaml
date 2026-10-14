@@ -1,0 +1,23 @@
+# Local cluster overlay: uses the :local images loaded by
+#   ./build/deploy.sh --load-only   (IMAGE_TAG=local in build/local.conf)
+# Apply with: kubectl apply -k deploy/overlays/local
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../../k8s
+images:
+  - name: registry.example.com/application-agent-runtime
+    newName: application-agent-runtime
+    newTag: local
+  - name: registry.example.com/analytics-foundation-api
+    newName: analytics-foundation-api
+    newTag: local
+  - name: registry.example.com/analytics-foundation-mcp
+    newName: analytics-foundation-mcp
+    newTag: local
+  - name: registry.example.com/lanadb-mcp
+    newName: lanadb-mcp
+    newTag: local
+  - name: registry.example.com/opo-monitoring
+    newName: opo-monitoring
+    newTag: local

@@ -6,3 +6,32 @@ resources:
   - pvc.yaml
   - deployment.yaml
   - service.yaml
+  - foundation-api.yaml
+  - foundation-mcp.yaml
+  - lanadb-mcp.yaml
+  - opo-monitoring.yaml
+  - ingress.yaml
+# Combined (corporate + public) CA bundle trusted by the runtime for the model
+# gateway TLS connection. The generated name carries a content hash, so
+# changing ca-bundle.pem rolls the runtime Deployment automatically.
+configMapGenerator:
+  - name: application-agent-runtime-ca-bundle
+    namespace: ai-agent-fwk
+    files:
+      - ca-bundle.pem
+images:
+  - name: application-agent-runtime
+    newName: registry.example.com/application-agent-runtime
+    newTag: latest
+  - name: analytics-foundation-api
+    newName: registry.example.com/analytics-foundation-api
+    newTag: latest
+  - name: analytics-foundation-mcp
+    newName: registry.example.com/analytics-foundation-mcp
+    newTag: latest
+  - name: lanadb-mcp
+    newName: registry.example.com/lanadb-mcp
+    newTag: latest
+  - name: opo-monitoring
+    newName: registry.example.com/opo-monitoring
+    newTag: latest

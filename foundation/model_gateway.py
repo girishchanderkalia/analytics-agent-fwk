@@ -41,8 +41,6 @@ def get_model() -> Any:
             "MODEL_GATEWAY_API_KEY is required"
         )
 
-    model_class = _model_class()
-
     if provider_type == "azure":
         from pydantic_ai.providers.azure import AzureProvider
 
@@ -61,7 +59,7 @@ def get_model() -> Any:
             http_client=_content_normalizing_http_client(),
         )
 
-        return model_class(
+        return _model_class("chat")(
             deployment,
             provider=provider,
         )
@@ -79,7 +77,7 @@ def get_model() -> Any:
             http_client=_content_normalizing_http_client(),
         )
 
-        return model_class(
+        return _model_class(_openai_api())(
             model_name,
             provider=provider,
         )
@@ -139,7 +137,21 @@ def _base_url(endpoint: str) -> str:
     return value
 
 
-def _model_class() -> Any:
+_OPENAI_APIS = ("responses", "chat")
+
+
+def _openai_api() -> str:
+    """Select the OpenAI API flavour; Responses supports tools with reasoning models."""
+
+    api = os.getenv("MODEL_GATEWAY_OPENAI_API", "responses").strip().lower() or "responses"
+    if api not in _OPENAI_APIS:
+        raise ModelGatewayConfigurationError(
+            "MODEL_GATEWAY_OPENAI_API must be one of: " + ", ".join(_OPENAI_APIS)
+        )
+    return api
+
+
+def _model_class(api: str = "chat") -> Any:
     try:
         from pydantic_ai.models import openai as openai_models
     except ModuleNotFoundError as exc:
@@ -147,8 +159,9 @@ def _model_class() -> Any:
             "pydantic-ai is required for model gateway execution"
         ) from exc
 
-    # The class was renamed in pydantic-ai 1.x; both spellings are accepted.
-    for name in ("OpenAIChatModel", "OpenAIModel"):
+    # The chat class was renamed in pydantic-ai 1.x; both spellings are accepted.
+    names = ("OpenAIResponsesModel",) if api == "responses" else ("OpenAIChatModel", "OpenAIModel")
+    for name in names:
         model_class = getattr(openai_models, name, None)
         if model_class is not None:
             return model_class

@@ -54,6 +54,72 @@ def test_async_gateway_passes_schema_tools_to_agent(monkeypatch) -> None:
     }
 
 
+def _clear_model_cache(model_gateway) -> None:
+    get_model = model_gateway.get_model
+    while hasattr(get_model, "cache_clear"):
+        get_model.cache_clear()
+        get_model = getattr(get_model, "__wrapped__", None)
+
+
+@pytest.mark.parametrize(
+    ("api_setting", "expected_class"),
+    [(None, "OpenAIResponsesModel"), ("responses", "OpenAIResponsesModel"),
+     ("chat", "OpenAIChatModel")],
+)
+def test_openai_provider_selects_api(monkeypatch, api_setting, expected_class) -> None:
+    pytest.importorskip("pydantic_ai.models.openai")
+    from foundation import model_gateway
+
+    monkeypatch.setenv("MODEL_GATEWAY_PROVIDER", "openai")
+    monkeypatch.setenv("MODEL_GATEWAY_ENDPOINT", "https://api.openai.com/v1")
+    monkeypatch.setenv("MODEL_GATEWAY_API_KEY", "test-key")
+    monkeypatch.setenv("MODEL_GATEWAY_MODEL", "gpt-test")
+    if api_setting is None:
+        monkeypatch.delenv("MODEL_GATEWAY_OPENAI_API", raising=False)
+    else:
+        monkeypatch.setenv("MODEL_GATEWAY_OPENAI_API", api_setting)
+    _clear_model_cache(model_gateway)
+
+    try:
+        model = model_gateway.get_model()
+    finally:
+        _clear_model_cache(model_gateway)
+
+    assert type(model).__name__ == expected_class
+    assert model.model_name == "gpt-test"
+
+
+def test_openai_provider_rejects_unknown_api(monkeypatch) -> None:
+    from foundation import model_gateway
+
+    monkeypatch.setenv("MODEL_GATEWAY_OPENAI_API", "completions")
+
+    with pytest.raises(model_gateway.ModelGatewayConfigurationError):
+        model_gateway._openai_api()
+
+
+def test_azure_provider_keeps_chat_completions(monkeypatch) -> None:
+    pytest.importorskip("pydantic_ai.providers.azure")
+    from foundation import model_gateway
+
+    monkeypatch.setenv("MODEL_GATEWAY_PROVIDER", "azure")
+    monkeypatch.setenv("MODEL_GATEWAY_ENDPOINT", "https://example.openai.azure.com")
+    monkeypatch.setenv("MODEL_GATEWAY_API_KEY", "test-key")
+    monkeypatch.setenv("MODEL_GATEWAY_DEPLOYMENT", "my-deployment")
+    monkeypatch.setenv("MODEL_GATEWAY_API_VERSION", "2024-10-21")
+    monkeypatch.setenv("MODEL_GATEWAY_OPENAI_API", "responses")
+    monkeypatch.delenv("AGENT_RUNTIME_CA_BUNDLE_PATH", raising=False)
+    _clear_model_cache(model_gateway)
+
+    try:
+        model = model_gateway.get_model()
+    finally:
+        _clear_model_cache(model_gateway)
+
+    assert type(model).__name__ == "OpenAIChatModel"
+    assert model.model_name == "my-deployment"
+
+
 def test_invalid_ca_bundle_preserves_existing_ssl_configuration(
     monkeypatch, tmp_path
 ) -> None:

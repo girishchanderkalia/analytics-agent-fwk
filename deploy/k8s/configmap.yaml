@@ -5,11 +5,29 @@ metadata:
   namespace: ai-agent-fwk
 data:
   AGENT_APPLICATION_ID: opo-monitoring
-  AGENT_MARKDOWN_PACKAGES: /app/agents/opo-monitoring
+  AGENT_MARKDOWN_PACKAGES: /app/agents/opo-analysis-agent;/app/agents/opo-generic-agent
   AGENT_RUNTIME_DATABASE_PATH: /app/runtime-data/conversations.sqlite
+  # The runtime invokes graphs asynchronously; the sqlite/postgres checkpointer
+  # factories currently create sync savers, so only "memory" works end to end.
   AGENT_RUNTIME_CHECKPOINTER_BACKEND: memory
-  SSL_CERT_FILE: /etc/ssl/asml/combined-ca-bundle.pem
-  MODEL_GATEWAY_ENDPOINT: REPLACE_WITH_MODEL_GATEWAY_ENDPOINT
-  MODEL_GATEWAY_MODEL: REPLACE_WITH_MODEL_NAME
-  ANALYTICS_FOUNDATION_MCP_URL: REPLACE_WITH_ANALYTICS_FOUNDATION_MCP_URL
-  LANADB_MCP_URL: REPLACE_WITH_LANADB_MCP_URL
+  # provider "azure" uses MODEL_GATEWAY_DEPLOYMENT + MODEL_GATEWAY_API_VERSION;
+  # provider "openai" uses MODEL_GATEWAY_MODEL. The unused key is ignored.
+  #MODEL_GATEWAY_PROVIDER: azure
+  #MODEL_GATEWAY_ENDPOINT: https://platform.ai.asml.com
+  #MODEL_GATEWAY_MODEL: mistral-medium-3-5-0
+  #MODEL_GATEWAY_DEPLOYMENT: mistral-medium-3-5-0
+  #MODEL_GATEWAY_API_VERSION: "2024-10-21"
+
+  MODEL_GATEWAY_PROVIDER: openai
+  MODEL_GATEWAY_ENDPOINT: https://api.openai.com/v1
+  MODEL_GATEWAY_MODEL: gpt-6-astra
+  # "responses" (default) or "chat". Ignored by provider "azure", which always
+  # uses Chat Completions. Use "chat" for OpenAI-compatible gateways without /responses.
+  MODEL_GATEWAY_OPENAI_API: responses
+
+  # PEM bundle trusted for the model gateway TLS connection (provider "azure").
+  # Mounted from the optional ConfigMap application-agent-runtime-ca-bundle;
+  # if it is absent the runtime logs a warning and uses the default trust store.
+  AGENT_RUNTIME_CA_BUNDLE_PATH: /etc/agent-runtime/ca/ca-bundle.pem
+  ANALYTICS_FOUNDATION_MCP_URL: http://analytics-foundation-mcp:8300/mcp
+  LANADB_MCP_URL: http://lanadb-mcp:8400/mcp

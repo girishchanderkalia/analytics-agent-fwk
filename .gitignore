@@ -30,3 +30,9 @@ runtime-data/
 *.sqlite-shm
 *.sqlite-wal
 
+# Kubernetes deployment credentials are created locally and must not be committed.
+/deploy/k8s/*.secret.env
+
+# Cluster deployment configs for build/deploy.sh (only the local default is shared).
+/build/*.conf
+!/build/local.conf

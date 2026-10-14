@@ -1,3 +1,4 @@
 # Slice 01: central LangGraph runtime dependency.
 # Kept additive so the existing requirements file is not overwritten.
 langgraph==1.2.11
+langgraph-checkpoint-sqlite>=2.0,<4

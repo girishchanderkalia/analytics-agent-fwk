@@ -1,0 +1,18 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: opo-monitoring
+  namespace: ai-agent-fwk
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: opo-monitoring.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: opo-monitoring
+                port:
+                  number: 80

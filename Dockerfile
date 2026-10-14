@@ -4,13 +4,13 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PYTHONPATH=/app:/app/agent-runtime \
     AGENT_APPLICATION_ID=opo-monitoring \
-    AGENT_MARKDOWN_PACKAGES=/app/agents/opo-monitoring \
+    AGENT_MARKDOWN_PACKAGES=/app/agents/opo-analysis-agent;/app/agents/opo-generic-agent \
     AGENT_RUNTIME_DATABASE_PATH=/app/runtime-data/conversations.sqlite
 
 WORKDIR /app
 
-RUN addgroup --system runtime && \
-    adduser --system --ingroup runtime --home /nonexistent runtime && \
+RUN addgroup --system --gid 10001 runtime && \
+    adduser --system --uid 10001 --ingroup runtime --home /nonexistent runtime && \
     mkdir -p /app/runtime-data && \
     chown -R runtime:runtime /app
 
