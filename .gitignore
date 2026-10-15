@@ -25,13 +25,17 @@ ai-enabled-analytics-v2/deploy/*.tar
 .env
 .env.local
 
+# build/deploy.sh scratch files extracted from .env for kubectl --from-env-file;
+# removed on exit, kept ignored in case cleanup is interrupted.
+/.deploy-*.secret.env.tmp
+
 runtime-data/
 *.sqlite
 *.sqlite-shm
 *.sqlite-wal
 
-# Kubernetes deployment credentials are created locally and must not be committed.
-/deploy/k8s/*.secret.env
+# Kubernetes deployment credentials come from the repo-root .env (see
+# deploy/README.md#create-credentials), not from files in this directory.
 
 # Cluster deployment configs for build/deploy.sh (only the local default is shared).
 /build/*.conf

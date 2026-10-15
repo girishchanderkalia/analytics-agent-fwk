@@ -1,0 +1,26 @@
+# Istio route for the remote cluster's shared ingress gateway. Applied only
+# for TARGET=remote by build/deploy.sh (not part of kustomization.yaml),
+# since local clusters don't have the Istio CRDs installed.
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: vcp-ingress-ai-agent-fwk-opo-monitoring
+  namespace: ai-agent-fwk
+spec:
+  gateways:
+    - istio-system/ingress-prod
+  hosts:
+    - "*"
+  http:
+    - match:
+        - uri:
+            regex: /ai-agent-fwk(/|$)(.*)
+      rewrite:
+        uriRegexRewrite:
+          match: ^/ai-agent-fwk(?:/|$)(.*)$
+          rewrite: /\1
+      route:
+        - destination:
+            host: opo-monitoring.ai-agent-fwk.svc.cluster.local
+            port:
+              number: 80

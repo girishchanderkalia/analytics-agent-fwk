@@ -28,9 +28,10 @@ Options:
   --load-only     Only load images; do not deploy.
   -h, --help      Show this help.
 
-Deploying also creates/updates the Secrets from deploy/k8s/*.secret.env when
-present, and restarts Deployments whose Secret or ConfigMap changed (and, for
-TARGET=local, those whose image was just reloaded under the same tag).
+Deploying also creates/updates the Secrets from the repo-root .env (or
+SECRETS_ENV_FILE in the config file) when present, and restarts Deployments
+whose Secret or ConfigMap changed (and, for TARGET=local, those whose image
+was just reloaded under the same tag).
 USAGE
 }
 
@@ -203,7 +204,12 @@ setup_remote() {
 
   ssh_target="${cfg[REMOTE_HOST]}"
   [[ -n "${cfg[REMOTE_USER]}" ]] && ssh_target="${cfg[REMOTE_USER]}@$ssh_target"
-  ssh_cmd=(ssh -p "${cfg[REMOTE_PORT]}" -o BatchMode=yes -o ConnectTimeout=15)
+  # ServerAlive* keeps the connection alive (and detects a dead one quickly)
+  # during the long, mostly-silent image transfers; without it, idle VPN/
+  # firewall hops can drop the connection mid-copy, breaking the local
+  # "docker save | gzip | ssh" pipe (seen as SIGPIPE / "pipe is being closed").
+  ssh_cmd=(ssh -p "${cfg[REMOTE_PORT]}" -o BatchMode=yes -o ConnectTimeout=15 \
+    -o ServerAliveInterval=30 -o ServerAliveCountMax=6)
   [[ -n "${cfg[SSH_IDENTITY_FILE]}" ]] && ssh_cmd+=(-i "${cfg[SSH_IDENTITY_FILE]}")
   if [[ -n "${cfg[SSH_OPTIONS]}" ]]; then
     local -a extra
@@ -250,12 +256,21 @@ mkdir -p "$2"' "${cfg[PODMAN_CMD]}" "${cfg[REMOTE_WORK_DIR]}"
   for image in "${images[@]}"; do
     tar_name="$image-$tag.tar"
     target_ref="$(remote_image_ref "$image"):$remote_tag"
-    echo "== $image:$tag -> $ssh_target:${cfg[REMOTE_WORK_DIR]}/$tar_name"
-    docker save "$image:$tag" | gzip -1 \
-      | "${ssh_cmd[@]}" "gzip -dc > $(printf '%q' "${cfg[REMOTE_WORK_DIR]}/$tar_name")"
+    transfer_image "$image" "$tar_name" "$target_ref"
+  done
+}
 
-    echo "   podman load / tag / push $target_ref"
-    remote_bash '
+# Copies, loads, tags and pushes one image; retried since the copy step is a
+# long-lived "docker save | gzip | ssh" pipe that can be killed mid-transfer
+# by a transient network/VPN blip (surfaces as SIGPIPE or a stuck pipe).
+transfer_image() {
+  local image="$1" tar_name="$2" target_ref="$3" attempt
+  for attempt in 1 2 3; do
+    echo "== $image:$tag -> $ssh_target:${cfg[REMOTE_WORK_DIR]}/$tar_name${attempt:+ (attempt $attempt/3)}"
+    if docker save "$image:$tag" | gzip -1 \
+         | "${ssh_cmd[@]}" "gzip -dc > $(printf '%q' "${cfg[REMOTE_WORK_DIR]}/$tar_name")" \
+       && echo "   podman load / tag / push $target_ref" \
+       && remote_bash '
 set -euo pipefail
 podman_cmd=$1 tar_file=$2 source_ref=$3 target_ref=$4 push_opts=$5
 read -r -a push_args <<<"$push_opts"
@@ -268,7 +283,12 @@ loaded=${loaded:-localhost/$source_ref}
 $podman_cmd tag "$loaded" "$target_ref"
 $podman_cmd push ${push_args[@]+"${push_args[@]}"} "$target_ref"
 ' "${cfg[PODMAN_CMD]}" "${cfg[REMOTE_WORK_DIR]}/$tar_name" "$image:$tag" \
-      "$target_ref" "${cfg[PODMAN_PUSH_OPTIONS]}"
+         "$target_ref" "${cfg[PODMAN_PUSH_OPTIONS]}"
+    then
+      return 0
+    fi
+    [[ "$attempt" == 3 ]] && die "Failed to transfer/push $image after 3 attempts"
+    echo "   Transfer of $image failed, retrying..." >&2
   done
 }
 
@@ -324,20 +344,56 @@ render_manifests() {
   fi
 }
 
-# Writes Secret manifests from gitignored env files without printing values.
+# Secret keys pulled out of the single secrets env file, per k8s Secret.
+runtime_secret_keys=(MODEL_GATEWAY_API_KEY)
+lanadb_secret_keys=(LANADB_JDBC_URL LANADB_USERNAME LANADB_PASSWORD)
+
+# Prints the last uncommented "KEY=..." line for each requested key found in
+# a file (same toggle-by-comment convention .env already uses).
+extract_env_keys() {
+  local file="$1"; shift
+  local key
+  for key in "$@"; do
+    grep -E "^${key}=" "$file" | tail -n 1
+  done
+}
+
+# Writes Secret manifests from the gitignored secrets env file (repo-root
+# .env by default) without printing values.
 render_secrets() {
   local output="$1" found=false
   : >"$output"
-  if [[ -f deploy/k8s/runtime.secret.env ]]; then
+  local env_file="${cfg[SECRETS_ENV_FILE]:-.env}"
+  if [[ ! -f "$env_file" ]]; then
+    echo "WARNING: secrets env file '$env_file' not found; Secrets left unchanged" >&2
+    return 1
+  fi
+  # Relative to cwd (repo root), not under $work_dir: native kubectl.exe
+  # under Git Bash cannot resolve absolute MSYS paths like /tmp/tmp.XXXX as
+  # a --from-env-file argument (MSYS_NO_PATHCONV=1 is set for this script).
+  local runtime_file=".deploy-runtime.secret.env.tmp" lanadb_file=".deploy-lanadb.secret.env.tmp"
+  cleanup_actions+=("rm -f '$runtime_file' '$lanadb_file'")
+  extract_env_keys "$env_file" "${runtime_secret_keys[@]}" >"$runtime_file"
+  extract_env_keys "$env_file" "${lanadb_secret_keys[@]}" >"$lanadb_file"
+  if [[ -s "$runtime_file" ]]; then
     kubectl create secret generic application-agent-runtime-secrets -n "$namespace" \
-      --from-env-file=deploy/k8s/runtime.secret.env --dry-run=client -o yaml >>"$output"
+      --from-env-file="$runtime_file" --dry-run=client -o yaml >>"$output"
     echo "---" >>"$output"
     found=true
   fi
-  if [[ -f deploy/k8s/lanadb.secret.env ]]; then
-    kubectl create secret generic lanadb-mcp-secrets -n "$namespace" \
-      --from-env-file=deploy/k8s/lanadb.secret.env --dry-run=client -o yaml >>"$output"
-    found=true
+  if [[ -s "$lanadb_file" ]]; then
+    # Refuse the common mistake of pushing a local dev database into the
+    # shared remote cluster's Secret (values come from the same file used
+    # for local runs); leave the existing remote Secret untouched instead.
+    if [[ "$target" == remote ]] && grep -Eq "^LANADB_JDBC_URL=.*(127\.0\.0\.1|localhost)" "$lanadb_file"; then
+      echo "WARNING: LANADB_JDBC_URL in '$env_file' points at localhost/127.0.0.1;" \
+        "refusing to deploy it to the remote cluster's lanadb-mcp-secrets." \
+        "Comment out the local LANADB_* block and uncomment the remote one, then retry." >&2
+    else
+      kubectl create secret generic lanadb-mcp-secrets -n "$namespace" \
+        --from-env-file="$lanadb_file" --dry-run=client -o yaml >>"$output"
+      found=true
+    fi
   fi
   [[ "$found" == true ]]
 }
@@ -350,9 +406,25 @@ deployments=(
   opo-monitoring
 )
 
+# Applies the Istio VirtualService and confirms it actually exists afterward,
+# retrying a few times before giving up; "kubectl apply" succeeding is not
+# sufficient proof on its own (observed dropped silently by a namespace
+# delete/recreate race), and without this route the UI is unreachable.
+apply_virtualservice() {
+  local name="vcp-ingress-ai-agent-fwk-opo-monitoring" attempt
+  for attempt in 1 2 3; do
+    tk apply -f - <deploy/k8s/virtualservice.yaml
+    tk -n "$namespace" get "virtualservice/$name" >/dev/null 2>&1 && return 0
+    echo "WARNING: virtualservice/$name missing right after apply (attempt $attempt/3), retrying..." >&2
+    sleep 3
+  done
+  die "virtualservice/$name does not exist after 3 apply attempts; the UI Ingress route is broken"
+}
+
 deploy() {
   local manifests="$work_dir/manifests.yaml" secrets="$work_dir/secrets.yaml"
   local apply_output d
+  local -A restart=()
   command -v kubectl >/dev/null || die "kubectl is required to render manifests"
   echo "Deploying to namespace $namespace:"
   render_manifests "$manifests"
@@ -360,29 +432,45 @@ deploy() {
   # Feed files via stdin: Windows kubectl.exe cannot resolve MSYS /tmp paths.
   tk apply -f - <deploy/k8s/namespace.yaml
   if render_secrets "$secrets"; then
-    apply_output="$(tk apply -f - <"$secrets")"
-    echo "$apply_output"
-    # The runtime reads its credentials once at startup. (CA bundle changes
-    # roll it automatically through the hashed ConfigMap name.)
-    if grep -Eq "^secret/application-agent-runtime-secrets (created|configured)" <<<"$apply_output"; then
-      restart_runtime=true
-    fi
+    apply_output="$(tk apply -f - <"$secrets" 2>&1 | tee /dev/stderr)"
+    # Pods only read their Secret at startup, so roll them when it changed.
+    # (CA bundle changes roll the runtime automatically through the hashed
+    # ConfigMap name.)
+    grep -Eq "^secret/application-agent-runtime-secrets (created|configured)" <<<"$apply_output" \
+      && restart[application-agent-runtime]=1
+    grep -Eq "^secret/lanadb-mcp-secrets (created|configured)" <<<"$apply_output" \
+      && restart[lanadb-mcp]=1
   fi
+  local missing_secrets=()
   for d in application-agent-runtime-secrets lanadb-mcp-secrets; do
-    tk -n "$namespace" get secret "$d" >/dev/null 2>&1 \
-      || echo "WARNING: Secret $d is missing; see deploy/README.md" >&2
+    tk -n "$namespace" get secret "$d" >/dev/null 2>&1 || missing_secrets+=("$d")
   done
-  apply_output="$(tk apply -f - <"$manifests")"
-  echo "$apply_output"
+  if ((${#missing_secrets[@]})); then
+    echo "WARNING: Secret(s) ${missing_secrets[*]} missing; their Deployments will fail to" \
+      "start (CreateContainerConfigError) until created - see deploy/README.md" >&2
+  fi
+  # Stream apply output as it happens: under 'set -e' a failing apply aborts
+  # the script at the command-substitution assignment, so a plain "$(...)"
+  # capture would silently discard everything already applied before that.
+  apply_output="$(tk apply -f - <"$manifests" 2>&1 | tee /dev/stderr)"
+  # Istio VirtualService: only remote clusters are expected to run Istio
+  # (local Docker Desktop/kind clusters lack the CRD, so applying it there
+  # would fail the whole deploy). This is the UI's only Ingress route, and
+  # "kubectl apply" reporting success has been observed to not be enough
+  # (e.g. a namespace delete/recreate race can silently drop it), so verify
+  # it actually exists afterward and retry before failing loudly.
+  [[ "$target" == remote ]] && apply_virtualservice
   # Pods read env-style ConfigMaps/Secrets only at startup, and a local reload
   # keeps the same <name>:<IMAGE_TAG> reference, so restart what changed.
-  local -A restart=()
-  [[ "${restart_runtime:-false}" == true ]] && restart[application-agent-runtime]=1
+  # This also covers TARGET=remote with a static REMOTE_IMAGE_TAG (e.g.
+  # "latest"): render_manifests then emits the same image ref as before, so
+  # "kubectl apply" sees no Deployment diff and would otherwise never
+  # restart the pods, leaving the old image running despite a fresh push.
   for d in "${deployments[@]}"; do
     if grep -Eq "^configmap/$d-config (created|configured)" <<<"$apply_output"; then
       restart[$d]=1
     fi
-    if [[ "$target" == local && "$do_load" == true && " ${images[*]} " == *" $d "* ]]; then
+    if [[ "$do_load" == true && " ${images[*]} " == *" $d "* ]]; then
       restart[$d]=1
     fi
   done
@@ -390,10 +478,21 @@ deploy() {
     [[ -n "${restart[$d]:-}" ]] && tk -n "$namespace" rollout restart "deploy/$d"
   done
   for d in "${deployments[@]}"; do
-    tk -n "$namespace" rollout status "deploy/$d" --timeout=300s
+    tk -n "$namespace" rollout status "deploy/$d" --timeout=300s || rollout_failed "$d"
   done
   tk -n "$namespace" get pods
   echo "OPO Monitoring UI: http://$(tk -n "$namespace" get ingress opo-monitoring -o 'jsonpath={.spec.rules[0].host}')/"
+}
+
+# Surfaces the actual pod failure (e.g. a missing Secret) instead of leaving
+# only the generic "rollout status" timeout/NotFound error.
+rollout_failed() {
+  local d="$1"
+  echo "---- deploy/$d did not become ready; pod status and events: ----" >&2
+  tk -n "$namespace" get pods -l "app.kubernetes.io/name=$d" >&2 || true
+  tk -n "$namespace" describe pods -l "app.kubernetes.io/name=$d" 2>&1 \
+    | grep -A20 '^Events:' >&2 || true
+  exit 1
 }
 
 # ----------------------------------------------------------------- main ----

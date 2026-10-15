@@ -47,19 +47,19 @@ function toResumeRequest(decision, expectedVersion) {
 window.OpoBff = {
   async loadTrends() {
     // No lookback: a relative window silently hides everything older than it.
-    const response = await postJson("/api/trends/query", { filters: {}, groupBy: [] });
+    const response = await postJson("api/trends/query", { filters: {}, groupBy: [] });
     return Array.isArray(response.series) ? response.series : response.series?.series || [];
   },
 
   async listAgents() {
     const response = await requestJson(
-      `/api/applications/${encodeURIComponent(APPLICATION_ID)}/agents`,
+      `api/applications/${encodeURIComponent(APPLICATION_ID)}/agents`,
     );
     return response.agents || [];
   },
 
   startChat(message, agent, availableTrendScopes = []) {
-    return postJson("/api/investigations/chat", {
+    return postJson("api/investigations/chat", {
       applicationId: APPLICATION_ID,
       agentId: agent?.agentId || AGENT_ID,
       agentVersion: agent?.version ?? null,
@@ -70,12 +70,12 @@ window.OpoBff = {
 
   resume(conversationId, decision, expectedVersion) {
     return postJson(
-      `/api/investigations/${encodeURIComponent(conversationId)}/resume`,
+      `api/investigations/${encodeURIComponent(conversationId)}/resume`,
       toResumeRequest(decision, expectedVersion),
     );
   },
 
   getConversation(conversationId) {
-    return requestJson(`/api/investigations/${encodeURIComponent(conversationId)}`);
+    return requestJson(`api/investigations/${encodeURIComponent(conversationId)}`);
   },
 };

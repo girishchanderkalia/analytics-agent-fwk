@@ -20,6 +20,8 @@ declare -A cfg=(
   [PODMAN_CMD]="podman"
   [PODMAN_PUSH_OPTIONS]=""
   [REMOTE_KUBECTL]="kubectl"
+  # Env file deploy.sh reads Secret values from; empty = repo-root .env.
+  [SECRETS_ENV_FILE]=""
 )
 
 all_images=(

@@ -23,7 +23,7 @@ spec:
       containers:
         - name: runtime
           image: application-agent-runtime:latest
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
           ports:
             - name: http
               containerPort: 8000

@@ -53,6 +53,9 @@ if [[ -n "$MAVEN_SETTINGS" && ! -f "$MAVEN_SETTINGS" ]]; then
   echo "ERROR: Maven settings not found: $MAVEN_SETTINGS" >&2
   exit 1
 fi
+# Default JVM truststore lacks the corporate proxy CA, so dependency downloads from the
+# Artifactory mirror fail with "PKIX path building failed"; trust the Windows cert store instead.
+export MAVEN_OPTS="${MAVEN_OPTS:--Djavax.net.ssl.trustStoreType=Windows-ROOT -Djavax.net.ssl.trustStore=NONE}"
 
 FOUNDATION_PORT="${FOUNDATION_PORT:-8200}"
 FOUNDATION_MCP_PORT="${FOUNDATION_MCP_PORT:-8100}"

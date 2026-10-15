@@ -12,15 +12,14 @@ data:
   AGENT_RUNTIME_CHECKPOINTER_BACKEND: memory
   # provider "azure" uses MODEL_GATEWAY_DEPLOYMENT + MODEL_GATEWAY_API_VERSION;
   # provider "openai" uses MODEL_GATEWAY_MODEL. The unused key is ignored.
-  #MODEL_GATEWAY_PROVIDER: azure
-  #MODEL_GATEWAY_ENDPOINT: https://platform.ai.asml.com
-  #MODEL_GATEWAY_MODEL: mistral-medium-3-5-0
-  #MODEL_GATEWAY_DEPLOYMENT: mistral-medium-3-5-0
-  #MODEL_GATEWAY_API_VERSION: "2024-10-21"
+  #MODEL_GATEWAY_PROVIDER: openai
+  #MODEL_GATEWAY_ENDPOINT: https://api.openai.com/v1
+  #MODEL_GATEWAY_MODEL: gpt-6-astra
 
-  MODEL_GATEWAY_PROVIDER: openai
-  MODEL_GATEWAY_ENDPOINT: https://api.openai.com/v1
-  MODEL_GATEWAY_MODEL: gpt-6-astra
+  MODEL_GATEWAY_PROVIDER: azure
+  MODEL_GATEWAY_ENDPOINT: https://platform.ai.asml.com
+  MODEL_GATEWAY_DEPLOYMENT: gpt-6-luna-2026-09-22-ssa
+  MODEL_GATEWAY_API_VERSION: "2024-10-21"
   # "responses" (default) or "chat". Ignored by provider "azure", which always
   # uses Chat Completions. Use "chat" for OpenAI-compatible gateways without /responses.
   MODEL_GATEWAY_OPENAI_API: responses

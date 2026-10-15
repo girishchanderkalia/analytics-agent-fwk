@@ -78,30 +78,33 @@ agents requested by the UI.
 
 ### Create credentials
 
-Create two local files using a trusted editor or secret-management workflow.
-Do not commit or share them (the filenames are ignored by Git):
-
-`deploy/k8s/runtime.secret.env`:
+`deploy.sh` reads Secret values from a single gitignored env file: the
+repo-root `.env` (copy [`.env.example`](../.env.example) to get started), or
+whatever `SECRETS_ENV_FILE` in your deployment config points at. The same
+file also configures local runs (`scripts/start-services.sh`), so it must
+hold the keys appropriate for the cluster you are about to deploy to:
 
 ```text
 MODEL_GATEWAY_API_KEY=<model gateway API key>
-```
 
-`deploy/k8s/lanadb.secret.env`:
-
-```text
 LANADB_JDBC_URL=jdbc:postgresql://<database-host>:<port>/<database>
 LANADB_USERNAME=<database username>
 LANADB_PASSWORD=<database password>
 ```
 
+When the same `.env` is also used for local development against a different
+database, keep both sets of `LANADB_*`/`MODEL_GATEWAY_*` values in the file
+and comment out the one that doesn't apply before running `deploy.sh` (the
+toggle-by-comment pattern already used for `MODEL_GATEWAY_PROVIDER`). Only
+the last uncommented `KEY=` line for each key is used. Deploying to a remote
+cluster with a `LANADB_JDBC_URL` pointing at `localhost`/`127.0.0.1` prints a
+warning, since that is almost always a local-only database.
+
 `deploy.sh` creates or updates the Secrets `application-agent-runtime-secrets`
-and `lanadb-mcp-secrets` from these files on every deployment (for a remote
+and `lanadb-mcp-secrets` from this file on every deployment (for a remote
 cluster, through `kubectl` on the management node) and restarts the runtime
-when its Secret changed. Values are never printed. If the files are absent,
+when its Secret changed. Values are never printed. If the file is absent,
 existing Secrets are left unchanged and a warning is shown for missing ones.
-Remove the files after deploying if your organization's handling policy
-requires it.
 
 ### Model gateway CA bundle
 

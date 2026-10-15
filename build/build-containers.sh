@@ -22,7 +22,7 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # shellcheck source=lib/config.sh
 source "$repo_root/build/lib/config.sh"
 
-config_file="build/local.conf"
+config_file="build/remote.conf"
 images_csv=""
 
 while (($#)); do

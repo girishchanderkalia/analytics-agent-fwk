@@ -32,7 +32,7 @@ spec:
       containers:
         - name: mcp
           image: analytics-foundation-mcp:latest
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
           ports:
             - name: http
               containerPort: 8300

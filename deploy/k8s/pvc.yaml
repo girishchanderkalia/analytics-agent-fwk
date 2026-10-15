@@ -4,6 +4,7 @@ metadata:
   name: application-agent-runtime-data
   namespace: ai-agent-fwk
 spec:
+  storageClassName: local-path-persistent
   accessModes:
     - ReadWriteOnce
   resources:
